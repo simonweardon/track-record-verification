@@ -1,0 +1,2 @@
+statement_id,account_id,custodian,period_start,period_end,ending_value,beginning_value,stated_deposits,stated_withdrawals,stated_income,stated_fees,stated_pnl,stated_return_pct,source_file,source_pages,notes
+FIDE_1234_2005,FIDE_1234,Fidelity,2005-01-01,2005-12-31,1234567.89,1100000.00,50000.00,0.00,18234.10,,84567.89,,FIDE_1234_2005.pdf,1-4,example row — delete

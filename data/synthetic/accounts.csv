@@ -1,0 +1,13 @@
+account_id,label,owner_type,discretionary,strategy,benchmark,notes
+SCHW_1001,Principal,principal,Y,global_equity,DEV_MKT,
+FIDE_1002,Client 1,client,Y,global_equity,DEV_MKT,
+TDA_1003,Client 2,client,Y,global_equity,DEV_MKT,
+SCHW_1004,Client 3,client,Y,global_equity,DEV_MKT,
+FIDE_1005,Client 4,client,Y,global_equity,DEV_MKT,
+TDA_1006,Client 5,client,Y,global_equity,DEV_MKT,
+SCHW_1007,Client 6,client,Y,global_equity,DEV_MKT,
+FIDE_1008,Client 7,client,N,global_equity,DEV_MKT,client-directed; excluded from composite
+TDA_1009,Client 8,client,Y,global_equity,DEV_MKT,
+SCHW_1010,Client 9,client,Y,global_equity,DEV_MKT,
+FIDE_1011,Client 10,client,Y,global_equity,DEV_MKT,closed
+TDA_1012,Client 11,client,Y,global_equity,DEV_MKT,closed

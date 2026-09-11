@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import base64
+import hmac
 import html
 import os
 import subprocess
@@ -110,10 +111,22 @@ class Handler(SimpleHTTPRequestHandler):
         if hdr.startswith("Basic "):
             try:
                 _, _, got = base64.b64decode(hdr[6:]).decode().partition(":")
-                return got == pw
+                return hmac.compare_digest(got, pw)
             except Exception:
                 return False
         return False
+
+    def _deny(self) -> None:
+        self.send_response(401); self.send_header("WWW-Authenticate", 'Basic realm="track record"')
+        self.send_header("Content-Length", "0"); self.end_headers()
+
+    def do_HEAD(self):
+        if self.path == "/health":
+            self.send_response(200); self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", "2"); self.end_headers(); return
+        if not self._authorized():
+            return self._deny()
+        return super().do_HEAD()
 
     def do_GET(self):
         if self.path == "/health":
@@ -121,8 +134,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(200); self.send_header("Content-Type", "text/plain")
             self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
         if not self._authorized():
-            self.send_response(401); self.send_header("WWW-Authenticate", 'Basic realm="track record"')
-            self.send_header("Content-Length", "0"); self.end_headers(); return
+            return self._deny()
         if self.path in ("/", "/index.html"):
             body = index_html().encode()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")

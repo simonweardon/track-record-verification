@@ -27,7 +27,7 @@ def r4(refs):
     res = reconcile(d)
     pr = period_returns(res.statements, d.flows)
     r2 = build2(res.statements, d.flows, pr, d.accounts, ref)
-    return V.build(r2.composite, refA, V.ValidationConfig(n_boot=1000, n_cohort=2000)), man
+    return V.build(r2.composite, refA, V.ValidationConfig(n_boot=1000, n_cohort=2000), account_periods=r2.periods), man
 
 
 def test_capm_ci_contains_true_alpha_and_beta_near_one(r4):

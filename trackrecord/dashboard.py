@@ -40,8 +40,9 @@ def nice_ticks(lo: float, hi: float, n: int = 5) -> list[float]:
     mag = 10 ** np.floor(np.log10(raw))
     step = min([1, 2, 2.5, 5, 10], key=lambda s: abs(s * mag - raw)) * mag
     t0 = np.floor(lo / step) * step
-    ticks = list(np.arange(t0, hi + step * 0.5, step))
-    return [round(t, 10) for t in ticks if t >= lo - 1e-9 and t <= hi + 1e-9]
+    t1 = np.ceil(hi / step) * step          # always cover the data; never let a mark sit on the edge
+    ticks = list(np.arange(t0, t1 + step * 0.5, step))
+    return [round(t, 10) for t in ticks if t >= t0 - 1e-9 and t <= t1 + 1e-9]
 
 
 class Lin:

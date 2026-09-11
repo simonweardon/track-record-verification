@@ -37,11 +37,19 @@ DATASETS = [
 ]
 
 
+def _log(line: str) -> None:
+    STATE["log"].append(line)
+    print(line, flush=True)
+
+
 def _run(args: list[str]) -> None:
-    STATE["log"].append(f"$ python -m trackrecord {' '.join(args)}")
+    _log(f"$ python -m trackrecord {' '.join(args)}")
+    t0 = time.time()
     r = subprocess.run([sys.executable, "-m", "trackrecord", *args], cwd=ROOT, capture_output=True, text=True)
     tail = (r.stdout + r.stderr).strip().splitlines()[-3:]
-    STATE["log"].extend("  " + t for t in tail)
+    for t in tail:
+        _log("  " + t)
+    _log(f"  ({time.time() - t0:.0f}s, exit {r.returncode})")
     if r.returncode not in (0, 1):      # reconcile returns 1 when flags exist; that's expected
         raise RuntimeError(f"{args[0]} failed ({r.returncode}): {' / '.join(tail)}")
 
@@ -52,12 +60,15 @@ def build_all() -> None:
             if (OUT / sub / "dashboard.html").exists() and os.environ.get("REBUILD", "1") != "1":
                 continue
             STATE["phase"] = f"building {label}"
+            _log(f"== {STATE['phase']}")
             for step in steps:
                 _run(step)
         STATE["phase"] = "ready"
+        _log(f"== ready ({time.time() - STATE['started']:.0f}s after start)")
     except Exception as e:                   # keep serving whatever exists; show the error
         STATE["error"] = str(e)
         STATE["phase"] = "failed"
+        _log(f"== FAILED: {e}")
     STATE["done"] = True
 
 

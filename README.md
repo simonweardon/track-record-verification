@@ -51,6 +51,12 @@ data/reference/ cached benchmark/factor data (gitignored; re-fetched on demand)
 output/        reports (gitignored)
 ```
 
+## Deploy (Railway)
+`railway.json` starts `python -m trackrecord serve`: it listens on `$PORT` at once, builds both placeholder
+datasets in the background (needs network for Ken French factors and yfinance), and serves `output/`.
+Set `DASHBOARD_PASSWORD` on the service to require HTTP Basic Auth — **mandatory before any real statements
+are deployed**. Set `REBUILD=0` to skip rebuilding on restart.
+
 ## Setup
 ```
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt

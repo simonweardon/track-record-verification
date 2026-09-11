@@ -139,6 +139,12 @@ def cmd_report(a):
     print(f"report: {path}\ndashboard: {dash}"); return 0
 
 
+def cmd_serve(a):
+    from .serve import main as serve_main
+    serve_main(port=a.port, build=not a.no_build)
+    return 0
+
+
 def cmd_fetch_brk(a):
     """Download BRK-A monthly history via yfinance into data/reference (not committed)."""
     import yfinance as yf
@@ -196,6 +202,11 @@ def main(argv=None):
             q.add_argument("--placeholder", action="store_true", help="stamp the report as placeholder data")
             q.add_argument("--placeholder-note", default=None, help="what the placeholder data is")
         q.set_defaults(fn=fn)
+
+    sv = sub.add_parser("serve", help="serve output/ over HTTP; builds placeholder outputs in the background")
+    sv.add_argument("--port", type=int, default=None)
+    sv.add_argument("--no-build", action="store_true", help="serve existing outputs only")
+    sv.set_defaults(fn=cmd_serve)
 
     fb = sub.add_parser("fetch-brk", help="download BRK-A monthly prices (yfinance) to data/reference")
     fb.add_argument("--out", default="data/reference/brk-a_monthly_raw.csv")

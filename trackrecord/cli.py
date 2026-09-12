@@ -147,9 +147,11 @@ def cmd_report(a):
                         placeholder_note=note, claimed_note=claimed_note)
     from .dashboard import build_dashboard
     from .dashboard import build_dashboard
+    import os
     dash = build_dashboard(out, claimed=a.claimed, placeholder=placeholder, placeholder_note=note,
                            fee_desc=res2.config.fee.describe(), data_label=label, claimed_note=claimed_note,
-                           headline_model=res4.config.headline_model)
+                           headline_model=res4.config.headline_model,
+                           firm=a.firm or os.environ.get("FIRM_NAME", ""), prepared_for=a.prepared_for or os.environ.get("PREPARED_FOR", ""))
     print(f"report: {path}\ndashboard: {dash}"); return 0
 
 
@@ -231,6 +233,8 @@ def main(argv=None):
             q.add_argument("--placeholder-note", default=None, help="what the placeholder data is")
             q.add_argument("--claimed-note", default=None, help="where the claimed figure comes from")
             q.add_argument("--label", default=None, help="dataset label shown under the dashboard title")
+            q.add_argument("--firm", default=None, help="wordmark / 'prepared by' on the cover (or env FIRM_NAME)")
+            q.add_argument("--prepared-for", default=None, help="'prepared for' line on the cover (or env PREPARED_FOR)")
         q.set_defaults(fn=fn)
 
     sv = sub.add_parser("serve", help="serve output/ over HTTP; builds placeholder outputs in the background")

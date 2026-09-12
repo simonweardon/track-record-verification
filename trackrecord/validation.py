@@ -74,6 +74,7 @@ class Phase4Result:
     risk_by_year: pd.DataFrame
     risk_return: pd.DataFrame
     skill: pd.DataFrame                  # CFA-style ratios with what each can and cannot say about skill
+    scores: pd.DataFrame                 # alpha-maxing and wealth-management scores with components
     config: ValidationConfig
     notes: list[str] = field(default_factory=list)
 
@@ -396,6 +397,75 @@ def skill_metrics(df: pd.DataFrame, regs: pd.DataFrame, cfg: ValidationConfig, b
     return pd.DataFrame(rows)
 
 
+def _clip(x): return float(min(100.0, max(0.0, x)))
+
+
+def scores(df: pd.DataFrame, regs: pd.DataFrame, metrics: pd.DataFrame, roll: pd.DataFrame,
+           cfg: ValidationConfig) -> pd.DataFrame:
+    """Two 0–100 scores with fixed, transparent maps (not relative to other firms).
+
+    Alpha-maxing   = 50 + 10 × annualized excess over the market (%)      — return only, risk ignored.
+    Wealth-mgmt    = 0.30 skill + 0.25 risk-adjusted + 0.25 downside + 0.20 consistency
+        skill         = 50 + 25 × t(alpha, headline model)                (t=2 → 100)
+        risk-adjusted = 50 + 100 × (Sharpe − benchmark Sharpe)            (+0.5 → 100)
+        downside      = mean of  100×(1.5 − down capture),
+                                 100×(1.5 − |maxDD|/|benchmark maxDD|),
+                                 100×(1.5 − |ES95|/|benchmark ES95|)      (equal to market → 50)
+        consistency   = 100 × share of rolling windows with positive excess over the benchmark
+    """
+    ppy = cfg.periods_per_year
+    d = df.dropna(subset=["r_p", "r_b"]); years = len(d) / ppy
+    ann = lambda r: float((1 + r).prod() ** (1 / years) - 1)
+    excess = ann(d.r_p) - ann(d.r_b)
+    m = metrics.set_index("metric")
+    num = lambda k, c="portfolio": float(pd.to_numeric(m.loc[k, c], errors="coerce"))
+    R = regs.set_index(["factor_set", "model"]).loc[(cfg.factor_set, cfg.headline_model)]
+    t = float(R.t)
+    sharpe_p, sharpe_b = num("Sharpe (excess over RF)"), num("Sharpe (excess over RF)", "benchmark")
+    dc = num("down capture")
+    dd_key = [k for k in m.index if k.startswith("max drawdown")][0]
+    es_key = [k for k in m.index if k.startswith("expected shortfall")][0]
+    dd_p, dd_b = abs(num(dd_key)), abs(num(dd_key, "benchmark"))
+    es_p, es_b = abs(num(es_key)), abs(num(es_key, "benchmark"))
+    # consistency: rolling 5-year windows (60 months / 5 years), chained excess over the benchmark
+    w = 60 if ppy == 12 else 5
+    if len(d) >= w:
+        gp = (1 + d.r_p).rolling(w).apply(np.prod, raw=True); gb = (1 + d.r_b).rolling(w).apply(np.prod, raw=True)
+        rw = (gp - gb).dropna(); share_pos = float((rw > 0).mean())
+    else:
+        share_pos = np.nan
+
+    s_alpha = _clip(50 + 10 * excess * 100)
+    s_skill = _clip(50 + 25 * t)
+    s_risk = _clip(50 + 100 * (sharpe_p - sharpe_b))
+    s_dc = _clip(100 * (1.5 - dc)) if not np.isnan(dc) else np.nan
+    s_dd = _clip(100 * (1.5 - dd_p / dd_b)) if dd_b > 0 else np.nan
+    s_es = _clip(100 * (1.5 - es_p / es_b)) if es_b > 0 else np.nan
+    s_down = float(np.nanmean([s_dc, s_dd, s_es]))
+    s_cons = _clip(100 * share_pos) if not np.isnan(share_pos) else np.nan
+    parts = {"skill": (s_skill, 0.30), "risk_adjusted": (s_risk, 0.25), "downside": (s_down, 0.25), "consistency": (s_cons, 0.20)}
+    avail = {k: v for k, v in parts.items() if not np.isnan(v[0])}
+    wsum = sum(w for _, w in avail.values())
+    s_wm = float(sum(v * w for v, w in avail.values()) / wsum) if wsum else np.nan
+    rows = [
+        dict(score="Alpha-maxing score", value=s_alpha, component="excess return over market", input=excess, input_fmt="pct",
+             rule="50 + 10 × excess %/yr, clipped 0–100", weight=1.0),
+        dict(score="Wealth-management score", value=s_wm, component="TOTAL", input=np.nan, input_fmt="", rule="weighted blend below", weight=1.0),
+        dict(score="Wealth-management score", value=s_skill, component="skill evidence", input=t, input_fmt="num",
+             rule=f"50 + 25 × t({cfg.headline_model} alpha)", weight=0.30),
+        dict(score="Wealth-management score", value=s_risk, component="risk-adjusted return", input=sharpe_p - sharpe_b, input_fmt="num",
+             rule="50 + 100 × (Sharpe − market Sharpe)", weight=0.25),
+        dict(score="Wealth-management score", value=s_down, component="downside protection", input=np.nan, input_fmt="",
+             rule="mean of the three below", weight=0.25),
+        dict(score="Wealth-management score", value=s_dc, component="  · down capture", input=dc, input_fmt="num", rule="100 × (1.5 − down capture)", weight=np.nan),
+        dict(score="Wealth-management score", value=s_dd, component="  · max drawdown vs market", input=dd_p / dd_b if dd_b else np.nan, input_fmt="num", rule="100 × (1.5 − |DD| / |market DD|)", weight=np.nan),
+        dict(score="Wealth-management score", value=s_es, component="  · expected shortfall vs market", input=es_p / es_b if es_b else np.nan, input_fmt="num", rule="100 × (1.5 − |ES| / |market ES|)", weight=np.nan),
+        dict(score="Wealth-management score", value=s_cons, component="consistency", input=share_pos, input_fmt="pct",
+             rule="100 × share of rolling 5-year windows beating the market", weight=0.20),
+    ]
+    return pd.DataFrame(rows)
+
+
 # ---- rolling and sub-periods ------------------------------------------------------
 
 def rolling(df: pd.DataFrame, cfg: ValidationConfig) -> pd.DataFrame:
@@ -467,6 +537,7 @@ def build(comp: pd.DataFrame, factors: pd.DataFrame, cfg: ValidationConfig = Val
     rby = risk_by_year(df, cfg.periods_per_year)
     rr = risk_return_points(comp, df, cfg.periods_per_year, account_periods)
     skill = skill_metrics(df, regressions, cfg, boot, cohort)
+    sc = scores(df, regressions, metrics, roll, cfg)
     n = int(df.y.notna().sum())
     capm = regressions[(regressions.factor_set == cfg.factor_set) & (regressions.model == "CAPM")]
     if len(capm) and not pd.isna(capm.iloc[0].get("resid_sd_annual", np.nan)):
@@ -485,7 +556,7 @@ def build(comp: pd.DataFrame, factors: pd.DataFrame, cfg: ValidationConfig = Val
                      "cannot support is short rolling windows, drawdown, and multi-factor loadings.")
         notes.append("3- and 5-year rolling alpha requires monthly data; shown here are a 5-year rolling "
                      "excess return (descriptive) and a 10-year rolling CAPM alpha (weak inference).")
-    return Phase4Result(df, regressions, metrics, boot, cohort, cohort_samples, roll, sp, rby, rr, skill, cfg, notes)
+    return Phase4Result(df, regressions, metrics, boot, cohort, cohort_samples, roll, sp, rby, rr, skill, sc, cfg, notes)
 
 
 def _pct(x, d=2):
@@ -504,7 +575,7 @@ def write_phase4(res: Phase4Result, out_dir, title="Phase 4 — statistical vali
     res.cohort.to_csv(out / "cohort.csv", index=False); res.rolling.to_csv(out / "rolling.csv")
     res.cohort_samples.to_csv(out / "cohort_samples.csv", index=False)
     res.risk_by_year.to_csv(out / "risk_by_year.csv"); res.risk_return.to_csv(out / "risk_return.csv", index=False)
-    res.skill.to_csv(out / "skill.csv", index=False)
+    res.skill.to_csv(out / "skill.csv", index=False); res.scores.to_csv(out / "scores.csv", index=False)
     res.subperiods.to_csv(out / "subperiods.csv", index=False)
     cfg = res.config; R = res.regressions; ppy = cfg.periods_per_year
     unit = "year" if ppy == 1 else "month"
@@ -578,6 +649,16 @@ def write_phase4(res: Phase4Result, out_dir, title="Phase 4 — statistical vali
         for y, r in rby.iterrows():
             L.append(f"| {y} | {_pct(r.return_p)} | {_pct(r.trailing_vol_p, 1)} | {_pct(r.trailing_var95_hist_p)} | {_pct(r.trailing_es95_p)} | "
                      f"{_pct(r.return_b)} | {_pct(r.trailing_vol_b, 1)} | {_pct(r.trailing_var95_hist_b)} |")
+    L.append("")
+
+    sc = res.scores
+    am = sc[sc.score == "Alpha-maxing score"].iloc[0]; wm = sc[(sc.score == "Wealth-management score") & (sc.component == "TOTAL")].iloc[0]
+    L += ["## Scores", "", f"- **Alpha-maxing score: {am.value:.0f} / 100** — return-chasing only: {am.rule} (excess {_pct(am.input)}/yr).",
+          f"- **Wealth-management score: {wm.value:.0f} / 100** — consistency for the risk taken:", "",
+          "| component | weight | input | rule | score |", "|---|---|---|---|---|"]
+    for _, r in sc[(sc.score == "Wealth-management score") & (sc.component != "TOTAL")].iterrows():
+        inp = "" if pd.isna(r.input) else (_pct(r.input) if r.input_fmt == "pct" else f"{r.input:.2f}")
+        L.append(f"| {r.component} | {'' if pd.isna(r.weight) else f'{r.weight:.0%}'} | {inp} | {r.rule} | {'' if pd.isna(r.value) else f'{r.value:.0f}'} |")
     L.append("")
 
     L += ["## Skill or luck — which ratio answers it", "",

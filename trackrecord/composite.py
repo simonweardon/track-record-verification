@@ -240,6 +240,7 @@ def build(statements: pd.DataFrame, flows: pd.DataFrame, period_rows: pd.DataFra
             bench_annualized=annualize(bench_cum, tw["years"]) if tw else np.nan,
             naive_cagr_ignoring_flows=naive,
             arithmetic_mean=float(longest.r.mean()) if longest is not None else np.nan,
+            arithmetic_mean_annual=annual_arithmetic_mean(longest.set_index("cell").r) if longest is not None else np.nan,
             irr=irr,
             irr_note=irr_note,
         ))
@@ -280,6 +281,21 @@ def longest_run(r: pd.Series) -> pd.Series:
     return r.loc[best] if best else r.iloc[0:0]
 
 
+def annual_arithmetic_mean(r: pd.Series) -> float:
+    """The naive 'average the yearly returns' figure: compound the cells inside each
+    calendar year (full years only), then take the plain average across years.
+    On annual cells this is just the mean; on monthly cells it is NOT mean×12."""
+    r = r.dropna()
+    if r.empty:
+        return np.nan
+    yrs = pd.Series([c.year if isinstance(c, pd.Period) else int(c) for c in r.index], index=r.index)
+    ppy = 12 if isinstance(r.index[0], pd.Period) else 1
+    by = r.groupby(yrs.values)
+    full = by.size() == ppy
+    ann = by.apply(lambda s: float((1 + s).prod() - 1))[full]
+    return float(ann.mean()) if len(ann) else np.nan
+
+
 def series_stats(r: pd.Series, years: pd.Series) -> dict:
     """Summary over the longest contiguous run of `r`.  `truncated` is True when
     that run is shorter than the available cells (a hole was found)."""
@@ -293,6 +309,7 @@ def series_stats(r: pd.Series, years: pd.Series) -> dict:
                 cumulative=cum, annualized=annualize(cum, float(y.sum())),
                 growth_of_1=1 + cum, best=float(run.max()), worst=float(run.min()),
                 negative_periods=int((run < 0).sum()), arithmetic_mean=float(run.mean()),
+                arithmetic_mean_annual=annual_arithmetic_mean(run),
                 stdev=float(run.std(ddof=1)) if len(run) > 1 else np.nan)
 
 

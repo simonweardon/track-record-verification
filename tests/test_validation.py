@@ -154,3 +154,16 @@ def test_risk_return_points(r4):
     c = rr.loc["composite"]
     assert c.sharpe == pytest.approx((c.ret - rr.loc["rf", "ret"]) / c.vol)
     assert 0.15 < c.vol < 0.25
+
+
+def test_scores_are_bounded_and_decomposed(r4):
+    res, _ = r4
+    sc = res.scores
+    am = sc[sc.score == "Alpha-maxing score"].iloc[0]
+    wm = sc[(sc.score == "Wealth-management score") & (sc.component == "TOTAL")].iloc[0]
+    assert 0 <= am.value <= 100 and 0 <= wm.value <= 100
+    assert am.value == pytest.approx(min(100, max(0, 50 + 10 * am.input * 100)))
+    parts = sc[(sc.score == "Wealth-management score") & sc.weight.notna() & (sc.component != "TOTAL")]
+    assert parts.weight.sum() == pytest.approx(1.0)
+    assert wm.value == pytest.approx((parts.value * parts.weight).sum() / parts.weight.sum(), abs=1e-6)
+    assert (parts.value.between(0, 100)).all()

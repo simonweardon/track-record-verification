@@ -125,11 +125,20 @@ def cmd_report(a):
         print(f"schema error: {e}", file=sys.stderr); return 2
     out = Path(a.out)
     write1(res1, out); write_phase2(res2, out / "phase2"); write_phase3(res3, out / "phase3"); write_phase4(res4, out / "phase4")
-    placeholder = a.placeholder or Path(a.data).name in ("synthetic", "brk")
+    placeholder = a.placeholder or Path(a.data).name in ("synthetic", "brk") or Path(a.data).parent.name == "tickers"
     note = a.placeholder_note or {
         "synthetic": "a synthetic dataset built to exercise the pipeline (real market history, invented accounts, +2%/yr injected alpha)",
         "brk": "Berkshire Hathaway Class A's public monthly price series (1985–2026), a real and famous record used to demonstrate the pipeline; a price feed is not a custodian statement, so every period is honestly marked unverified",
     }.get(Path(a.data).name, "placeholder data")
+    label = a.label or {"synthetic": "synthetic placeholder accounts", "brk": "Berkshire Hathaway Class A, public price series"}.get(Path(a.data).name, "")
+    if not label and (Path(a.data) / "meta.json").exists():
+        import json
+        m = json.loads((Path(a.data) / "meta.json").read_text())
+        label = f"{m.get('name', '')} ({m.get('ticker', '')}), public price series"
+        if not a.placeholder_note:
+            note = (f"{m.get('name', m.get('ticker'))}'s public monthly price series ({m.get('first', '')[:4]}–{m.get('last', '')[:4]}, "
+                    "distributions reinvested), a real listed record used to demonstrate the pipeline; a price feed is not a custodian "
+                    "statement, so every period is honestly marked unverified")
     claimed_note = a.claimed_note or {
         "brk": "For this placeholder the 'claim' is Berkshire's own letter figure — 19.8%/yr compounded gain in per-share market value, 1965–2024 — while the verified series covers 1985–2026 only; most of the gap is the missing 1965–84 years, which were the strongest.",
         "synthetic": "For this placeholder the 'claim' is a hypothetical 14%; the true injected alpha is +2%/yr over the market.",
@@ -137,7 +146,7 @@ def cmd_report(a):
     path = write_report(res1, res2, res3, res4, out, a.data, claimed=a.claimed, placeholder=placeholder,
                         placeholder_note=note, claimed_note=claimed_note)
     from .dashboard import build_dashboard
-    label = {"synthetic": "synthetic placeholder accounts", "brk": "Berkshire Hathaway Class A, public price series"}.get(Path(a.data).name, "")
+    from .dashboard import build_dashboard
     dash = build_dashboard(out, claimed=a.claimed, placeholder=placeholder, placeholder_note=note,
                            fee_desc=res2.config.fee.describe(), data_label=label, claimed_note=claimed_note,
                            headline_model=res4.config.headline_model)
@@ -158,6 +167,20 @@ def cmd_fetch_brk(a):
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     h.to_csv(a.out)
     print(f"wrote {len(h)} monthly rows to {a.out}"); return 0
+
+
+def cmd_fetch_ticker(a):
+    from .placeholder_ticker import fetch, valid
+    if not valid(a.ticker):
+        print(f"invalid ticker {a.ticker!r}", file=sys.stderr); return 2
+    m = fetch(a.ticker, a.out)
+    print(f"{m['name']} ({m['ticker']}): {m['rows']} monthly rows {m['first']}..{m['last']} -> {a.out}"); return 0
+
+
+def cmd_ticker(a):
+    from .placeholder_ticker import build
+    out = build(a.ticker, a.raw, a.out)
+    print(f"wrote {a.ticker} placeholder to {out}"); return 0
 
 
 def cmd_brk(a):
@@ -207,6 +230,7 @@ def main(argv=None):
             q.add_argument("--placeholder", action="store_true", help="stamp the report as placeholder data")
             q.add_argument("--placeholder-note", default=None, help="what the placeholder data is")
             q.add_argument("--claimed-note", default=None, help="where the claimed figure comes from")
+            q.add_argument("--label", default=None, help="dataset label shown under the dashboard title")
         q.set_defaults(fn=fn)
 
     sv = sub.add_parser("serve", help="serve output/ over HTTP; builds placeholder outputs in the background")
@@ -217,6 +241,13 @@ def main(argv=None):
     fb = sub.add_parser("fetch-brk", help="download BRK-A monthly prices (yfinance) to data/reference")
     fb.add_argument("--out", default="data/reference/brk-a_monthly_raw.csv")
     fb.set_defaults(fn=cmd_fetch_brk)
+
+    ft = sub.add_parser("fetch-ticker", help="download any listed vehicle's monthly adjusted history (yfinance)")
+    ft.add_argument("--ticker", required=True); ft.add_argument("--out", required=True)
+    ft.set_defaults(fn=cmd_fetch_ticker)
+    tp = sub.add_parser("ticker-placeholder", help="build a one-account placeholder from a fetched ticker CSV")
+    tp.add_argument("--ticker", required=True); tp.add_argument("--raw", required=True); tp.add_argument("--out", required=True)
+    tp.set_defaults(fn=cmd_ticker)
 
     b = sub.add_parser("brk-placeholder", help="build the Berkshire BRK-A monthly placeholder dataset")
     b.add_argument("--raw", default="data/reference/brk-a_monthly_raw.csv")

@@ -25,14 +25,15 @@ def reconciliation_rows(res2, comp, acc, g, n, pri, surv) -> list[dict]:
     if len(p_acc):
         pa = p_acc.iloc[0]
         rows.append(dict(calculation="Principal's account, naive CAGR (deposits counted as gains)", value=pa.naive_cagr_ignoring_flows, why="contributions inflate ending value", is_verified=False))
-        rows.append(dict(calculation="Principal's account, arithmetic mean of annual returns", value=pa.arithmetic_mean, why="ignores compounding / volatility drag", is_verified=False))
-    rows.append(dict(calculation="Composite, arithmetic mean of annual returns", value=g["arithmetic_mean"], why="ignores volatility drag", is_verified=False))
+        rows.append(dict(calculation="Principal's account, average of yearly returns", value=pa.arithmetic_mean_annual, why="a plain average ignores compounding / volatility drag", is_verified=False))
+    rows.append(dict(calculation="Composite, average of yearly returns", value=g["arithmetic_mean_annual"], why="a plain average ignores volatility drag", is_verified=False))
     if surv:
         rows.append(dict(calculation="Survivors-only composite", value=surv["annualized"], why="drops closed accounts", is_verified=False))
     best = acc.dropna(subset=["twr_annualized"]).sort_values("twr_annualized", ascending=False)
     if len(best):
         bb = best.iloc[0]
-        rows.append(dict(calculation=f"Best single account ({bb.account_id}, {bb.twr_span})", value=bb.twr_annualized, why="cherry-picked account and span", is_verified=False))
+        span = f"{str(bb.twr_span)[:4]}–{str(bb.twr_span)[-10:-6]}" if ".." in str(bb.twr_span) else str(bb.twr_span)
+        rows.append(dict(calculation=f"Best single account ({bb.account_id}, {span})", value=bb.twr_annualized, why=f"cherry-picked account and span ({bb.twr_span})", is_verified=False))
     tw = comp.tail(10)
     if len(tw) == 10:
         rows.append(dict(calculation="Last 10 years only", value=annualize(chain(tw.gross), float(tw.years.sum())), why="favorable start date", is_verified=False))

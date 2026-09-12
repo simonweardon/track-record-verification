@@ -227,8 +227,11 @@ def stacked_h(segments, width=760, height=64, fmt=lambda v: f"{v * 100:+.1f}%"):
     for lab, v, cls in segments:
         w = abs(v) * scale
         out.append(f'<rect class="seg {cls}" x="{x + 1:.1f}" y="10" width="{max(w - 2, 0):.1f}" height="24" rx="3" data-tip="{esc(lab)}: {esc(fmt(v))}"/>')
-        if w > 90:
-            out.append(f'<text class="segt" x="{x + w / 2:.1f}" y="26" text-anchor="middle">{esc(lab)} {esc(fmt(v))}</text>')
+        text = f"{lab} {fmt(v)}"
+        if len(text) * 6.8 + 16 < w:              # ~6.8px per character at 11.5px; otherwise the tooltip carries it
+            out.append(f'<text class="segt" x="{x + w / 2:.1f}" y="26" text-anchor="middle">{esc(text)}</text>')
+        elif len(fmt(v)) * 6.8 + 16 < w:
+            out.append(f'<text class="segt" x="{x + w / 2:.1f}" y="26" text-anchor="middle">{esc(fmt(v))}</text>')
         x += w
     out.append(f'<text class="ax" x="{ml}" y="{height - 10}">0</text>')
     out.append(f'<text class="ax" x="{width - mr}" y="{height - 10}" text-anchor="end">{esc(fmt(total))} total</text>')
@@ -321,9 +324,13 @@ def band_line(cells, mid, lo, hi, width=760, height=230, y_fmt=lambda v: f"{v * 
     return "".join(out) + f'<script type="application/json" id="{uid}-data">{data}</script>'
 
 
-def h_bars_ref(rows, ref, ref_label, width=760, x_fmt=lambda v: f"{v * 100:.1f}%"):
-    """rows: dict(label, value, emph(bool), why)."""
-    ml, mr, mt, mb = 300, 70, 10, 26
+def h_bars_ref(rows, ref, ref_label, width=860, x_fmt=lambda v: f"{v * 100:.1f}%"):
+    """rows: dict(label, value, emph(bool), why).  Left margin sized to the longest label;
+    anything that still doesn't fit is shortened with an ellipsis and carried in full by the tooltip."""
+    max_chars = 52
+    longest = max((len(r["label"]) for r in rows), default=20)
+    ml = int(min(longest, max_chars) * 6.9) + 24
+    mr, mt, mb = 70, 10, 26
     rh = 28
     height = mt + rh * len(rows) + mb
     vals = [r["value"] for r in rows if not pd.isna(r["value"])] + ([ref] if ref is not None else [])
@@ -340,7 +347,8 @@ def h_bars_ref(rows, ref, ref_label, width=760, x_fmt=lambda v: f"{v * 100:.1f}%
             continue
         w = xs(r["value"]) - ml
         cls = "emph" if r["emph"] else "dim"
-        out.append(f'<text class="rowlab{" strong" if r["emph"] else ""}" x="{ml - 12}" y="{y + 14:.1f}" text-anchor="end">{esc(r["label"])}</text>')
+        lab = r["label"] if len(r["label"]) <= max_chars else r["label"][:max_chars - 1] + "…"
+        out.append(f'<text class="rowlab{" strong" if r["emph"] else ""}" x="{ml - 12}" y="{y + 14:.1f}" text-anchor="end" data-tip="{esc(r["label"])}<br>{esc(r["why"])}">{esc(lab)}</text>')
         out.append(f'<path class="bar {cls}" d="M{ml},{y} H{ml + w - 4:.1f} Q{ml + w:.1f},{y} {ml + w:.1f},{y + 4} V{y + 16} Q{ml + w:.1f},{y + 20} {ml + w - 4:.1f},{y + 20} H{ml} Z" data-tip="{esc(r["why"])}"/>')
         out.append(f'<text class="lab" x="{ml + w + 8:.1f}" y="{y + 14:.1f}">{esc(x_fmt(r["value"]))}</text>')
     if ref is not None:
@@ -436,6 +444,13 @@ def how(body: str, label: str = "How this was calculated") -> str:
     return f'<details class="how"><summary>{esc(label)}</summary><div class="howb">{body}</div></details>'
 
 
+def explain(means: str, method: str, short: bool = False) -> str:
+    """Two toggles: plain-language meaning for anyone, then the method for the analyst."""
+    a, b = ("Means?", "How?") if short else ("What it means", "How it was calculated")
+    return (f'<div class="exp"><details class="how means"><summary>{a}</summary><div class="howb">{means}</div></details>'
+            f'<details class="how"><summary>{b}</summary><div class="howb">{method}</div></details></div>')
+
+
 def build_dashboard(out_dir: str | Path, claimed: float | None = None, placeholder: bool = True,
                     placeholder_note: str = "placeholder data", fee_desc: str = "assumed fee schedule",
                     data_label: str = "", claimed_note: str = "", headline_model: str = "FF3") -> Path:
@@ -464,6 +479,7 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
     rby = _read(out, "phase4/risk_by_year.csv", index_col=0)
     rrp = _read(out, "phase4/risk_return.csv")
     skill = _read(out, "phase4/skill.csv")
+    scores = _read(out, "phase4/scores.csv")
 
     ppy = 12 if monthly else 1
     unit = "month" if monthly else "year"
@@ -522,7 +538,7 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
     if len(bd):
         k = ppy
         segs = [("Risk-free", bd.rf_contribution.mean() * k, "s0"),
-                ("Market exposure (β × market)", bd.beta_contribution.mean() * k, "s1"),
+                ("Market exposure", bd.beta_contribution.mean() * k, "s1"),
                 ("Alpha + residual", bd.alpha_plus_residual.mean() * k, "s3")]
         attrib = stacked_h(segs)
         beta_txt = f"β {bd.beta.iloc[0]:.2f}"
@@ -596,6 +612,30 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
     else:
         vol_chart = var_head = var_rows = var_note = ""
 
+    M_EVIDENCE = 'Each square is one account for one year. <b>Green</b>: we confirmed the numbers against the paperwork. <b>Amber</b>: we have a number but nothing to check it against. <b>Red</b>: a check failed, so that year is left out until someone re-reads the statement. <b>Dash</b>: the statement is missing.'
+
+    # ---- scores
+    am = scores[scores.score == "Alpha-maxing score"].iloc[0] if len(scores) else None
+    wm_rows = scores[(scores.score == "Wealth-management score")] if len(scores) else pd.DataFrame()
+    wm = wm_rows[wm_rows.component == "TOTAL"].iloc[0] if len(wm_rows) else None
+    def score_tile(title, val, sub, means, method):
+        cls = "good" if val >= 70 else ("mid" if val >= 45 else "bad")
+        return (f'<div class="tile score"><div class="tl">{esc(title)}</div><div class="tv"><span class="sv {cls}">{val:.0f}</span><span class="of">/ 100</span></div>'
+                f'<div class="sbar"><span class="{cls}" style="width:{val:.0f}%"></span></div><div class="td muted">{sub}</div>{explain(means, method, short=True)}</div>')
+    score_tiles = ""
+    if am is not None and wm is not None:
+        score_tiles = score_tile("Alpha-maxing score", float(am.value), f"excess {pct(am.input)}/yr over the market — return only, risk ignored",
+            "A pure return-chaser's score: how much did it beat the market by, per year, and nothing else. Two managers with the same excess return get the same score even if one took twice the risk. High is impressive, but on its own it can be luck or leverage.",
+            f"{esc(am.rule)}. The market here is the total US stock market (Ken French), the academic proxy for the S&amp;P 500, over exactly the same period.") + \
+            score_tile("Wealth-management score", float(wm.value), "consistent returns for the risk taken — skill, risk-adjusted return, downside, consistency",
+            "The score a careful client should care about: did it deliver <b>consistently</b>, and did it protect on the way down? It rewards real evidence of skill, return per unit of risk, a softer landing than the market in bad periods, and beating the market in most 5-year stretches. A high alpha-maxing score with a low wealth-management score means a wild ride that happened to end well.",
+            "Weighted blend, each part on a fixed 0–100 map: " + "; ".join(f"<b>{esc(r.component.strip())}</b> ({r.weight:.0%}): {esc(r.rule)}" for _, r in wm_rows[wm_rows.weight.notna() & (wm_rows.component != 'TOTAL')].iterrows()) +
+            ". Downside protection is the mean of down-capture, max-drawdown and expected-shortfall each relative to the market (equal to the market = 50).")
+    score_rows = "".join(f"<tr><td>{esc(r.component)}</td><td class='n'>{'' if pd.isna(r.weight) else f'{r.weight:.0%}'}</td>"
+                         f"<td class='n'>{'' if pd.isna(r.input) else (pct(r.input) if r.input_fmt == 'pct' else num(r.input))}</td><td>{esc(r.rule)}</td>"
+                         f"<td class='n'><b>{'' if pd.isna(r.value) else f'{r.value:.0f}'}</b></td></tr>"
+                         for _, r in wm_rows[wm_rows.component != "TOTAL"].iterrows()) if len(wm_rows) else ""
+
     # ---- skill vs luck table
     skill_rows = ""
     for _, k in skill.iterrows():
@@ -637,10 +677,10 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
         claimed_block = (f'<div class="tile"><div class="tl">Claimed vs verified</div>'
                          f'<div class="tv small">{pct(claimed, 1, False)} <span class="arrow">→</span> {pct(g["annualized"], 1, False)}</div>'
                          f'<div class="td {"bad" if gap < 0 else "good"}">{pct(gap)}/yr gap</div>'
-                         + how("<b>Claimed</b> is the number the manager states — an input to this pipeline, not something it computes. "
+                         + explain('<b>Claimed</b> is the number the manager says. <b>Verified</b> is what we calculated ourselves from the paperwork. If they differ, the <i>Why not…?</i> section near the bottom shows the most common ways people arrive at a higher number than the correct one.', "<b>Claimed</b> is the number the manager states — an input to this pipeline, not something it computes. "
                                "<b>Verified</b> is the composite time-weighted return computed here from the statements. The gap is the "
                                "arithmetic difference per year; the <i>Why not…?</i> section below recomputes the usual ways a self-calculated "
-                               "figure ends up higher than the verified one." + (f"<br><br>{esc(claimed_note)}" if claimed_note else ""), "What do these mean?")
+                               "figure ends up higher than the verified one." + (f"<br><br>{esc(claimed_note)}" if claimed_note else ""), short=True)
                          + '</div>')
 
     banner = ""
@@ -650,7 +690,8 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
 
     first, last = cell_label(cells[0]), cell_label(cells[-1])
     css = CSS
-    page = f"""<title>Track Record Verification</title>
+    page = f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Track Record Verification</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>{css}</style>
@@ -675,25 +716,34 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
       <span class="m verified" style="width:{ver_share * 100:.1f}%"></span><span class="m unverified" style="width:{(unv / tot * 100) if tot else 0:.1f}%"></span><span class="m flagged" style="width:{(n_flag / (tot + n_flag) * 100) if tot else 0:.1f}%"></span>
     </div>
     <div class="ms"><b>{ver:,}</b> verified · <b>{unv:,}</b> unverified · <b>{n_flag:,}</b> flagged &amp; excluded — of {tot + n_flag:,} account-{unit}s</div>
-    {how(f"<b>Per {unit}, per account:</b> Modified Dietz return = (End − Begin − net flows) ÷ (Begin + Σ w<sub>i</sub> × flow<sub>i</sub>), where w<sub>i</sub> is the fraction of the {unit} the flow was invested. Deposits and withdrawals are therefore neither counted as gains nor losses.<br><br>"
+    {explain("If you had put money in at the start and just left it there, this is the average yearly growth you would have seen — after stripping out the effect of money being added or taken out, so deposits don't look like gains. It's the one number everything else on this page is checking.<br><br>The coloured bar underneath is how much of the history we could actually confirm against paperwork: <b>green</b> = confirmed, <b>amber</b> = we have a number but nothing to check it against, <b>red</b> = a check failed.", f"<b>Per {unit}, per account:</b> Modified Dietz return = (End − Begin − net flows) ÷ (Begin + Σ w<sub>i</sub> × flow<sub>i</sub>), where w<sub>i</sub> is the fraction of the {unit} the flow was invested. Deposits and withdrawals are therefore neither counted as gains nor losses.<br><br>"
           f"<b>Composite:</b> all eligible accounts' values and flows are summed first, as if one portfolio (GIPS aggregate method), so larger accounts weigh more. Closed accounts stay in through their last full {unit}; partial first and last {unit}s and flagged statements are excluded.<br><br>"
           f"<b>Annualized:</b> the {unit}ly returns are chained, (1+r<sub>1</sub>)(1+r<sub>2</sub>)…, and the total is converted to a per-year rate. Gross = net here because no fee was ever charged.<br><br>"
-          f"<b>The meter:</b> each statement is <i>verified</i> when at least one number printed on it was independently confirmed (positions sum, chain to prior ending value, printed change in value, printed flows or printed return) and none failed; <i>flagged</i> if any check failed; <i>unverified</i> if nothing on the page could be tested.")}
+          f"<b>The meter:</b> each statement is <i>verified</i> when at least one number printed on it was independently confirmed (positions sum, chain to prior ending value, printed change in value, printed flows or printed return) and none failed; <i>flagged</i> if any check failed; <i>unverified</i> if nothing on the page could be tested.", short=False)}
   </div>
   <div class="tiles">
+    {score_tiles}
     <div class="tile"><div class="tl">{esc(bench_name)}</div><div class="tv">{pct(b["annualized"], 2, False)}</div><div class="td muted">{esc(bench_id)} · same period</div>
-      {how(f"Ken French's {esc(bench_name)} total return (Mkt−RF plus RF) for exactly the same {unit}s as the composite, chained and annualized the same way. Fixed before any data was examined (COMPOSITE_RULES.md §6).", "How?")}</div>
+      {explain("What you would have earned by simply buying the whole stock market with a cheap index fund over exactly the same period. It's the bar the manager has to clear.", f"Ken French's {esc(bench_name)} total return (Mkt−RF plus RF) for exactly the same {unit}s as the composite, chained and annualized the same way. Fixed before any data was examined (COMPOSITE_RULES.md §6).", short=True)}</div>
     <div class="tile"><div class="tl">Excess over benchmark</div><div class="tv">{pct(g["annualized"] - b["annualized"])}</div><div class="td muted">per year, gross</div>
-      {how("Annualized composite minus annualized benchmark. A plain difference — it does not adjust for the composite taking more or less market risk than the benchmark; the alphas below do.", "How?")}</div>
+      {explain("How much more per year the manager made than the index fund. Positive is good — but on its own it doesn't say whether that came from skill or from taking more risk. The alphas next door adjust for that.", "Annualized composite minus annualized benchmark. A plain difference — it does not adjust for the composite taking more or less market risk than the benchmark; the alphas below do.", short=True)}</div>
     <div class="tile"><div class="tl">{esc(hm)} alpha</div><div class="tv">{pct(capm.alpha_annual) if capm is not None else "n/a"}</div><div class="td muted">{f"95% CI {pct(capm.ci_low_annual, 1)} … {pct(capm.ci_high_annual, 1)} · t {capm.t:.2f} · p {capm.p:.3f}" if capm is not None else ""}</div>
-      {how(f"Fama–French regression: each {unit}'s return over the risk-free rate is regressed on {esc(hm_factors)} (Ken French {esc(fset)} factors). The intercept, × {ppy} per year, is the alpha — the part of the return an index fund holding those factor exposures could not have delivered. Confidence interval = ±t<sub>0.975</sub> × standard error{'; Newey–West errors on monthly data' if ppy == 12 else ''}.", "How?")}</div>
+      {explain("The part of the return that can't be explained by three things anyone can buy cheaply: the market itself, small-company stocks, and cheap ('value') stocks. It's the best single estimate of what the manager's own decisions added per year.<br><br>The range after it is the honest uncertainty. If that range includes zero, we can't be sure the skill is real.", f"Fama–French regression: each {unit}'s return over the risk-free rate is regressed on {esc(hm_factors)} (Ken French {esc(fset)} factors). The intercept, × {ppy} per year, is the alpha — the part of the return an index fund holding those factor exposures could not have delivered. Confidence interval = ±t<sub>0.975</sub> × standard error{'; Newey–West errors on monthly data' if ppy == 12 else ''}.", short=True)}</div>
     <div class="tile"><div class="tl">Jensen's alpha (CAPM)</div><div class="tv">{pct(jens.alpha_annual) if jens is not None else "n/a"}</div><div class="td muted">{f"95% CI {pct(jens.ci_low_annual, 1)} … {pct(jens.ci_high_annual, 1)} · β {jens.b_MKT_RF:.2f}" if jens is not None else ""}</div>
-      {how(f"The same regression with only the market premium: R<sub>p</sub> − RF = α + β(Mkt − RF) + ε. Its intercept is Jensen's alpha. It is larger than the {esc(hm)} alpha whenever part of the return came from size or value tilts — exposures an index fund could buy, which {esc(hm)} removes.", "How?")}</div>
+      {explain("The older, simpler version of the same idea: the return beyond what the market alone explains. It's usually bigger than the FF3 number because it gives the manager credit for tilting toward small or cheap stocks — something you could have done yourself with an index fund.", f"The same regression with only the market premium: R<sub>p</sub> − RF = α + β(Mkt − RF) + ε. Its intercept is Jensen's alpha. It is larger than the {esc(hm)} alpha whenever part of the return came from size or value tilts — exposures an index fund could buy, which {esc(hm)} removes.", short=True)}</div>
     <div class="tile"><div class="tl">Zero-skill managers doing this well</div><div class="tv">{f"{coh.share_of_zero_skill_managers_beating_actual:.1%}" if coh is not None else "n/a"}</div><div class="td muted">{f"of {int(coh.n_managers):,} simulated, same {esc(coh.model)} loadings &amp; residual risk" if coh is not None else ""}</div>
-      {how(f"{int(coh.n_managers):,} simulated managers with <b>no skill</b>: alpha set to zero, the record's own {esc(coh.model)} factor loadings ({esc(coh.loadings)}), and residual noise resampled from the record's own residuals, facing the same market history. Each one's annualized excess over the benchmark is computed; this is the share that matched or beat the real record by luck alone." if coh is not None else "", "How?")}</div>
+      {explain('Imagine thousands of managers who take the same kind of risk but have <b>zero skill</b> — pure coin-flippers. This is the share of them who would have matched this record by luck alone. 1% means one in a hundred lucky monkeys did this well; 30% would mean the record is nothing special.', f"{int(coh.n_managers):,} simulated managers with <b>no skill</b>: alpha set to zero, the record's own {esc(coh.model)} factor loadings ({esc(coh.loadings)}), and residual noise resampled from the record's own residuals, facing the same market history. Each one's annualized excess over the benchmark is computed; this is the share that matched or beat the real record by luck alone." if coh is not None else "", short=True)}</div>
     <div class="tile"><div class="tl">Model-net at proposed fees</div><div class="tv">{pct(n_["annualized"], 2, False)}</div><div class="td muted">{esc(fee_desc)} — {chip("estimated")}</div>
-      {how(f"The gross series with a modelled fee subtracted each {unit}: {esc(fee_desc)}. The management fee is pro-rated per {unit}; the performance fee is charged only on gains above the previous high-water mark. No fee was actually charged historically — this is what a paying client would have received.", "How?")}</div>
+      {explain('What a client would actually have kept after paying the proposed fee. No fee was charged historically, so this is a what-if for the future.', f"The gross series with a modelled fee subtracted each {unit}: {esc(fee_desc)}. The management fee is pro-rated per {unit}; the performance fee is charged only on gains above the previous high-water mark. No fee was actually charged historically — this is what a paying client would have received.", short=True)}</div>
     {claimed_block}
+  </div>
+</section>
+
+<section>
+  <div class="sh"><h2>Score breakdown</h2>{chip("inference")}</div>
+  <div class="card"><h3>Wealth-management score = {f"{wm.value:.0f}" if wm is not None else "n/a"} / 100 &nbsp;·&nbsp; Alpha-maxing score = {f"{am.value:.0f}" if am is not None else "n/a"} / 100</h3>
+    <div class="tscroll"><table class="metrics"><thead><tr><th>component</th><th class="n">weight</th><th class="n">input</th><th>rule (fixed 0–100 map)</th><th class="n">score</th></tr></thead><tbody>{score_rows}</tbody></table></div>
+    <p class="cap">Maps are fixed, not relative to other firms, so scores are comparable across every portfolio analyzed. Alpha-maxing = {esc(am.rule) if am is not None else ""}.</p>
   </div>
 </section>
 
@@ -701,14 +751,14 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   <div class="sh"><h2>Growth of $1</h2>{series_chip} {chip("public", bench_name)} {chip("estimated", "model-net")}</div>
   <div class="card">{growth}
   <p class="cap">Log scale. Composite chains each {unit}'s Modified Dietz return; the benchmark is {esc(bench_name)} total return (Ken French); model-net applies the proposed fee to the gross series.</p>
-  {how(f"Each line is the cumulative product of (1 + return) per {unit}, starting from $1 at {esc(first)}. The log scale makes equal percentage moves the same height anywhere on the chart, so the slope is the growth rate. Hover for the three values at any {unit}.")}</div>
+  {explain("One dollar invested at the start, growing over time — in the manager's hands (blue), in an index fund (grey), and after fees (dashed). The gap between blue and grey is the whole story in one picture. The scale is logarithmic, so an equal-sized step means an equal percentage gain anywhere on the chart.", f"Each line is the cumulative product of (1 + return) per {unit}, starting from $1 at {esc(first)}. The log scale makes equal percentage moves the same height anywhere on the chart, so the slope is the growth rate. Hover for the three values at any {unit}.", short=False)}</div>
 </section>
 
 <section>
   <div class="sh"><h2>Year by year against the benchmark</h2>{series_chip}</div>
   <div class="card">{ybars}
   <p class="cap">Excess return per calendar year. Above the benchmark in <b>{beat}</b> of <b>{len(ann)}</b> years. Hover a bar for both returns.</p>
-  {how(f"For each calendar year: composite return {'(the twelve months compounded)' if monthly else ''} minus the benchmark's return for the same year. Blue = beat the benchmark, red = trailed it. {'Years with fewer than twelve months are omitted.' if monthly else ''}")}</div>
+  {explain('Each bar is one year: how much the manager beat (blue) or trailed (red) the index fund. Even great managers have red years. What matters is more blue than red, and by how much.', f"For each calendar year: composite return {'(the twelve months compounded)' if monthly else ''} minus the benchmark's return for the same year. Blue = beat the benchmark, red = trailed it. {'Years with fewer than twelve months are omitted.' if monthly else ''}", short=False)}</div>
 </section>
 
 <section>
@@ -716,25 +766,26 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   <div class="grid2">
     <div class="card"><h3>Volatility vs return</h3>{sc}
       <p class="cap"><span class="k s1"></span>composite &nbsp; <span class="k s0"></span>{esc(bench_name)}, accounts &nbsp; <span class="k s1l"></span>model-net. The thin line from the risk-free point through the composite is its Sharpe ratio; anything above the line earned more per unit of risk.</p>
-      {how(f"x = annualized volatility = standard deviation of {unit}ly returns × √{ppy}. y = annualized return (chained). Each account is plotted over its own eligible {unit}s, so spans differ. Sharpe = (return − risk-free) ÷ volatility; the line's slope is the composite's Sharpe.")}</div>
+      {explain("Every dot is an account. Further right = a bumpier ride; higher up = more return. You want top-left. The thin line is the manager's return-per-unit-of-bumpiness; anything above the line did better for the risk it took.", f"x = annualized volatility = standard deviation of {unit}ly returns × √{ppy}. y = annualized return (chained). Each account is plotted over its own eligible {unit}s, so spans differ. Sharpe = (return − risk-free) ÷ volatility; the line's slope is the composite's Sharpe.", short=False)}</div>
     <div class="card"><h3>{"Volatility by year (from monthly returns)" if within else "Trailing volatility by year"}</h3>{vol_chart}
       <p class="cap">Columns: composite. Line: {esc(bench_name)}. Same axis, same unit.</p>
-      {how("Standard deviation of that year's twelve monthly returns × √12." if within else "Standard deviation of the trailing ten annual returns — within-year volatility is not observable from annual statements.")}</div>
+      {explain('How bumpy the ride was each year. Taller bars mean bigger swings, both up and down.', "Standard deviation of that year's twelve monthly returns × √12." if within else "Standard deviation of the trailing ten annual returns — within-year volatility is not observable from annual statements.", short=False)}</div>
   </div>
   <div class="card"><h3>{"Value at risk by year" if within else "Value at risk, trailing window"}</h3>
     <div class="tscroll"><table class="metrics var"><thead>{var_head}</thead><tbody>{var_rows}</tbody></table></div>
     <p class="cap">{var_note}</p>
-    {how("<b>Historical VaR 95%</b>: the 5th percentile of the period's returns — the loss exceeded one time in twenty. <b>Parametric VaR</b>: mean − 1.645 × standard deviation, assuming normality. <b>Expected shortfall</b>: the average return of the periods at or below the historical VaR — how bad the bad tail was, not just where it starts. <b>Variance</b> = volatility². All reported as return levels: negative = loss.")}
+    {explain("For each year, how bad a typical bad month was. <b>VaR 95%</b> is the loss you'd expect to see about one month in twenty. <b>Expected shortfall</b> is the average of those bad months. <b>Worst month</b> is the single worst one. Negative numbers are losses.", "<b>Historical VaR 95%</b>: the 5th percentile of the period's returns — the loss exceeded one time in twenty. <b>Parametric VaR</b>: mean − 1.645 × standard deviation, assuming normality. <b>Expected shortfall</b>: the average return of the periods at or below the historical VaR — how bad the bad tail was, not just where it starts. <b>Variance</b> = volatility². All reported as return levels: negative = loss.", short=False)}
   </div>
   <div class="card"><h3>Risk-adjusted metrics, full period</h3>
     <div class="tscroll"><table class="metrics"><thead><tr><th>metric</th><th class="n">portfolio</th><th class="n">benchmark</th></tr></thead><tbody>{met_rows}</tbody></table></div>
-    {how(f"<b>Sharpe</b> = mean excess return over RF ÷ its standard deviation, × √{ppy}. <b>Sortino</b>: same numerator over downside deviation only (returns below RF). <b>Max drawdown</b>: largest peak-to-trough fall in the chained index{' — from ' + unit + 'ly points, so intra-' + unit + ' lows are missed' if not monthly else ''}. <b>Calmar</b> = annualized return ÷ |max drawdown|. <b>Tracking error</b> = standard deviation of (composite − benchmark). <b>Information ratio</b> = mean(composite − benchmark) ÷ tracking error. <b>Up/down capture</b>: the composite's compounded return in {unit}s the benchmark rose (fell), divided by the benchmark's.")}
+    {explain('Standard report-card ratios. <b>Sharpe</b>: return per unit of bumpiness — higher is better; around 0.5 is decent over long periods, 1 is excellent. <b>Max drawdown</b>: the worst peak-to-bottom fall along the way. <b>Up / down capture</b>: in months the market rose, how much of the rise you got; in months it fell, how much of the fall you took (below 1 on the downside is good).', f"<b>Sharpe</b> = mean excess return over RF ÷ its standard deviation, × √{ppy}. <b>Sortino</b>: same numerator over downside deviation only (returns below RF). <b>Max drawdown</b>: largest peak-to-trough fall in the chained index{' — from ' + unit + 'ly points, so intra-' + unit + ' lows are missed' if not monthly else ''}. <b>Calmar</b> = annualized return ÷ |max drawdown|. <b>Tracking error</b> = standard deviation of (composite − benchmark). <b>Information ratio</b> = mean(composite − benchmark) ÷ tracking error. <b>Up/down capture</b>: the composite's compounded return in {unit}s the benchmark rose (fell), divided by the benchmark's.", short=False)}
   </div>
 </section>
 
 <section>
   <div class="sh"><h2>Evidence</h2>{chip("verified", "V")} {chip("unverified", "U")} {chip("unknown", "X flagged")} {chip("unknown", "– hole")}</div>
   <div class="card">{cov}
+  {explain(M_EVIDENCE, "Each cell is the worst status among that account's statements ending in that year. A statement is <b>verified</b> when at least one printed number was independently confirmed (positions sum to the total; printed beginning value equals the prior statement's ending; printed change-in-value or flows match the rows entered) and none failed; <b>flagged</b> if any check failed; <b>unverified</b> if nothing on the page could be tested. Hover a cell for the statement ids and flags.")}
   <div class="two">
     <div><h3>Reconciliation failures (excluded until re-read)</h3><ul class="flags">{err_items}</ul>{f"<p class='muted'>… and {len(errs) - 8} more in flags.csv</p>" if len(errs) > 8 else ""}</div>
     <div><h3>Holes in coverage</h3><p>{esc(gap_txt)}</p><h3>What "verified" means here</h3><p>A statement is verified when at least one number printed on it is independently confirmed — the sum of its positions, its printed beginning value against the prior statement's ending, its printed change-in-value, or its printed flows. A value with nothing to test it against is <em>unverified</em>, even when it's probably right.</p></div>
@@ -744,8 +795,8 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
 <section>
   <div class="sh"><h2>Where the return came from</h2>{chip("public", "market data")} {chip("estimated")}</div>
   <div class="card">{attrib}
-  <p class="cap">Average per year. {esc(beta_txt)} vs {esc(bench_name)}: the middle segment is what simply holding that much market exposure returned; the last is everything else — stock selection, timing, and noise together.</p>
-  {how(f"R<sub>p</sub> = RF + β × (Market − RF) + (α + ε). β is the full-sample CAPM slope; each {unit}'s return is split into the risk-free rate, β × that {unit}'s market premium, and the remainder. Segments are the per-{unit} averages × {ppy}. The allocation effect, where positions exist, compares the portfolio's US / international / cash weights (prior year-end positions) against the benchmark's inferred mix, each sleeve indexed.")}
+  <p class="cap"><span class="k s0"></span>risk-free &nbsp; <span class="k s1"></span>market exposure (β × market premium) &nbsp; <span class="k s3"></span>alpha + residual. Average per year. {esc(beta_txt)} vs {esc(bench_name)}: the middle segment is what simply holding that much market exposure returned; the last is everything else — stock selection, timing, and noise together.</p>
+  {explain("Splits the yearly return into three pieces: what cash in the bank would have paid, what just being invested in the market paid, and what's left over — the manager's decisions plus luck. Only that last piece can be skill.", f"R<sub>p</sub> = RF + β × (Market − RF) + (α + ε). β is the full-sample CAPM slope; each {unit}'s return is split into the risk-free rate, β × that {unit}'s market premium, and the remainder. Segments are the per-{unit} averages × {ppy}. The allocation effect, where positions exist, compares the portfolio's US / international / cash weights (prior year-end positions) against the benchmark's inferred mix, each sleeve indexed.", short=False)}
   {f"<p class='cap'>Allocation effect (US / international / cash mix vs policy): <b>{pct(av.allocation_effect.mean() * ppy)}</b>/yr on average; selection + timing residual <b>{pct(av.selection_timing_residual.mean() * ppy)}</b>/yr. Weights come from year-end positions and cover {av.coverage.mean():.0%} of composite assets.</p>" if len(av) else "<p class='cap muted'>Allocation effect not available: no position data for this dataset, so US / international / cash weights are unknown.</p>"}
   </div>
 </section>
@@ -755,15 +806,15 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   <div class="card"><h3>Which ratio answers it</h3>
     <p class="cap" style="max-width:none">Risk-adjusted ratios measure return per unit of risk; none of them can tell skill from luck — a leveraged index fund scores well on all of them. The question is statistical: how consistently did the alpha show up relative to its own noise? The <b>appraisal ratio</b> (alpha ÷ residual volatility) carries exactly that, because <b>t ≈ appraisal ratio × √years</b>. Highlighted rows are the ones that speak to skill.</p>
     <div class="tscroll"><table class="metrics skill"><thead><tr><th>ratio</th><th class="n">portfolio</th><th class="n">benchmark</th><th>measures</th><th>speaks to skill?</th></tr></thead><tbody>{skill_rows}</tbody></table></div>
-    {how("Every ratio uses the same annualized inputs as the tiles above. Appraisal ratio = alpha ÷ standard deviation of the regression residuals (both annualized). Because the standard error of alpha is roughly residual volatility ÷ √n, alpha ÷ SE(alpha) — the t-statistic — equals the appraisal ratio × √years, up to a small correction for the factor means. The bootstrap p-value re-runs the regression thousands of times on resampled " + unit + "s with the alpha removed, and counts how often chance produces a t this large.")}
+    {explain("Most ratios in finance measure 'how much return for how much risk'. None of them can tell skill from luck — a fund that just borrows to buy more of the index scores well on all of them. The one that can is the <b>appraisal ratio</b>, because how consistently the extra return showed up, multiplied by how many years it kept showing up, is exactly what a statistical test measures. The highlighted rows are the ones that actually answer the question.", "Every ratio uses the same annualized inputs as the tiles above. Appraisal ratio = alpha ÷ standard deviation of the regression residuals (both annualized). Because the standard error of alpha is roughly residual volatility ÷ √n, alpha ÷ SE(alpha) — the t-statistic — equals the appraisal ratio × √years, up to a small correction for the factor means. The bootstrap p-value re-runs the regression thousands of times on resampled " + unit + "s with the alpha removed, and counts how often chance produces a t this large.", short=False)}
   </div>
   <div class="grid2">
     <div class="card"><h3>Alpha with 95% confidence intervals</h3>{dw}
       <p class="cap"><span class="k s1"></span>{esc(fset)} factors (primary) &nbsp; <span class="k s0"></span>robustness set. A whisker that crosses zero means the model cannot rule out zero skill. Loadings on hover.</p>
-      {how(f"Each row is a separate regression of (return − RF) on that model's factors over all {unit}s. Dot = annualized intercept (alpha); whisker = 95% confidence interval. CAPM = market only (Jensen's alpha); FF3 adds size and value; Carhart adds momentum; FF5 adds profitability and investment. The primary set is the {esc(fset)} factors; the other set is a robustness check.")}</div>
+      {explain("Each row is a different way of adjusting for risk. The dot is the estimate of the manager's added return; the line through it is the range of doubt. If the line touches zero, that method can't rule out 'no skill'.", f"Each row is a separate regression of (return − RF) on that model's factors over all {unit}s. Dot = annualized intercept (alpha); whisker = 95% confidence interval. CAPM = market only (Jensen's alpha); FF3 adds size and value; Carhart adds momentum; FF5 adds profitability and investment. The primary set is the {esc(fset)} factors; the other set is a robustness check.", short=False)}</div>
     <div class="card"><h3>Could luck alone do this?</h3>{hist}
       <p class="cap">{f"{int(coh.n_managers):,} simulated managers with zero skill, the record's own {esc(coh.model)} loadings and residual volatility ({pct(coh.resid_sd_annual, 1, False)}/yr), facing the same markets. <b>{coh.share_of_zero_skill_managers_beating_actual:.1%}</b> matched or beat the record's excess return by luck; null bootstrap of t(α): p = {bt.p_null_one_sided:.3f}." if coh is not None and bt is not None else ""}</p>
-      {how(f"Histogram of the simulated managers' annualized excess returns over the benchmark. Grey bars: managers who did worse than the record; blue bars: the share that did as well or better by luck alone. The vertical line is the actual record.")}</div>
+      {explain("The pile of grey bars is what pure luck produces. The tall line is this manager. If the line sits far to the right of the pile, luck is an unlikely explanation; if it sits inside the pile, it isn't.", f"Histogram of the simulated managers' annualized excess returns over the benchmark. Grey bars: managers who did worse than the record; blue bars: the share that did as well or better by luck alone. The vertical line is the actual record.", short=False)}</div>
   </div>
 </section>
 
@@ -771,14 +822,14 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   <div class="sh"><h2>Is it stable?</h2>{chip("inference")} {chip("estimated", "noisy windows")}</div>
   <div class="grid2">
     <div class="card"><h3>Rolling {esc(w_a)}-{unit} alpha, with 95% band</h3>{roll_html}<p class="cap">{esc(roll_note)}</p>
-      {how(f"A CAPM regression re-run on each trailing window of {esc(w_a)} {unit}s. The line is that window's annualized alpha; the band is its 95% confidence interval. With so few points per window the band is wide by construction — the noise floor is stated in the sub-period card.")}</div>
+      {explain("The manager's added return measured over a sliding window — like a moving average — to see whether it was steady or came from one hot streak. The shaded band is the doubt; with short windows it's wide, so wobbles that stay inside the band are noise, not news.", f"A CAPM regression re-run on each trailing window of {esc(w_a)} {unit}s. The line is that window's annualized alpha; the band is its 95% confidence interval. With so few points per window the band is wide by construction — the noise floor is stated in the sub-period card.", short=False)}</div>
     <div class="card"><h3>Rolling excess return</h3>{roll_ex}<p class="cap">Annualized excess over {esc(bench_name)} for each trailing window — descriptive, no model.</p>
-      {how("For each trailing window: annualized composite return minus annualized benchmark return, both chained over the window. No regression, no risk adjustment.")}</div>
+      {explain('How much the manager beat the index over each trailing window. No adjustment for risk — just the raw gap.', "For each trailing window: annualized composite return minus annualized benchmark return, both chained over the window. No regression, no risk adjustment.", short=False)}</div>
   </div>
   <div class="card"><h3>Before and after {esc(sp.segment.iloc[0].split()[-1]) if len(sp) else ""}</h3>
     <div class="tiles">{"".join(f'<div class="tile"><div class="tl">{esc(r.segment)}</div><div class="tv">{pct(r.alpha_annual)}</div><div class="td muted">SE {pct(r.se_annual, 1, False)} · n {int(r.n)} · p {r.p:.2f}</div></div>' for _, r in sp.iterrows())}</div>
     <p class="cap">CAPM alpha per year in each half. With standard errors this size, halves of a record with constant true alpha will differ by more than {pct(2 * sp[sp.segment.str.startswith('difference')].se_annual.iloc[0], 1, False) if len(sp) else ""} about one time in twenty — read the difference against that, not against zero.</p>
-    {how("One regression with an interaction: (return − RF) = α₁ + α₂·D + β₁(Mkt−RF) + β₂·D·(Mkt−RF) + ε, where D = 1 after the split year. α₁ is the early alpha, α₁ + α₂ the late alpha, and the t-test on α₂ asks whether the change is larger than noise would produce.")}
+    {explain("The manager's added return in the first half of the record versus the second. If skill is real it should show up in both. If it faded, that's important to know — but check the noise level quoted underneath before concluding it did.", "One regression with an interaction: (return − RF) = α₁ + α₂·D + β₁(Mkt−RF) + β₂·D·(Mkt−RF) + ε, where D = 1 after the split year. α₁ is the early alpha, α₁ + α₂ the late alpha, and the t-test on α₂ asks whether the change is larger than noise would produce.", short=False)}
   </div>
 </section>
 
@@ -786,14 +837,14 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   <div class="sh"><h2>{"Why not " + pct(claimed, 1, False) + "?" if claimed is not None else "Other ways to compute the number"}</h2>{chip("verified", "same data")}</div>
   <div class="card">{rec_html}
   <p class="cap">Every bar is computed from this dataset. The highlighted bar is the defensible number; the others are the calculations a self-computed figure most often rests on. Hover for why each differs.</p>
-  {how("<b>Naive CAGR</b>: (ending value ÷ beginning value)^(1/years) − 1, ignoring deposits — so contributions look like gains. <b>Arithmetic mean</b>: the simple average of annual returns, which overstates compounded growth by roughly half the variance. <b>Survivors-only</b>: the composite with closed accounts dropped. <b>Best single account / last 10 years</b>: cherry-picked scope or start date. <b>Model-net</b>: after the proposed fee. The claimed figure is drawn as the vertical line.")}</div>
+  {explain('The usual ways a self-calculated number ends up higher than the true one: counting deposits as gains, averaging instead of compounding, picking the best account or the best decade, forgetting fees. Each bar recomputes one of them from this same data, so you can see which one explains a gap.', "<b>Naive CAGR</b>: (ending value ÷ beginning value)^(1/years) − 1, ignoring deposits — so contributions look like gains. <b>Arithmetic mean</b>: the simple average of annual returns, which overstates compounded growth by roughly half the variance. <b>Survivors-only</b>: the composite with closed accounts dropped. <b>Best single account / last 10 years</b>: cherry-picked scope or start date. <b>Model-net</b>: after the proposed fee. The claimed figure is drawn as the vertical line.", short=False)}</div>
 </section>
 
 <section>
   <div class="sh"><h2>Accounts</h2></div>
   <div class="card tscroll"><table class="acc"><thead><tr><th>account</th><th>owner</th><th>status</th><th class="n">span</th><th class="n">TWR /yr</th><th class="n">benchmark /yr</th><th class="n">IRR</th><th class="n">V / U / X</th></tr></thead><tbody>{acc_rows}</tbody></table>
   <p class="cap">Closed accounts stay in the composite through their last full {unit}. IRR is money-weighted and reflects the client's deposit timing, not the manager.</p>
-  {how(f"<b>TWR /yr</b>: each account's own {unit}ly Modified Dietz returns chained over its span and annualized — the manager's return, independent of when money arrived. <b>IRR</b>: the single rate that discounts every dated deposit, withdrawal and the ending value to zero (XIRR) — the client's actual experience, which depends on deposit timing. <b>V / U / X</b>: statements verified / unverified / flagged.")}</div>
+  {explain("One row per account. <b>TWR</b> is the manager's return. <b>IRR</b> is what that client actually experienced, which also depends on when they happened to add money. <b>V / U / X</b> counts the statements we confirmed, couldn't confirm, and that failed a check.", f"<b>TWR /yr</b>: each account's own {unit}ly Modified Dietz returns chained over its span and annualized — the manager's return, independent of when money arrived. <b>IRR</b>: the single rate that discounts every dated deposit, withdrawal and the ending value to zero (XIRR) — the client's actual experience, which depends on deposit timing. <b>V / U / X</b>: statements verified / unverified / flagged.", short=False)}</div>
 </section>
 
 <footer class="foot">
@@ -877,6 +928,11 @@ section { display: grid; gap: 12px; }
 .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
 .tv { font-size: 26px; font-weight: 600; line-height: 1.1; letter-spacing: -.01em; }
 .tv.small { font-size: 22px; white-space: nowrap; }
+.tile.score { border-color: var(--accent-l); }
+.sv { font-size: 34px; } .of { font-size: 13px; color: var(--muted); margin-left: 4px; font-weight: 500; }
+.sv.good { color: var(--good); } .sv.mid { color: var(--warn); } .sv.bad { color: var(--crit); }
+.sbar { height: 6px; border-radius: 3px; background: var(--dim-wash); overflow: hidden; margin: 6px 0 2px; }
+.sbar span { display: block; height: 100%; } .sbar .good { background: var(--good); } .sbar .mid { background: var(--warn); } .sbar .bad { background: var(--crit); }
 .td { font-size: 12px; color: var(--ink-2); }
 .td.bad { color: var(--crit); font-weight: 600; } .td.good { color: var(--good); font-weight: 600; }
 .arrow { color: var(--muted); font-weight: 400; }
@@ -927,6 +983,10 @@ td.loss { color: var(--crit); }
 table.var td, table.var th { padding: 5px 8px; font-size: 12.5px; }
 .chart [data-tip] { cursor: default; }
 .chart [data-tip]:hover, .chart .bar:hover { filter: brightness(.9); }
+.exp { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 10px; align-items: flex-start; }
+.exp details.how { margin-top: 0; }
+.exp details.how[open] { flex-basis: 100%; }
+details.how.means summary { color: var(--s3); }
 details.how { margin-top: 10px; font-size: 12.5px; }
 details.how summary { cursor: pointer; color: var(--accent); font-weight: 500; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
 details.how summary::-webkit-details-marker { display: none; }
@@ -935,11 +995,11 @@ details.how[open] summary::before { transform: rotate(45deg); }
 details.how summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 .howb { margin-top: 8px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2); line-height: 1.55; max-width: 90ch; }
 .howb b { color: var(--ink); }
-.tile details.how { margin-top: 6px; } .tile details.how summary { font-size: 11.5px; }
+.tile .exp { margin-top: 6px; gap: 2px 12px; } .tile details.how summary { font-size: 11.5px; }
 table.skill tr.yes td { background: var(--accent-wash); }
 table.skill td { font-size: 12.5px; }
 .k { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-.k.s1 { background: var(--accent); } .k.s0 { background: var(--dim); } .k.s1l { background: var(--accent-l); }
+.k.s1 { background: var(--accent); } .k.s0 { background: var(--dim); } .k.s1l { background: var(--accent-l); } .k.s3 { background: var(--s3); }
 .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.45; box-shadow: 0 6px 24px rgba(0,0,0,.14); max-width: 320px; font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: no-preference) { .chart [data-tip] { transition: filter .12s; } }

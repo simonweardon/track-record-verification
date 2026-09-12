@@ -40,11 +40,13 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                report.py     REPORT.md assembler (+ reconciliation.csv)
                dashboard.py  dashboard.html: inline-SVG charts rendered from the output CSVs, light/dark, hover
                placeholder_brk.py  Berkshire BRK-A monthly placeholder in the statement format
+               placeholder_ticker.py  any listed vehicle as a placeholder (yfinance, distributions reinvested)
+               serve.py      HTTP server: dashboards, /analyze?ticker=, /leaderboard, /status; optional Basic Auth
                reference.py  Ken French factor/market data, monthly + annual (real, cached in data/reference/)
                synthetic.py  placeholder dataset: real-market-driven returns, +2%/yr injected alpha, injected defects
                cli.py        python -m trackrecord {reconcile,returns,attribution,validate,report,synth,brk-placeholder}
 templates/     empty CSVs + ENTRY_GUIDE.md for hand entry
-tests/         66 tests, incl. ground-truth recovery of the injected alpha and an end-to-end CLI run
+tests/         67 tests, incl. ground-truth recovery of the injected alpha and an end-to-end CLI run
 data/entered/  the real normalized CSVs go here (gitignored)
 data/raw/      scans and downloaded PDFs (gitignored)
 data/reference/ cached benchmark/factor data (gitignored; re-fetched on demand)
@@ -57,6 +59,16 @@ datasets in the background (needs network for Ken French factors and yfinance), 
 `/` redirects to the Berkshire dashboard (override with `LANDING=synthetic/dashboard.html`); `/status` lists all outputs.
 Set `DASHBOARD_PASSWORD` on the service to require HTTP Basic Auth — **mandatory before any real statements
 are deployed**. Set `REBUILD=0` to skip rebuilding on restart.
+
+## Analyze any listed portfolio
+The served site has a ticker box on every page (`/analyze?ticker=FCNTX`): it downloads the monthly adjusted
+history via yfinance, builds a one-account placeholder, runs phases 1–4 on the monthly grid (~40 s), and adds
+the result to `/leaderboard`. Works for anything listed — mutual funds, ETFs, holding companies. Private funds
+(Tepper, Baker, …) publish no returns; their 13Fs are a lossy clone at best and are not supported.
+
+Two 0–100 scores on fixed maps (comparable across portfolios): **alpha-maxing** = 50 + 10 × excess %/yr over the
+US market (return only); **wealth-management** = skill evidence 30% + risk-adjusted return 25% + downside
+protection 25% + consistency over rolling 5-year windows 20%. Breakdown on every dashboard and in `phase4/scores.csv`.
 
 ## Setup
 ```
@@ -110,6 +122,7 @@ human re-reads the page.
 - 2026-09-11 · Phase 4 uses French's published annual factors (not compounded monthly long-short factors) for annual cells; Developed set primary, US set as robustness. Null bootstrap and zero-skill cohort both bootstrap the record's own residuals rather than assuming normality.
 - 2026-09-11 · Factor set follows the composite benchmark (US_MKT → US factors primary, DEV as robustness; DEV_MKT → the reverse).
 - 2026-09-11 · Dashboard is generated, not hand-authored: one accent hue for the composite, grey for everything else, status colors reserved for evidence state and always paired with a letter. The hero label reads "unverified" when fewer than half the account-periods are verified.
+- 2026-09-12 · Two scores with fixed 0–100 maps (see above) so firms compare directly; both are placed beside the verdict tiles with full breakdowns. Every disclosure has a plain-language "What it means" beside "How it was calculated". Page declares UTF-8 and the server sends charset headers (mojibake fix).
 - 2026-09-12 · Headline alpha is **Fama–French 3-factor** (configurable `headline_model`); Jensen's alpha (the CAPM intercept) is shown beside it. The zero-skill cohort is matched on the headline model's loadings, not just market beta. A skill table lists Sharpe, Treynor, M², Jensen, FF3 alpha, IR, appraisal ratio, t and cohort percentile, each tagged with what it can say about skill: only the appraisal ratio (α/σε) speaks to skill vs luck, since t ≈ AR × √years. All ratios on one arithmetic-annualized basis.
 - 2026-09-12 · Every dashboard tile and section carries a click-to-expand "how this was calculated" note (native `<details>`), including what "claimed vs verified" means.
 - 2026-09-11 · Tail risk: 95% VaR (historical = 5th percentile, parametric = μ − 1.645σ) and expected shortfall are reported per year from monthly returns where available; on annual cells the within-year figures are marked not observable and a trailing-10-year version is given instead. Risk/return scatter includes every account over its eligible cells.

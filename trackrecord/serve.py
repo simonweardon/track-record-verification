@@ -149,10 +149,10 @@ def leaderboard_rows() -> list[dict]:
 
 
 NAV_CSS = """<style>
-.tr-nav{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:8px 24px;background:var(--surface,#fff);border-bottom:1px solid var(--line,#e3e6ea);font:13px system-ui,-apple-system,sans-serif;color:var(--ink-2,#4a5462)}
-.tr-nav form{display:flex;gap:6px;align-items:center}.tr-nav input{font:inherit;padding:5px 8px;border:1px solid var(--line,#e3e6ea);border-radius:6px;width:130px;background:var(--surface-2,#f7f8fa);color:inherit;text-transform:uppercase}
-.tr-nav button{font:inherit;font-weight:600;padding:5px 10px;border:0;border-radius:6px;background:var(--accent,#2a78d6);color:#fff;cursor:pointer}
-.tr-nav a{color:var(--accent,#2a78d6);text-decoration:none}.tr-nav .quick a{margin-right:10px}.tr-nav .lb{margin-left:auto;font-weight:600}
+.tr-nav{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:7px 28px;background:var(--surface,#fff);border-bottom:1px solid var(--line,#d8dde3);font:13px "Source Sans 3","Segoe UI",system-ui,sans-serif;color:var(--ink-2,#46525f)}
+.tr-nav form{display:flex;gap:6px;align-items:center}.tr-nav input{font:inherit;padding:5px 8px;border:1px solid var(--line,#d8dde3);border-radius:2px;width:130px;background:var(--surface-2,#f7f8fa);color:inherit;text-transform:uppercase}
+.tr-nav button{font:inherit;font-weight:600;padding:5px 12px;border:0;border-radius:2px;background:var(--accent,#245696);color:#fff;cursor:pointer;letter-spacing:.04em}
+.tr-nav a{color:var(--accent,#245696);text-decoration:none}.tr-nav .quick a{margin-right:10px}.tr-nav .lb{margin-left:auto;font-weight:600}
 </style>"""
 
 

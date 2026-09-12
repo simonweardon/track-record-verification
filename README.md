@@ -44,7 +44,7 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                synthetic.py  placeholder dataset: real-market-driven returns, +2%/yr injected alpha, injected defects
                cli.py        python -m trackrecord {reconcile,returns,attribution,validate,report,synth,brk-placeholder}
 templates/     empty CSVs + ENTRY_GUIDE.md for hand entry
-tests/         65 tests, incl. ground-truth recovery of the injected alpha and an end-to-end CLI run
+tests/         66 tests, incl. ground-truth recovery of the injected alpha and an end-to-end CLI run
 data/entered/  the real normalized CSVs go here (gitignored)
 data/raw/      scans and downloaded PDFs (gitignored)
 data/reference/ cached benchmark/factor data (gitignored; re-fetched on demand)
@@ -110,6 +110,8 @@ human re-reads the page.
 - 2026-09-11 · Phase 4 uses French's published annual factors (not compounded monthly long-short factors) for annual cells; Developed set primary, US set as robustness. Null bootstrap and zero-skill cohort both bootstrap the record's own residuals rather than assuming normality.
 - 2026-09-11 · Factor set follows the composite benchmark (US_MKT → US factors primary, DEV as robustness; DEV_MKT → the reverse).
 - 2026-09-11 · Dashboard is generated, not hand-authored: one accent hue for the composite, grey for everything else, status colors reserved for evidence state and always paired with a letter. The hero label reads "unverified" when fewer than half the account-periods are verified.
+- 2026-09-12 · Headline alpha is **Fama–French 3-factor** (configurable `headline_model`); Jensen's alpha (the CAPM intercept) is shown beside it. The zero-skill cohort is matched on the headline model's loadings, not just market beta. A skill table lists Sharpe, Treynor, M², Jensen, FF3 alpha, IR, appraisal ratio, t and cohort percentile, each tagged with what it can say about skill: only the appraisal ratio (α/σε) speaks to skill vs luck, since t ≈ AR × √years. All ratios on one arithmetic-annualized basis.
+- 2026-09-12 · Every dashboard tile and section carries a click-to-expand "how this was calculated" note (native `<details>`), including what "claimed vs verified" means.
 - 2026-09-11 · Tail risk: 95% VaR (historical = 5th percentile, parametric = μ − 1.645σ) and expected shortfall are reported per year from monthly returns where available; on annual cells the within-year figures are marked not observable and a trailing-10-year version is given instead. Risk/return scatter includes every account over its eligible cells.
 - 2026-09-11 · Every rolling / sub-period result is reported next to its noise floor (SE from residual volatility). On the placeholder, true alpha is constant yet 10-year rolling alpha ranges +4.2% to −2.7% and the 2010 split "changes" at p = 0.03 — that is what noise looks like.
 

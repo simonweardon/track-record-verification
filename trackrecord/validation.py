@@ -52,6 +52,7 @@ class ValidationConfig:
     periods_per_year: int = 1          # 1 annual, 12 monthly
     factor_set: str = "DEV"
     robustness_set: str = "US"
+    headline_model: str = "FF3"        # the alpha the report leads with; CAPM alpha (Jensen) is shown beside it
     n_boot: int = 5000
     n_cohort: int = 10000
     split_year: int = 2010
@@ -72,6 +73,7 @@ class Phase4Result:
     subperiods: pd.DataFrame
     risk_by_year: pd.DataFrame
     risk_return: pd.DataFrame
+    skill: pd.DataFrame                  # CFA-style ratios with what each can and cannot say about skill
     config: ValidationConfig
     notes: list[str] = field(default_factory=list)
 
@@ -288,12 +290,16 @@ def null_bootstrap(df: pd.DataFrame, model: str, cfg: ValidationConfig) -> dict:
                 share_boot_alpha_below_zero=float((A <= 0).mean()), n_boot=cfg.n_boot)
 
 
-def random_cohort(df: pd.DataFrame, cfg: ValidationConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Zero-skill managers with the record's own beta and residual volatility."""
-    sub = df[["y", "MKT_RF", "RF", "r_b"]].dropna()
-    x = sub.MKT_RF.values; y = sub.y.values; rf = sub.RF.values; rb = sub.r_b.values
-    fit = sm.OLS(y, sm.add_constant(x)).fit()
-    beta, sig = fit.params[1], np.sqrt(fit.mse_resid)
+def random_cohort(df: pd.DataFrame, cfg: ValidationConfig, model: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Zero-skill managers with the record's own factor loadings (headline model)
+    and residual volatility.  alpha = 0 by construction; residuals bootstrapped
+    from the record's own."""
+    model = model or cfg.headline_model
+    facs = MODELS[model]
+    sub = df[["y", "RF", "r_b", "r_p"] + facs].dropna()
+    X = sub[facs].values; y = sub.y.values; rf = sub.RF.values; rb = sub.r_b.values
+    fit = sm.OLS(y, sm.add_constant(X)).fit()
+    b = fit.params[1:]; sig = np.sqrt(fit.mse_resid)
     resid = fit.resid - fit.resid.mean()
     n = len(y); ppy = cfg.periods_per_year; years = n / ppy
     rng = np.random.default_rng(cfg.seed + 1)
@@ -301,24 +307,26 @@ def random_cohort(df: pd.DataFrame, cfg: ValidationConfig) -> tuple[pd.DataFrame
     def headline_excess(rp, rbb):
         return (1 + rp).prod() ** (1 / years) - (1 + rbb).prod() ** (1 / years)
 
-    actual_excess = headline_excess(sub.r_p.values if "r_p" in sub else y + rf, rb)
+    actual_excess = headline_excess(sub.r_p.values, rb)
     actual_t = fit.tvalues[0]
     out = []; samples = {}
     for variant in ["same market path", "market path resampled"]:
         ex = np.empty(cfg.n_cohort); ts = np.empty(cfg.n_cohort)
         for k in range(cfg.n_cohort):
             if variant == "same market path":
-                xi, rfi, rbi = x, rf, rb
+                Xi, rfi, rbi = X, rf, rb
             else:
-                idx = rng.integers(0, n, n); xi, rfi, rbi = x[idx], rf[idx], rb[idx]
-            e = rng.choice(resid, n, replace=True)          # bootstrap residuals (no normality assumed)
-            yi = beta * xi + e                               # alpha = 0
+                idx = rng.integers(0, n, n); Xi, rfi, rbi = X[idx], rf[idx], rb[idx]
+            e = rng.choice(resid, n, replace=True)
+            yi = Xi @ b + e                                  # alpha = 0
             rpi = yi + rfi
             ex[k] = headline_excess(rpi, rbi)
-            f = sm.OLS(yi, sm.add_constant(xi)).fit()
+            f = sm.OLS(yi, sm.add_constant(Xi)).fit()
             ts[k] = f.tvalues[0]
         samples[variant] = ex
-        out.append(dict(variant=variant, n_managers=cfg.n_cohort, beta=beta, resid_sd_annual=sig * np.sqrt(ppy),
+        out.append(dict(variant=variant, model=model, n_managers=cfg.n_cohort, beta=float(b[0]),
+                        loadings=" ".join(f"{f_}={v:.2f}" for f_, v in zip(facs, b)),
+                        resid_sd_annual=sig * np.sqrt(ppy),
                         actual_headline_excess=actual_excess,
                         percentile_by_headline_excess=float((ex < actual_excess).mean() * 100),
                         cohort_excess_p5=float(np.percentile(ex, 5)), cohort_excess_p50=float(np.percentile(ex, 50)),
@@ -326,6 +334,66 @@ def random_cohort(df: pd.DataFrame, cfg: ValidationConfig) -> tuple[pd.DataFrame
                         actual_t_alpha=actual_t, percentile_by_t_alpha=float((ts < actual_t).mean() * 100),
                         share_of_zero_skill_managers_beating_actual=float((ex >= actual_excess).mean())))
     return pd.DataFrame(out), pd.DataFrame(samples)
+
+
+def skill_metrics(df: pd.DataFrame, regs: pd.DataFrame, cfg: ValidationConfig, boot: pd.DataFrame,
+                  cohort: pd.DataFrame) -> pd.DataFrame:
+    """The CFA performance-appraisal ratios, each tagged with what it can say about
+    skill.  Only the appraisal ratio (alpha / residual risk) speaks to skill vs luck,
+    because it scales into the t-statistic:  t ≈ appraisal ratio × √years."""
+    ppy = cfg.periods_per_year
+    d = df.dropna(subset=["r_p", "r_b", "RF"])
+    n = len(d); years = n / ppy
+    # arithmetic annualized basis throughout, matching risk_metrics' Sharpe
+    y, yb = d.r_p - d.RF, d.r_b - d.RF
+    rf = float(d.RF.mean() * ppy); rb = float(d.r_b.mean() * ppy)
+    sd_b = float(d.r_b.std(ddof=1) * np.sqrt(ppy))
+    act = d.r_p - d.r_b
+    R = regs.set_index(["factor_set", "model"])
+    capm = R.loc[(cfg.factor_set, "CAPM")]; head = R.loc[(cfg.factor_set, cfg.headline_model)]
+    beta = float(capm.b_MKT_RF)
+    sharpe_p = float(y.mean() / y.std(ddof=1) * np.sqrt(ppy)); sharpe_b = float(yb.mean() / yb.std(ddof=1) * np.sqrt(ppy))
+    treynor_p, treynor_b = float(y.mean() * ppy / beta), float(yb.mean() * ppy)
+    m2 = rf + sharpe_p * sd_b
+    ir = float(act.mean() / act.std(ddof=1) * np.sqrt(ppy)) if act.std(ddof=1) > 0 else np.nan
+    ar_capm = float(capm.alpha_annual / capm.resid_sd_annual)
+    ar_head = float(head.alpha_annual / head.resid_sd_annual)
+    bt = boot.set_index("model")
+    coh = cohort.iloc[0]
+    rows = [
+        dict(ratio="Sharpe ratio", value=sharpe_p, benchmark=sharpe_b, fmt="num",
+             formula="mean(R_p − RF) / σ(R_p − RF), annualized (arithmetic)",
+             measures="return per unit of total risk", skill="No — a leveraged index fund scores the same."),
+        dict(ratio="Treynor ratio", value=treynor_p, benchmark=treynor_b, fmt="pct",
+             formula="mean(R_p − RF) / β_CAPM, annualized",
+             measures="excess return per unit of market beta", skill="No — silent on whether the beta was earned or bought."),
+        dict(ratio="M² (Modigliani)", value=m2, benchmark=rb, fmt="pct",
+             formula="RF + Sharpe_p × σ_benchmark  (arithmetic annualized)",
+             measures="the Sharpe ratio restated as a return at benchmark risk", skill="No — same information as Sharpe."),
+        dict(ratio="Jensen's alpha (CAPM)", value=float(capm.alpha_annual), benchmark=0.0, fmt="pct",
+             formula="intercept of R_p − RF = α + β(Mkt − RF) + ε",
+             measures="return above what market exposure alone explains", skill="Partly — but it credits size and value tilts as skill."),
+        dict(ratio=f"{cfg.headline_model} alpha", value=float(head.alpha_annual), benchmark=0.0, fmt="pct",
+             formula="intercept of R_p − RF = α + Σ b_k f_k + ε  (Mkt−RF, SMB, HML" + (", MOM" if cfg.headline_model == "Carhart4" else ", RMW, CMA" if cfg.headline_model == "FF5" else "") + ")",
+             measures="return above market, size and value premia an index fund could buy", skill="The candidate for skill — a size, not a probability."),
+        dict(ratio="Information ratio", value=ir, benchmark=np.nan, fmt="num",
+             formula="mean(R_p − R_b) / σ(R_p − R_b), annualized",
+             measures="consistency of beating the benchmark", skill="Consistency, but mixes beta differences with alpha."),
+        dict(ratio="Appraisal ratio (CAPM)", value=ar_capm, benchmark=np.nan, fmt="num",
+             formula="α_CAPM / σ(ε_CAPM), annualized",
+             measures="alpha per unit of idiosyncratic risk", skill="Yes — × √years ≈ the t-statistic of Jensen's alpha."),
+        dict(ratio=f"Appraisal ratio ({cfg.headline_model})", value=ar_head, benchmark=np.nan, fmt="num",
+             formula=f"α_{cfg.headline_model} / σ(ε), annualized",
+             measures="alpha per unit of risk the factors do not explain",
+             skill=f"Yes — {ar_head:.2f} × √{years:.0f} ≈ {ar_head * np.sqrt(years):.1f} = t; observed t = {head.t:.2f}."),
+        dict(ratio="t-statistic of alpha", value=float(head.t), benchmark=np.nan, fmt="num",
+             formula="α / SE(α)", measures="how many standard errors the alpha sits from zero",
+             skill=f"The direct test: p = {head.p:.3f} (parametric), {bt.loc[cfg.headline_model].p_null_one_sided:.3f} (bootstrap)." if cfg.headline_model in bt.index else "The direct test."),
+        dict(ratio="Zero-skill cohort percentile", value=float(coh.percentile_by_headline_excess), benchmark=np.nan, fmt="pctile",
+             formula=f"share of {int(coh.n_managers):,} simulated no-skill managers (same loadings, same residual risk) below the record",
+             measures="where the record falls among pure luck", skill=f"Yes — {coh.share_of_zero_skill_managers_beating_actual:.1%} of luck-only managers did as well."),
+    ]
+    return pd.DataFrame(rows)
 
 
 # ---- rolling and sub-periods ------------------------------------------------------
@@ -398,6 +466,7 @@ def build(comp: pd.DataFrame, factors: pd.DataFrame, cfg: ValidationConfig = Val
     sp = pd.concat([subperiods(df, cfg, "CAPM"), subperiods(df, cfg, "FF3")], ignore_index=True)
     rby = risk_by_year(df, cfg.periods_per_year)
     rr = risk_return_points(comp, df, cfg.periods_per_year, account_periods)
+    skill = skill_metrics(df, regressions, cfg, boot, cohort)
     n = int(df.y.notna().sum())
     capm = regressions[(regressions.factor_set == cfg.factor_set) & (regressions.model == "CAPM")]
     if len(capm) and not pd.isna(capm.iloc[0].get("resid_sd_annual", np.nan)):
@@ -416,7 +485,7 @@ def build(comp: pd.DataFrame, factors: pd.DataFrame, cfg: ValidationConfig = Val
                      "cannot support is short rolling windows, drawdown, and multi-factor loadings.")
         notes.append("3- and 5-year rolling alpha requires monthly data; shown here are a 5-year rolling "
                      "excess return (descriptive) and a 10-year rolling CAPM alpha (weak inference).")
-    return Phase4Result(df, regressions, metrics, boot, cohort, cohort_samples, roll, sp, rby, rr, cfg, notes)
+    return Phase4Result(df, regressions, metrics, boot, cohort, cohort_samples, roll, sp, rby, rr, skill, cfg, notes)
 
 
 def _pct(x, d=2):
@@ -435,20 +504,23 @@ def write_phase4(res: Phase4Result, out_dir, title="Phase 4 — statistical vali
     res.cohort.to_csv(out / "cohort.csv", index=False); res.rolling.to_csv(out / "rolling.csv")
     res.cohort_samples.to_csv(out / "cohort_samples.csv", index=False)
     res.risk_by_year.to_csv(out / "risk_by_year.csv"); res.risk_return.to_csv(out / "risk_return.csv", index=False)
+    res.skill.to_csv(out / "skill.csv", index=False)
     res.subperiods.to_csv(out / "subperiods.csv", index=False)
     cfg = res.config; R = res.regressions; ppy = cfg.periods_per_year
     unit = "year" if ppy == 1 else "month"
 
     L = [f"# {title}", ""]
-    prim = R[(R.factor_set == cfg.factor_set) & (R.model == "CAPM")].iloc[0]
+    prim = R[(R.factor_set == cfg.factor_set) & (R.model == cfg.headline_model)].iloc[0]
+    jens = R[(R.factor_set == cfg.factor_set) & (R.model == "CAPM")].iloc[0]
     L += ["## The one-paragraph answer", ""]
     verdict = ("statistically distinguishable from zero at the 5% level" if prim.p < 0.05 else
                "suggestive but not statistically distinguishable from zero at the 5% level" if prim.p < 0.15 else
                "not distinguishable from zero")
-    L += [f"CAPM alpha vs {cfg.factor_set} market over {int(prim.n)} {unit}s: **{_pct(prim.alpha_annual)}/yr** "
+    L += [f"{cfg.headline_model} alpha vs {cfg.factor_set} factors over {int(prim.n)} {unit}s: **{_pct(prim.alpha_annual)}/yr** "
           f"(95% CI {_pct(prim.ci_low_annual)} to {_pct(prim.ci_high_annual)}, t = {prim.t:.2f}, p = {prim.p:.3f}) — "
-          f"{verdict}. Beta {prim.b_MKT_RF:.2f}, R² {prim.r2:.2f}.", ""]
-    b = res.bootstrap[res.bootstrap.model == "CAPM"].iloc[0]
+          f"{verdict}. Market beta {prim.b_MKT_RF:.2f}, R² {prim.r2:.2f}. Jensen's alpha (CAPM intercept) "
+          f"{_pct(jens.alpha_annual)}/yr (95% CI {_pct(jens.ci_low_annual)} to {_pct(jens.ci_high_annual)}).", ""]
+    b = res.bootstrap[res.bootstrap.model == cfg.headline_model].iloc[0]
     c = res.cohort.iloc[0]
     L += [f"Null bootstrap: if true alpha were zero, a t-statistic this large would occur "
           f"**{b.p_null_one_sided:.1%}** of the time. Among {int(c.n_managers):,} simulated zero-skill managers "
@@ -508,6 +580,17 @@ def write_phase4(res: Phase4Result, out_dir, title="Phase 4 — statistical vali
                      f"{_pct(r.return_b)} | {_pct(r.trailing_vol_b, 1)} | {_pct(r.trailing_var95_hist_b)} |")
     L.append("")
 
+    L += ["## Skill or luck — which ratio answers it", "",
+          "Risk-adjusted ratios measure return per unit of risk; none of them distinguishes skill from luck. "
+          "The question is statistical: how consistently did the alpha show up relative to its noise? The appraisal "
+          "ratio (alpha ÷ residual volatility) carries exactly that, because t ≈ appraisal ratio × √years.", "",
+          "| ratio | portfolio | benchmark | formula | measures | speaks to skill? |", "|---|---|---|---|---|---|"]
+    for _, k in res.skill.iterrows():
+        v = {"pct": _pct(k.value), "num": f"{k.value:.2f}", "pctile": f"{k.value:.0f}th"}[k.fmt]
+        bv = "" if pd.isna(k.benchmark) else ({"pct": _pct(k.benchmark), "num": f"{k.benchmark:.2f}", "pctile": ""}[k.fmt])
+        L.append(f"| {k.ratio} | **{v}** | {bv} | {k.formula} | {k.measures} | {k.skill} |")
+    L.append("")
+
     L += ["## Bootstrap", "", "| model | n | alpha/yr | t observed | p (null, one-sided) | p (two-sided) | "
           "bootstrap 95% CI for alpha | share of resamples with alpha ≤ 0 |", "|---|---|---|---|---|---|---|---|"]
     for _, b in res.bootstrap.iterrows():
@@ -517,7 +600,8 @@ def write_phase4(res: Phase4Result, out_dir, title="Phase 4 — statistical vali
     L += ["", f"{int(res.bootstrap.n_boot.iloc[0]):,} resamples of {unit}s with replacement. The null bootstrap "
           "imposes alpha = 0 and asks how often chance alone produces a t-statistic as large as the observed one.", ""]
 
-    L += ["## Random-manager cohort", "", "| variant | managers | beta | resid. vol/yr | actual excess/yr | "
+    L += ["## Random-manager cohort", "", f"Matched on the {res.cohort.iloc[0].model} loadings ({res.cohort.iloc[0].loadings}).", "",
+          "| variant | managers | beta | resid. vol/yr | actual excess/yr | "
           "cohort p5 | p50 | p95 | percentile (excess) | percentile (t-alpha) | zero-skill managers ≥ actual |",
           "|---|---|---|---|---|---|---|---|---|---|---|"]
     for _, c in res.cohort.iterrows():

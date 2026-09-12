@@ -45,15 +45,18 @@ BENCH_NAMES = {"US_MKT": "Ken French US market total return", "DEV_MKT": "Ken Fr
 
 
 def write_report(res1, res2, res3, res4, out_dir, data_dir, claimed: float | None = None,
-                 placeholder: bool = False, placeholder_note: str = "placeholder data") -> Path:
+                 placeholder: bool = False, placeholder_note: str = "placeholder data",
+                 claimed_note: str = "") -> Path:
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     st = res1.statements; comp = res2.composite; acc = res2.accounts; cfg = res2.config
     g = series_stats(comp.gross, comp.years); n = series_stats(comp.model_net, comp.years)
     b = series_stats(comp.benchmark, comp.years); surv = series_stats(comp.survivors_only, comp.years)
     pri = series_stats(comp.principal_only, comp.years); cli = series_stats(comp.clients_only, comp.years)
     R = res4.regressions.set_index(["factor_set", "model"])
-    capm = R.loc[(res4.config.factor_set, "CAPM")]
-    boot = res4.bootstrap.set_index("model").loc["CAPM"]
+    hm = res4.config.headline_model
+    capm = R.loc[(res4.config.factor_set, hm)]          # headline model (FF3 by default)
+    jens = R.loc[(res4.config.factor_set, "CAPM")]      # Jensen's alpha = CAPM intercept
+    boot = res4.bootstrap.set_index("model").loc[hm]
     coh = res4.cohort.iloc[0]
     s1 = res1.summary()
 
@@ -74,12 +77,15 @@ def write_report(res1, res2, res3, res4, out_dir, data_dir, claimed: float | Non
           f"| Composite, model-net ({cfg.fee.describe()}) | {_pct(n['annualized'])} | same | **assumed** fee schedule |",
           f"| Benchmark ({bench_id}) | {_pct(b['annualized'])} | same | {BENCH_NAMES.get(bench_id, bench_id)} |",
           f"| Excess over benchmark, gross | {_pct(g['annualized'] - b['annualized'])}/yr | same | |",
-          f"| CAPM alpha (95% CI) | {_pct(capm.alpha_annual)} ({_pct(capm.ci_low_annual, 1)} … {_pct(capm.ci_high_annual, 1)}) | {int(capm.n)} obs | t = {capm.t:.2f}, p = {capm.p:.3f} |",
-          f"| Chance a zero-skill manager matches this | {coh.share_of_zero_skill_managers_beating_actual:.1%} | | {int(coh.n_managers):,}-manager simulation, same beta & residual risk |", ""]
+          f"| {hm} alpha (95% CI) | {_pct(capm.alpha_annual)} ({_pct(capm.ci_low_annual, 1)} … {_pct(capm.ci_high_annual, 1)}) | {int(capm.n)} obs | t = {capm.t:.2f}, p = {capm.p:.3f}; market, size and value premia removed |",
+          f"| Jensen's alpha (CAPM, 95% CI) | {_pct(jens.alpha_annual)} ({_pct(jens.ci_low_annual, 1)} … {_pct(jens.ci_high_annual, 1)}) | {int(jens.n)} obs | t = {jens.t:.2f}; market premium only |",
+          f"| Chance a zero-skill manager matches this | {coh.share_of_zero_skill_managers_beating_actual:.1%} | | {int(coh.n_managers):,}-manager simulation, same {coh.model} loadings & residual risk |", ""]
     if claimed is not None:
         gap = g["annualized"] - claimed
-        L += [f"Claimed: **{_pct(claimed)}**. Verified composite: **{_pct(g['annualized'])}**. "
-              f"Gap: **{_pct(gap)}/yr**." + ("" if gap >= 0 else " See §3 for where the difference is likely to come from."), ""]
+        L += [f"Claimed: **{_pct(claimed)}** — the figure the manager states, taken as an input. "
+              f"Verified composite: **{_pct(g['annualized'])}** — computed above from the statements. "
+              f"Gap: **{_pct(gap)}/yr**." + (f" {claimed_note}" if claimed_note else "")
+              + ("" if gap >= 0 else " See §3 for where the difference is likely to come from."), ""]
 
     # 2. verified / estimated / unknown
     tot_ay = int(comp.n.sum()); ver = int(comp.n_verified.sum()); unv = int(comp.n_unverified.sum())
@@ -130,10 +136,11 @@ def write_report(res1, res2, res3, res4, out_dir, data_dir, claimed: float | Non
 
     # 4. stability
     sp = res4.subperiods.set_index(["model", "segment"])
-    pre = sp.loc[("CAPM", f"before {res4.config.split_year}")]; post = sp.loc[("CAPM", f"{res4.config.split_year} onward")]
-    diff = sp.loc[("CAPM", "difference (post − pre)")]
+    sm_ = hm if hm in set(sp.index.get_level_values(0)) else "CAPM"
+    pre = sp.loc[(sm_, f"before {res4.config.split_year}")]; post = sp.loc[(sm_, f"{res4.config.split_year} onward")]
+    diff = sp.loc[(sm_, "difference (post − pre)")]
     L += ["## 4. Is it stable?", "",
-          f"CAPM alpha before {res4.config.split_year}: {_pct(pre.alpha_annual)} (SE {_pct(pre.se_annual, 1)}, p = {pre.p:.2f}); from "
+          f"{sm_} alpha before {res4.config.split_year}: {_pct(pre.alpha_annual)} (SE {_pct(pre.se_annual, 1)}, p = {pre.p:.2f}); from "
           f"{res4.config.split_year}: {_pct(post.alpha_annual)} (SE {_pct(post.se_annual, 1)}, p = {post.p:.2f}); "
           f"difference {_pct(diff.alpha_annual)} (p = {diff.p:.2f}).",
           "With standard errors that size, halves of a record with *constant* true alpha will differ by "

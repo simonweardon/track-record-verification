@@ -107,8 +107,8 @@ def cmd_validate(a):
         _, _, _, _, res4 = _stack(a)
     except SchemaError as e:
         print(f"schema error: {e}", file=sys.stderr); return 2
-    R = res4.regressions.set_index(["factor_set", "model"]).loc[(res4.config.factor_set, "CAPM")]
-    print(f"CAPM alpha {R.alpha_annual:+.2%}/yr (95% CI {R.ci_low_annual:+.2%} … {R.ci_high_annual:+.2%}), t={R.t:.2f}, p={R.p:.3f}")
+    R = res4.regressions.set_index(["factor_set", "model"]).loc[(res4.config.factor_set, res4.config.headline_model)]
+    print(f"{res4.config.headline_model} alpha {R.alpha_annual:+.2%}/yr (95% CI {R.ci_low_annual:+.2%} … {R.ci_high_annual:+.2%}), t={R.t:.2f}, p={R.p:.3f}")
     print(f"report: {write_phase4(res4, a.out)}"); return 0
 
 
@@ -130,12 +130,17 @@ def cmd_report(a):
         "synthetic": "a synthetic dataset built to exercise the pipeline (real market history, invented accounts, +2%/yr injected alpha)",
         "brk": "Berkshire Hathaway Class A's public monthly price series (1985–2026), a real and famous record used to demonstrate the pipeline; a price feed is not a custodian statement, so every period is honestly marked unverified",
     }.get(Path(a.data).name, "placeholder data")
+    claimed_note = a.claimed_note or {
+        "brk": "For this placeholder the 'claim' is Berkshire's own letter figure — 19.8%/yr compounded gain in per-share market value, 1965–2024 — while the verified series covers 1985–2026 only; most of the gap is the missing 1965–84 years, which were the strongest.",
+        "synthetic": "For this placeholder the 'claim' is a hypothetical 14%; the true injected alpha is +2%/yr over the market.",
+    }.get(Path(a.data).name, "")
     path = write_report(res1, res2, res3, res4, out, a.data, claimed=a.claimed, placeholder=placeholder,
-                        placeholder_note=note)
+                        placeholder_note=note, claimed_note=claimed_note)
     from .dashboard import build_dashboard
     label = {"synthetic": "synthetic placeholder accounts", "brk": "Berkshire Hathaway Class A, public price series"}.get(Path(a.data).name, "")
     dash = build_dashboard(out, claimed=a.claimed, placeholder=placeholder, placeholder_note=note,
-                           fee_desc=res2.config.fee.describe(), data_label=label)
+                           fee_desc=res2.config.fee.describe(), data_label=label, claimed_note=claimed_note,
+                           headline_model=res4.config.headline_model)
     print(f"report: {path}\ndashboard: {dash}"); return 0
 
 
@@ -201,6 +206,7 @@ def main(argv=None):
             q.add_argument("--claimed", type=float, default=None, help="claimed annualized return, e.g. 0.14")
             q.add_argument("--placeholder", action="store_true", help="stamp the report as placeholder data")
             q.add_argument("--placeholder-note", default=None, help="what the placeholder data is")
+            q.add_argument("--claimed-note", default=None, help="where the claimed figure comes from")
         q.set_defaults(fn=fn)
 
     sv = sub.add_parser("serve", help="serve output/ over HTTP; builds placeholder outputs in the background")

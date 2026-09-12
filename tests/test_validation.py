@@ -50,14 +50,32 @@ def test_all_models_both_sets_ran(r4):
 
 def test_bootstrap_and_cohort_agree_with_parametric(r4):
     res, _ = r4
-    R = res.regressions.set_index(["factor_set", "model"]).loc[("DEV", "CAPM")]
-    b = res.bootstrap.set_index("model").loc["CAPM"]
+    hm = res.config.headline_model
+    R = res.regressions.set_index(["factor_set", "model"]).loc[("DEV", hm)]
+    b = res.bootstrap.set_index("model").loc[hm]
     assert abs(b.p_null_one_sided - R.p / 2) < 0.06        # same question, similar answer
     assert b.alpha_ci_low_annual < R.alpha_annual < b.alpha_ci_high_annual
     c = res.cohort.set_index("variant").loc["same market path"]
-    assert c.beta == pytest.approx(R.b_MKT_RF, abs=1e-9)
+    assert c.model == hm
+    assert c.beta == pytest.approx(R.b_MKT_RF, abs=1e-9)   # cohort matched on the headline model's loadings
     assert 80 <= c.percentile_by_headline_excess <= 100
     assert abs((100 - c.percentile_by_t_alpha) / 100 - b.p_null_one_sided) < 0.08
+
+
+def test_skill_table_appraisal_ratio_scales_to_t(r4):
+    res, _ = r4
+    k = res.skill.set_index("ratio")
+    hm = res.config.headline_model
+    R = res.regressions.set_index(["factor_set", "model"]).loc[("DEV", hm)]
+    ar = k.loc[f"Appraisal ratio ({hm})", "value"]
+    years = res.data.y.notna().sum() / res.config.periods_per_year
+    assert ar == pytest.approx(R.alpha_annual / R.resid_sd_annual)
+    assert ar * np.sqrt(years) == pytest.approx(R.t, rel=0.25)   # t ≈ AR × √years, up to the factor-mean correction (large on 29 obs)
+    assert k.loc["Jensen's alpha (CAPM)", "value"] == pytest.approx(
+        res.regressions.set_index(["factor_set", "model"]).loc[("DEV", "CAPM"), "alpha_annual"])
+    assert k.loc["Sharpe ratio", "value"] == pytest.approx(
+        res.metrics.set_index("metric").loc["Sharpe (excess over RF)", "portfolio"], abs=0.02)
+    assert (k.skill.str.len() > 0).all()
 
 
 def test_cohort_median_zero_skill_manager_has_near_zero_excess(r4):

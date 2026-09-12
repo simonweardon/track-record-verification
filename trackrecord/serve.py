@@ -2,7 +2,8 @@
 
 - Listens on $PORT immediately; builds the outputs in a background thread so
   the platform's healthcheck passes while the pipeline runs.
-- Serves output/ — index page, dashboards, markdown reports, CSVs.
+- Serves output/ — `/` redirects to the landing dashboard (LANDING, default
+  brk/dashboard.html) once built; `/status` lists everything and shows the build log.
 - Optional HTTP Basic Auth: set DASHBOARD_PASSWORD (username is anything).
   Leave unset only while the data is placeholder; real statements must never
   be reachable without it.
@@ -135,7 +136,13 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
         if not self._authorized():
             return self._deny()
-        if self.path in ("/", "/index.html"):
+        if self.path == "/":
+            landing = os.environ.get("LANDING", "brk/dashboard.html").lstrip("/")
+            if (OUT / landing).exists():          # go straight to the dashboard once it's built
+                self.send_response(302); self.send_header("Location", "/" + landing)
+                self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", "0")
+                self.end_headers(); return
+        if self.path in ("/", "/status", "/index.html"):
             body = index_html().encode()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")

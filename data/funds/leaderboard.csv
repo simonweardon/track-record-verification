@@ -1,0 +1,4 @@
+slug,name,manager,style,style_name,status,months,first,last,coverage,excess,alpha_maxing,wealth,ff3_alpha,ff3_t,twr,bench
+appaloosa,Appaloosa,David Tepper,event,Event-driven / credit,ok,157,2013-09-30,2026-09-30,0.8464877964608533,0.022855130836217,72.85513083621704,42.07364135427876,0.0051164495442872,0.168992978454996,0.16268273622808604,0.13962966384428532
+atreides,Atreides Management,Gavin Baker,ls,Long/short equity,ok,79,2020-03-31,2026-09-30,0.9144121105100802,0.1342017866308404,100.0,57.44614141110733,0.1128608549978271,1.9445327198633116,0.34560573252760896,0.19849878387878572
+situational-awareness,Situational Awareness,Leopold Aschenbrenner,ls,Long/short equity,insufficient,19,2025-03-31,2026-09-30,,,,,,,,

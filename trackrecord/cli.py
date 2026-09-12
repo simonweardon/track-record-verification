@@ -198,6 +198,7 @@ def cmd_funds_score(a):
         if sc.exists():
             import pandas as pd
             s_ = pd.read_csv(sc); reg = pd.read_csv(out / "phase4" / "regressions.csv"); comp = pd.read_csv(out / "phase2" / "composite_returns.csv", index_col=0)
+            comp.index = pd.PeriodIndex(comp.index, freq="M")
             from .composite import series_stats
             am = s_[s_.score == "Alpha-maxing score"].iloc[0]; wm = s_[(s_.score == "Wealth-management score") & (s_.component == "TOTAL")].iloc[0]
             r = reg[(reg.factor_set == "US") & (reg.model == "FF3")].iloc[0]

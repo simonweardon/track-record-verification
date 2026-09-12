@@ -260,7 +260,7 @@ def leaderboard_rows() -> list[dict]:
 
 
 NAV_CSS = """<style>
-.tr-nav{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:7px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
+.tr-nav{position:sticky;top:0;z-index:6;display:flex;gap:8px 18px;align-items:center;padding:8px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
 .tr-nav form{display:flex;gap:6px;align-items:center}.tr-nav input{font:inherit;padding:5px 8px;border:1px solid var(--line,#e4dfd2);width:130px;background:var(--surface-2,#f3f0e8);color:inherit;text-transform:uppercase}
 .tr-nav button{font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;padding:7px 12px;border:0;background:var(--navy,#1b2a41);color:#e8e4da;cursor:pointer}
 .tr-nav a{color:var(--navy,#1b2a41);text-decoration:none}.tr-nav .quick a{margin-right:10px;font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.12em}.tr-nav .lb{margin-left:auto;font-weight:700}
@@ -268,33 +268,95 @@ NAV_CSS = """<style>
 
 
 def nav_html() -> str:
-    return (NAV_CSS + '<div class="tr-nav"><span class="quick"><a href="/managers">Managers</a><a href="/leaderboard">Leaderboard</a><a href="/">Berkshire</a></span>'
-            '<form action="/analyze" method="get"><label for="tk">or any listed fund / stock:</label>'
-            '<input id="tk" name="ticker" placeholder="ticker" required pattern="[A-Za-z0-9.\-]{1,12}"><button>Go</button></form>'
-            '<a class="lb" href="/status">All outputs</a></div>')
+    return (NAV_CSS + '<div class="tr-nav"><a href="/">&larr; All managers</a></div>')
 
 
 def page(title: str, body: str, refresh: int | None = None) -> str:
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title>{f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ''}
-<style>body{{font:15px/1.5 system-ui,-apple-system,sans-serif;max-width:860px;margin:32px auto;padding:0 20px;color:#141a22;background:#f3f5f7}}
-h1{{font-size:24px;margin:0 0 4px}}.sub{{color:#4a5462;margin:0 0 20px}}table{{border-collapse:collapse;width:100%}}td,th{{padding:9px 8px;border-bottom:1px solid #e3e6ea;vertical-align:top;text-align:left}}th{{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0}}td.n,th.n{{text-align:right;font-variant-numeric:tabular-nums}}
-.banner{{background:#fff4d6;border:1px solid #f0c96a;color:#5c4300;padding:10px 14px;border-radius:8px;margin-bottom:20px}}
-pre{{background:#fff;border:1px solid #e3e6ea;border-radius:8px;padding:12px;font-size:12px;overflow-x:auto}}.err{{color:#d03b3b}}
-.status{{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#e3e6ea}}a{{color:#2a78d6}}
-.sc{{display:inline-block;min-width:34px;text-align:center;padding:2px 8px;border-radius:6px;font-weight:600;color:#fff}}.g{{background:#0ca30c}}.m{{background:#d99a00}}.b{{background:#d03b3b}}
-form{{display:flex;gap:8px;margin:12px 0 20px}}input{{font:inherit;padding:8px 10px;border:1px solid #c9ced4;border-radius:8px;flex:1;text-transform:uppercase}}button{{font:inherit;font-weight:600;padding:8px 14px;border:0;border-radius:8px;background:#2a78d6;color:#fff}}
-@media(prefers-color-scheme:dark){{body{{background:#0f1317;color:#eef1f4}}td,th{{border-color:#2a313a}}pre{{background:#171c22;border-color:#2a313a}}.banner{{background:#3a2e08;border-color:#7a5f10;color:#ffe6a3}}.status{{background:#2a313a}}input{{background:#171c22;color:#eef1f4;border-color:#2a313a}}}}</style></head>
-<body>{body}</body></html>"""
+<style>
+:root{{--serif:"Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;--sans:"Helvetica Neue",Helvetica,Arial,sans-serif;--page:#f6f4ee;--surface:#fdfcf9;--line:#e4dfd2;--ink:#23262b;--ink2:#6b7078;--muted:#a09883;--navy:#1b2a41;--gold:#8c7a56;--goldl:#c9b48a;--cover:#1b2a40;--coverink:#e8e4da;--covermuted:#8a9ab4;--good:#4f7a5a;--crit:#8f3b34}}
+@media(prefers-color-scheme:dark){{:root{{--page:#141f31;--surface:#1b2a40;--line:#34455f;--ink:#e8e4da;--ink2:#b7bcc6;--muted:#8a9ab4;--navy:#e8e4da;--gold:#c9b48a;--cover:#111a2a}}}}
+body{{margin:0;background:var(--page);color:var(--ink);font:15px/1.55 var(--serif)}}
+.cover{{background:var(--cover);color:var(--coverink)}}.cover-in{{max-width:1100px;margin:0 auto;padding:40px 32px 34px}}
+.eyebrow{{font:600 9.5px/1 var(--sans);letter-spacing:.24em;text-transform:uppercase;color:var(--goldl)}}.rule{{width:44px;height:2px;background:var(--goldl);margin:20px 0 16px}}
+h1{{font:400 42px/1.1 var(--serif);margin:0;color:var(--coverink)}}.cover .sub{{color:var(--covermuted);margin:14px 0 0;font-size:16px;max-width:70ch}}
+.wrap{{max-width:1100px;margin:0 auto;padding:28px 32px 60px}}
+h2{{font:400 22px/1.2 var(--serif);color:var(--navy);margin:34px 0 4px;position:relative;padding-top:16px}}h2::before{{content:attr(data-n);position:absolute;top:0;left:0;font:600 9px/1 var(--sans);letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}}
+.note{{color:var(--ink2);margin:0 0 14px;max-width:90ch}}
+table{{border-collapse:collapse;width:100%;font-size:14px}}th{{text-align:left;font:700 9.5px/1.4 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--navy);padding:8px;border-bottom:1px solid var(--navy)}}td{{padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:middle}}td.n,th.n{{text-align:right;font-family:var(--sans);font-size:13px;font-variant-numeric:tabular-nums}}th.n{{font-size:9.5px}}
+.mgr{{font-size:16px;color:var(--navy)}}.fund{{color:var(--ink2);font-size:13px}}.tag{{display:inline-block;font:600 9px/14px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-left:8px}}
+.btn{{display:inline-block;font:600 10px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;padding:9px 16px;background:var(--navy);color:var(--coverink);text-decoration:none;white-space:nowrap}}.btn.off{{background:transparent;color:var(--muted);border:1px solid var(--line);cursor:default}}
+@media(prefers-color-scheme:dark){{.btn{{background:var(--goldl);color:#1b2a40}}}}
+.sc{{display:inline-block;min-width:30px;text-align:center;font:600 12px/1 var(--sans);padding:5px 7px;color:#fff}}.g{{background:var(--good)}}.m{{background:var(--gold)}}.b{{background:var(--crit)}}
+.banner{{background:#e4dfd2;color:#1b2a41;border-bottom:1px solid #d3ccbb;padding:8px 32px;font-size:12.5px}}.banner b{{font:600 9.5px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;margin-right:12px}}
+.status{{display:inline-block;font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--line);color:var(--ink2)}}pre{{background:var(--surface);border:1px solid var(--line);padding:12px;font-size:12px;overflow-x:auto}}.err{{color:var(--crit)}}
+a{{color:var(--navy)}}.foot{{margin-top:40px;padding-top:14px;border-top:1px solid var(--navy);color:var(--ink2);font-size:12px;max-width:120ch}}
+</style></head><body>{body}</body></html>"""
+
+
+def directory_html() -> str:
+    """The one home page: every fund in the system, one Analyze button each."""
+    def sc(v):
+        try: v = float(v)
+        except (TypeError, ValueError): return ""
+        return f'<span class="sc {"g" if v >= 70 else "m" if v >= 45 else "b"}">{v:.0f}</span>'
+    # listed vehicles with a real public record
+    listed = [dict(key="brk", href="/f/brk/", mgr="Warren Buffett", fund="Berkshire Hathaway Class A — the stock (not the 13F holdings)", tag="listed", out=OUT / "brk")]
+    for p in sorted((OUT / "t").glob("*")) if (OUT / "t").exists() else []:
+        if (p / "dashboard.html").exists():
+            import json
+            meta = ROOT / "data" / "tickers" / p.name / "meta.json"
+            nm = json.loads(meta.read_text()).get("name", p.name) if meta.exists() else p.name
+            listed.append(dict(key=p.name, href=f"/t/{p.name}/dashboard.html", mgr=nm, fund=f"{p.name} — listed, distributions reinvested", tag="listed", out=p))
+    def scores_of(out):
+        f = out / "phase4" / "scores.csv"
+        if not f.exists(): return (None, None, None)
+        import csv
+        am = wm = ex = None
+        with f.open() as fh:
+            for r in csv.DictReader(fh):
+                if r["score"] == "Alpha-maxing score": am = r["value"]; ex = r["input"]
+                if r["score"] == "Wealth-management score" and r["component"] == "TOTAL": wm = r["value"]
+        return am, wm, ex
+    rows = ""
+    for r in listed:
+        am, wm, ex = scores_of(r["out"])
+        rows += (f"<tr><td><span class='mgr'>{html.escape(r['mgr'])}</span><span class='tag'>{r['tag']}</span><br><span class='fund'>{html.escape(r['fund'])}</span></td>"
+                 f"<td class='n'>{_f(ex, '{:+.1%}')}</td><td class='n'>{sc(am)}</td><td class='n'>{sc(wm)}</td><td class='n'><a class='btn' href='{r['href']}'>Analyze</a></td></tr>")
+    funds = fund_index()
+    ok = [r for r in funds if r.get("status") == "ok"]; bad = [r for r in funds if r.get("status") != "ok"]
+    ok.sort(key=lambda r: (-(float(r["wealth"]) if r.get("wealth") not in (None, "") else -1), r["name"]))
+    frows = ""
+    for r in ok:
+        span = f"{(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} of book priced"
+        frows += (f"<tr><td><span class='mgr'>{html.escape(r.get('manager') or r['name'])}</span><span class='tag'>{html.escape(r.get('style_name') or '')}</span><br>"
+                  f"<span class='fund'>{html.escape(r['name'])} · {span}</span></td>"
+                  f"<td class='n'>{_f(r.get('excess'), '{:+.1%}')}</td><td class='n'>{sc(r.get('alpha_maxing'))}</td><td class='n'>{sc(r.get('wealth'))}</td>"
+                  f"<td class='n'><a class='btn' href='/f/{r['slug']}/'>Analyze</a></td></tr>")
+    for r in bad:
+        frows += (f"<tr><td><span class='mgr'>{html.escape(r.get('manager') or r['name'])}</span><span class='tag'>{html.escape(r.get('style_name') or '')}</span><br>"
+                  f"<span class='fund'>{html.escape(r['name'])} · <span class='err'>not scorable yet — {html.escape(str(r.get('months') or 0))} months of filings (36 needed)</span></span></td>"
+                  f"<td></td><td></td><td></td><td class='n'><span class='btn off'>Analyze</span></td></tr>")
+    head = "<thead><tr><th>manager</th><th class='n'>excess vs market /yr</th><th class='n'>alpha-maxing</th><th class='n'>wealth-mgmt</th><th></th></tr></thead>"
+    return page("Track Record Verification", f"""<div class="banner"><b>Illustrative data</b> Public records and SEC 13F reconstructions used to demonstrate the pipeline. Nothing here is the record under verification.</div>
+<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Track Record Verification</h1>
+<p class="sub">Every manager in the system. Press <b>Analyze</b> to run the full verification — returns, factor alphas, luck simulation, stability, scores — on that record.</p></div></header>
+<main class="wrap">
+<h2 data-n="Section 01">Listed vehicles — real public records</h2><p class="note">Share prices with distributions reinvested. These are the vehicles' actual returns.</p>
+<table>{head}<tbody>{rows}</tbody></table>
+<h2 data-n="Section 02">Hedge funds and family offices — 13F clones</h2><p class="note">Private funds publish no returns. Each is represented by a long-only clone of its disclosed US holdings (SEC 13F, quarterly, from 2013), rebalanced when each filing becomes public. A clone is a reconstruction, not the fund: no shorts, options, cash, leverage or non-US holdings, entered ~45 days late. It tracks concentrated and activist managers well; for multi-strategy, quant and macro shops it is not meaningful, and each page says so. Sorted by wealth-management score; unscored managers last. First analysis of a manager takes about half a minute.</p>
+<table>{head}<tbody>{frows or '<tr><td colspan=5>no fund datasets yet</td></tr>'}</tbody></table>
+<div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. Past performance is not indicative of future results; nothing here is investment advice.</div>
+</main>""")
 
 
 def ticker_status_html(ticker: str, job: dict) -> str:
     log = "\n".join(html.escape(l) for l in job["log"][-12:])
     err = f'<p class="err">{html.escape(job["error"])}</p>' if job.get("error") else ""
-    return page(f"{ticker} — building", f"""<h1>Analyzing {html.escape(ticker)}</h1>
-<p class="sub"><span class="status">{html.escape(job["phase"])}</span> · {int(time.time() - job["started"])}s · this page refreshes itself</p>
-<div class="banner"><b>Public price series.</b> A price feed is not a custodian statement, so every period will show as unverified; the point is the return series and the statistics.</div>
-{err}<pre>{log or '(starting)'}</pre><p><a href="/leaderboard">Leaderboard</a> · <a href="/">Home</a></p>""", refresh=None if job["done"] else 5)
+    return page(f"{ticker} — analyzing", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Analyzing {html.escape(ticker)}</h1>
+<p class="sub">Running the full pipeline — reconciliation, returns, attribution, factor regressions, luck simulation, scores. This page refreshes itself and opens the dashboard when ready.</p></div></header>
+<main class="wrap"><p><span class="status">{html.escape(job["phase"])}</span> &nbsp; {int(time.time() - job["started"])}s</p>{err}<pre>{log or '(starting)'}</pre><p><a href="/">&larr; All managers</a></p></main>""", refresh=None if job["done"] else 5)
 
 
 def leaderboard_html() -> str:
@@ -383,13 +445,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
         if not self._authorized():
             return self._deny()
-        if self.path == "/":
-            landing = os.environ.get("LANDING", "brk/dashboard.html").lstrip("/")
-            if (OUT / landing).exists():          # go straight to the dashboard once it's built
-                self.send_response(302); self.send_header("Location", "/" + landing)
-                self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", "0")
-                self.end_headers(); return
         u = urlparse(self.path)
+        if u.path in ("/", "/managers", "/leaderboard", "/index.html"):
+            return self._html(directory_html())
+        if u.path == "/f/brk/":
+            self.send_response(302); self.send_header("Location", "/brk/dashboard.html"); self.send_header("Content-Length", "0"); self.end_headers(); return
         if u.path == "/analyze":
             t = (parse_qs(u.query).get("ticker", [""])[0] or "").strip().upper()
             if not valid_ticker(t):
@@ -408,10 +468,6 @@ class Handler(SimpleHTTPRequestHandler):
                     self.send_response(302); self.send_header("Location", f"/t/{t}/dashboard.html"); self.send_header("Content-Length", "0"); self.end_headers(); return
                 return self._html(page("Not analyzed", f"<h1>{html.escape(t)}</h1><p>Not analyzed yet. <a href='/analyze?ticker={html.escape(t)}'>Analyze it</a>.</p>"), 404)
             return self._html(ticker_status_html(t, job))
-        if u.path == "/leaderboard":
-            return self._html(leaderboard_html())
-        if u.path == "/managers":
-            return self._html(managers_html())
         if u.path.startswith("/f/") and u.path.count("/") == 3 and u.path.endswith("/"):
             slug = u.path.split("/")[2]
             if not re.match(r"^[a-z0-9\-]{1,40}$", slug) or not (FUNDS_ROOT / slug / "meta.json").exists():

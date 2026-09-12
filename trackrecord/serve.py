@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import hmac
+import re
 import html
 import os
 import subprocess
@@ -26,9 +27,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from .placeholder_ticker import FAMOUS, NOT_PUBLIC, valid as valid_ticker
+from .fund_universe import STYLES
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output"
+FUNDS_ROOT = ROOT / "data" / "funds"
 STATE = {"phase": "starting", "log": [], "started": time.time(), "done": False, "error": None}
 JOBS: dict[str, dict] = {}          # ticker -> {phase, log, error, started}
 JOBS_LOCK = threading.Lock()
@@ -118,6 +121,108 @@ def start_ticker(ticker: str) -> dict:
     return job
 
 
+def fund_index() -> list[dict]:
+    """Every fund in data/funds: leaderboard.csv row if scored, else meta.json."""
+    import csv, json
+    rows = {}
+    lb = FUNDS_ROOT / "leaderboard.csv"
+    if lb.exists():
+        with lb.open() as fh:
+            for r in csv.DictReader(fh):
+                rows[r["slug"]] = r
+    if FUNDS_ROOT.exists():
+        for d in sorted(FUNDS_ROOT.iterdir()):
+            m = d / "meta.json"
+            if d.is_dir() and m.exists() and d.name not in rows:
+                try:
+                    meta = json.loads(m.read_text())
+                    rows[d.name] = dict(slug=d.name, name=meta.get("name", d.name), manager=meta.get("manager", ""), style=meta.get("style", ""),
+                                        style_name=meta.get("style_name", ""), status=meta.get("status", ""), months=meta.get("months"),
+                                        first=meta.get("first"), last=meta.get("last"), coverage=meta.get("avg_coverage"))
+                except Exception:
+                    pass
+    # live scores from output/ override the committed leaderboard if a fund was built here
+    for slug, r in rows.items():
+        sc = OUT / "funds" / slug / "phase4" / "scores.csv"
+        if sc.exists():
+            import csv as _csv
+            with sc.open() as fh:
+                for x in _csv.DictReader(fh):
+                    if x["score"] == "Alpha-maxing score": r["alpha_maxing"] = x["value"]; r["excess"] = x["input"]
+                    if x["score"] == "Wealth-management score" and x["component"] == "TOTAL": r["wealth"] = x["value"]
+        r["built"] = (OUT / "funds" / slug / "dashboard.html").exists()
+    return list(rows.values())
+
+
+def build_fund(slug: str) -> None:
+    job = JOBS["fund:" + slug]
+    try:
+        job["phase"] = "running phases 1–4 on the 13F clone (about 30 s)"
+        _run_job(job, ["report", "--data", f"data/funds/{slug}", "--out", f"output/funds/{slug}", "--grid", "M", "--placeholder",
+                       "--n-boot", "1500", "--n-cohort", "3000"])
+        job["phase"] = "ready"
+    except Exception as e:
+        job["error"] = str(e); job["phase"] = "failed"
+    finally:
+        job["done"] = True
+
+
+def start_fund(slug: str) -> dict:
+    key = "fund:" + slug
+    with JOBS_LOCK:
+        job = JOBS.get(key)
+        if job and not job["done"]:
+            return job
+        if (OUT / "funds" / slug / "dashboard.html").exists():
+            JOBS[key] = job = {"phase": "ready", "log": [], "error": None, "started": time.time(), "done": True}
+            return job
+        JOBS[key] = job = {"phase": "queued", "log": [], "error": None, "started": time.time(), "done": False}
+    threading.Thread(target=build_fund, args=(slug,), daemon=True).start()
+    return job
+
+
+def _f(v, fmt):
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return ""
+    return fmt.format(v)
+
+
+def managers_html() -> str:
+    rows = fund_index()
+    by_style = {}
+    for r in rows:
+        by_style.setdefault(r.get("style", ""), []).append(r)
+    def sc(v):
+        try: v = float(v)
+        except (TypeError, ValueError): return ""
+        c = "g" if v >= 70 else ("m" if v >= 45 else "b")
+        return f'<span class="sc {c}">{v:.0f}</span>'
+    sections = []
+    order = ["conc", "act", "ls", "event", "fo", "multi", "macro"]
+    for st in order + [k for k in by_style if k not in order]:
+        if st not in by_style: continue
+        name, note = STYLES.get(st, (st, ""))
+        items = sorted(by_style[st], key=lambda r: -(float(r["wealth"]) if r.get("wealth") not in (None, "") else -1))
+        trs = ""
+        for r in items:
+            if r.get("status") == "ok":
+                link = f"<a href='/f/{r['slug']}/'>{html.escape(r['name'])}</a>"
+                span = f"{(r.get('first') or '')[:7]} – {(r.get('last') or '')[:7]} · {r.get('months') or ''} mo · {_f(r.get('coverage'), '{:.0%}')} priced"
+                cells = f"<td class='n'>{_f(r.get('excess'), '{:+.1%}')}</td><td class='n'>{sc(r.get('alpha_maxing'))}</td><td class='n'>{sc(r.get('wealth'))}</td>"
+            else:
+                link = html.escape(r["name"]); span = f"<span class='err'>not scorable: {html.escape(str(r.get('months') or 0))} months of filings (need 36)</span>"
+                cells = "<td></td><td></td><td></td>"
+            trs += f"<tr><td>{link}<br><span class='sub2'>{html.escape(r.get('manager') or '')} · {span}</span></td>{cells}</tr>"
+        sections.append(f"<h2>{html.escape(name)}</h2><p class='sub'>{html.escape(note)}</p><table><thead><tr><th>manager</th><th class='n'>excess vs market /yr</th><th class='n'>alpha-maxing</th><th class='n'>wealth-mgmt</th></tr></thead><tbody>{trs}</tbody></table>")
+    return page("Managers", f"""<h1>Managers</h1><p class="sub">{len(rows)} prominent funds and family offices, each represented by a <b>13F long-only clone</b> of its disclosed US holdings (SEC EDGAR, structured filings from 2013), rebalanced when each filing becomes public.</p>
+<div class="banner"><b>A clone is not the fund.</b> 13F filings show US long positions only, 45 days late — no shorts, options, cash, leverage or non-US holdings. For concentrated long-biased managers the clone tracks the real book; for multi-strategy, quant and macro shops it is not meaningful, and those sections say so. Every number here is a reconstruction.</div>
+<p><a href="/leaderboard">Leaderboard</a> · <a href="/">Berkshire (stock)</a> · <a href="/status">All outputs</a></p>
+{''.join(sections)}
+<p class="sub" style="margin-top:24px"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr). Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, so managers compare directly with each other and with the listed vehicles. Click a manager to build its full dashboard (about 30 s the first time).</p>""")
+
+
 def leaderboard_rows() -> list[dict]:
     """Every analyzed portfolio with its two scores, from the scores.csv files on disk."""
     import csv
@@ -144,6 +249,12 @@ def leaderboard_rows() -> list[dict]:
         elif key == "synthetic": label = "Synthetic placeholder accounts"
         rows.append(dict(key=key, href=f"/{'t/' if d.parent.name == 't' else ''}{key}/dashboard.html", label=label,
                          alpha=am, wealth=wm, excess=ex if am is not None else None))
+    for r in fund_index():
+        if r.get("status") != "ok" or r.get("wealth") in (None, ""):
+            continue
+        rows.append(dict(key=r["slug"], href=f"/f/{r['slug']}/", label=f"{r['name']} — 13F clone",
+                         alpha=float(r["alpha_maxing"]), wealth=float(r["wealth"]), excess=float(r["excess"]) if r.get("excess") not in (None, "") else None,
+                         note=r.get("style_name", "")))
     rows.sort(key=lambda r: -(r["wealth"] or 0))
     return rows
 
@@ -157,10 +268,10 @@ NAV_CSS = """<style>
 
 
 def nav_html() -> str:
-    quick = " ".join(f'<a href="/analyze?ticker={t}" title="{html.escape(n)}">{t}</a>' for t, n in FAMOUS[:6])
-    return (NAV_CSS + '<div class="tr-nav"><form action="/analyze" method="get"><label for="tk">Analyze any listed fund or stock:</label>'
-            '<input id="tk" name="ticker" placeholder="e.g. FCNTX" required pattern="[A-Za-z0-9.\-]{1,12}"><button>Go</button></form>'
-            f'<span class="quick">{quick}</span><a class="lb" href="/leaderboard">Leaderboard</a> <a href="/status">All outputs</a></div>')
+    return (NAV_CSS + '<div class="tr-nav"><span class="quick"><a href="/managers">Managers</a><a href="/leaderboard">Leaderboard</a><a href="/">Berkshire</a></span>'
+            '<form action="/analyze" method="get"><label for="tk">or any listed fund / stock:</label>'
+            '<input id="tk" name="ticker" placeholder="ticker" required pattern="[A-Za-z0-9.\-]{1,12}"><button>Go</button></form>'
+            '<a class="lb" href="/status">All outputs</a></div>')
 
 
 def page(title: str, body: str, refresh: int | None = None) -> str:
@@ -194,7 +305,7 @@ def leaderboard_html() -> str:
         return f'<span class="sc {c}">{v:.0f}</span>'
     def row(r):
         ex = "" if r["excess"] is None else f"{r['excess'] * 100:+.2f}%"
-        return (f"<tr><td><a href='{r['href']}'>{html.escape(r['label'])}</a><br><span style='color:#8a93a0;font-size:12px'>{html.escape(r['key'])}</span></td>"
+        return (f"<tr><td><a href='{r['href']}'>{html.escape(r['label'])}</a><br><span style='color:#8a93a0;font-size:12px'>{html.escape(r.get('note') or r['key'])}</span></td>"
                 f"<td class='n'>{ex}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td></tr>")
     body = "".join(row(r) for r in rows)
     famous = "".join(f"<li><a href='/analyze?ticker={t}'>{t}</a> — {html.escape(n)}</li>" for t, n in FAMOUS)
@@ -202,8 +313,9 @@ def leaderboard_html() -> str:
 <div class="banner"><b>All placeholder / public data.</b> Nothing here is the record under verification.</div>
 <form action="/analyze" method="get"><input name="ticker" placeholder="Enter a ticker — fund, ETF or stock (Yahoo format, e.g. FCNTX, BRK-A)" required pattern="[A-Za-z0-9.\-]{{1,12}}"><button>Analyze</button></form>
 <table><thead><tr><th>portfolio</th><th class="n">excess vs market /yr</th><th class="n">alpha-maxing</th><th class="n">wealth-mgmt</th></tr></thead><tbody>{body or '<tr><td colspan=4>nothing analyzed yet</td></tr>'}</tbody></table>
-<h3>Famous managers with a listed vehicle</h3><ul>{famous}</ul>
-<p class="sub"><b>Not possible from public data:</b> {html.escape(NOT_PUBLIC)} — private funds don't publish returns. Their 13F filings show only US long positions, 45 days late, with no shorts, options, cash or foreign holdings: a clone could be built from those, but it would be a reconstruction, not their record.</p>
+<p><a href="/managers"><b>All managers by strategy →</b></a></p>
+<h3>Listed vehicles with a real public record</h3><ul>{famous}</ul>
+<p class="sub"><b>Hedge funds</b> appear as 13F clones (US long positions only, 45 days late — a reconstruction, not the fund's return). Multi-strategy, quant and macro managers are listed on the Managers page but their clones are not meaningful and are flagged.</p>
 <p class="sub"><b>Alpha-maxing</b> = 50 + 10 × excess return over the US market (%/yr), return only. <b>Wealth-management</b> = skill evidence (30%) + risk-adjusted return (25%) + downside protection (25%) + consistency across rolling 5-year windows (20%). Full breakdown on each dashboard.</p>""")
 
 
@@ -298,6 +410,16 @@ class Handler(SimpleHTTPRequestHandler):
             return self._html(ticker_status_html(t, job))
         if u.path == "/leaderboard":
             return self._html(leaderboard_html())
+        if u.path == "/managers":
+            return self._html(managers_html())
+        if u.path.startswith("/f/") and u.path.count("/") == 3 and u.path.endswith("/"):
+            slug = u.path.split("/")[2]
+            if not re.match(r"^[a-z0-9\-]{1,40}$", slug) or not (FUNDS_ROOT / slug / "meta.json").exists():
+                return self._html(page("Unknown manager", f"<h1>Unknown manager</h1><p><a href='/managers'>Managers</a></p>"), 404)
+            job = start_fund(slug)
+            if job["done"] and not job.get("error") and (OUT / "funds" / slug / "dashboard.html").exists():
+                self.send_response(302); self.send_header("Location", f"/funds/{slug}/dashboard.html"); self.send_header("Content-Length", "0"); self.end_headers(); return
+            return self._html(ticker_status_html(slug, job))
         if u.path.endswith("dashboard.html"):
             f = OUT / u.path.lstrip("/")
             if f.exists():

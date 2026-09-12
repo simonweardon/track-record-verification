@@ -41,12 +41,14 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                dashboard.py  dashboard.html: inline-SVG charts rendered from the output CSVs, light/dark, hover
                placeholder_brk.py  Berkshire BRK-A monthly placeholder in the statement format
                placeholder_ticker.py  any listed vehicle as a placeholder (yfinance, distributions reinvested)
-               serve.py      HTTP server: dashboards, /analyze?ticker=, /leaderboard, /status; optional Basic Auth
+               hedge13f.py   13F clone engine: EDGAR filings → holdings → CUSIP map → prices → monthly clone → statement format
+               fund_universe.py  the ~108 managers, search names and style tags
+               serve.py      HTTP server: dashboards, /managers, /f/<slug>/, /analyze?ticker=, /leaderboard, /status
                reference.py  Ken French factor/market data, monthly + annual (real, cached in data/reference/)
                synthetic.py  placeholder dataset: real-market-driven returns, +2%/yr injected alpha, injected defects
                cli.py        python -m trackrecord {reconcile,returns,attribution,validate,report,synth,brk-placeholder}
 templates/     empty CSVs + ENTRY_GUIDE.md for hand entry
-tests/         67 tests, incl. ground-truth recovery of the injected alpha and an end-to-end CLI run
+tests/         71 tests, incl. ground-truth recovery of the injected alpha and an end-to-end CLI run
 data/entered/  the real normalized CSVs go here (gitignored)
 data/raw/      scans and downloaded PDFs (gitignored)
 data/reference/ cached benchmark/factor data (gitignored; re-fetched on demand)
@@ -59,6 +61,20 @@ datasets in the background (needs network for Ken French factors and yfinance), 
 `/` redirects to the Berkshire dashboard (override with `LANDING=synthetic/dashboard.html`); `/status` lists all outputs.
 Set `DASHBOARD_PASSWORD` on the service to require HTTP Basic Auth — **mandatory before any real statements
 are deployed**. Set `REBUILD=0` to skip rebuilding on restart.
+
+## Hedge funds: 13F clones
+Private funds publish no returns. `python -m trackrecord funds-build --contact "Name email"` (SEC requires a
+contact in the User-Agent) pulls every 13F-HR for the ~108 managers in `trackrecord/fund_universe.py` from
+EDGAR (structured filings from 2013 Q2), merges filer entities (e.g. Appaloosa Management LP → Appaloosa LP),
+maps CUSIPs to tickers (SEC company table, then OpenFIGI), pulls monthly adjusted prices, and builds a
+**long-only clone**: buy the disclosed top-60 holdings at disclosed weights at the end of the filing month, hold
+with drift until the next filing. `funds-score` runs the full report on each and writes `data/funds/leaderboard.csv`.
+
+A clone is a reconstruction, not the fund: no shorts, options, cash, leverage or non-US holdings, entered ~45 days
+late, and delisted names drop out (disclosed as priced coverage). Styles tag how much it can mean — concentrated /
+activist / long-short track the long book; multi-strategy, quant and macro clones are flagged as not meaningful.
+Managers with < 36 months of filings (e.g. Situational Awareness, from 2025) are listed as not scorable.
+The served site has `/managers` (by strategy) and `/f/<slug>/` (lazy build); datasets are committed under `data/funds/`.
 
 ## Analyze any listed portfolio
 The served site has a ticker box on every page (`/analyze?ticker=FCNTX`): it downloads the monthly adjusted

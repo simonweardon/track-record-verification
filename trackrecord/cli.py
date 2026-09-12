@@ -125,7 +125,7 @@ def cmd_report(a):
         print(f"schema error: {e}", file=sys.stderr); return 2
     out = Path(a.out)
     write1(res1, out); write_phase2(res2, out / "phase2"); write_phase3(res3, out / "phase3"); write_phase4(res4, out / "phase4")
-    placeholder = a.placeholder or Path(a.data).name in ("synthetic", "brk") or Path(a.data).parent.name == "tickers"
+    placeholder = a.placeholder or Path(a.data).name in ("synthetic", "brk") or Path(a.data).parent.name in ("tickers", "funds")
     note = a.placeholder_note or {
         "synthetic": "a synthetic dataset built to exercise the pipeline (real market history, invented accounts, +2%/yr injected alpha)",
         "brk": "Berkshire Hathaway Class A's public monthly price series (1985–2026), a real and famous record used to demonstrate the pipeline; a price feed is not a custodian statement, so every period is honestly marked unverified",
@@ -134,8 +134,15 @@ def cmd_report(a):
     if not label and (Path(a.data) / "meta.json").exists():
         import json
         m = json.loads((Path(a.data) / "meta.json").read_text())
-        label = f"{m.get('name', '')} ({m.get('ticker', '')}), public price series"
-        if not a.placeholder_note:
+        if "style_name" in m:                      # 13F clone
+            label = f"{m['name']} — 13F long-only clone ({m.get('manager', '')})"
+            if not a.placeholder_note:
+                note = (f"an SEC 13F clone of {m['name']}'s disclosed US long positions ({m.get('first', '')[:4]}–{m.get('last', '')[:4]}, "
+                        f"rebalanced at each filing, {m.get('avg_coverage', 0):.0%} of value priced). A reconstruction, not the fund's return: "
+                        f"no shorts, options, cash, leverage or non-US holdings, entered ~45 days late. {m.get('style_note', '')}")
+        else:
+            label = f"{m.get('name', '')} ({m.get('ticker', '')}), public price series"
+        if not a.placeholder_note and "style_name" not in m:
             note = (f"{m.get('name', m.get('ticker'))}'s public monthly price series ({m.get('first', '')[:4]}–{m.get('last', '')[:4]}, "
                     "distributions reinvested), a real listed record used to demonstrate the pipeline; a price feed is not a custodian "
                     "statement, so every period is honestly marked unverified")
@@ -153,6 +160,54 @@ def cmd_report(a):
                            headline_model=res4.config.headline_model,
                            firm=a.firm or os.environ.get("FIRM_NAME", ""), prepared_for=a.prepared_for or os.environ.get("PREPARED_FOR", ""))
     print(f"report: {path}\ndashboard: {dash}"); return 0
+
+
+def cmd_funds_build(a):
+    """Stage the 13F clones for the whole universe (needs SEC contact; heavy, cached)."""
+    import json, os
+    from . import hedge13f as H
+    contact = a.contact or os.environ.get("SEC_CONTACT")
+    if not contact:
+        print("SEC requires a contact: --contact 'Name email' or SEC_CONTACT env", file=sys.stderr); return 2
+    H.set_contact(contact)
+    funds = json.load(open(a.universe))
+    only = [x.strip() for x in a.only.split(",")] if a.only else None
+    metas = H.build_all(funds, Path(a.out), only=only, figi=not a.no_figi)
+    ok = [m for m in metas if m["status"] == "ok"]
+    print(f"{len(ok)} funds with >=36 months; {len(metas) - len(ok)} insufficient"); return 0
+
+
+def cmd_funds_score(a):
+    """Run the full report for every fund dataset and write data/funds/leaderboard.csv."""
+    import json, csv, time
+    root = Path(a.funds)
+    rows = []
+    for d in sorted(p for p in root.iterdir() if p.is_dir() and (p / "meta.json").exists()):
+        meta = json.loads((d / "meta.json").read_text())
+        row = dict(slug=meta["slug"], name=meta["name"], manager=meta.get("manager", ""), style=meta.get("style", ""),
+                   style_name=meta.get("style_name", ""), status=meta["status"], months=meta.get("months"),
+                   first=meta.get("first"), last=meta.get("last"), coverage=meta.get("avg_coverage"),
+                   excess=None, alpha_maxing=None, wealth=None, ff3_alpha=None, ff3_t=None, twr=None, bench=None)
+        out = Path(a.out) / meta["slug"]
+        if meta["status"] == "ok" and (a.force or not (out / "phase4" / "scores.csv").exists()):
+            t0 = time.time()
+            rc = main(["report", "--data", str(d), "--out", str(out), "--grid", "M", "--placeholder",
+                       "--n-boot", str(a.n_boot), "--n-cohort", str(a.n_cohort)])
+            print(f"  scored {meta['slug']} in {time.time() - t0:.0f}s (rc {rc})")
+        sc = out / "phase4" / "scores.csv"
+        if sc.exists():
+            import pandas as pd
+            s_ = pd.read_csv(sc); reg = pd.read_csv(out / "phase4" / "regressions.csv"); comp = pd.read_csv(out / "phase2" / "composite_returns.csv", index_col=0)
+            from .composite import series_stats
+            am = s_[s_.score == "Alpha-maxing score"].iloc[0]; wm = s_[(s_.score == "Wealth-management score") & (s_.component == "TOTAL")].iloc[0]
+            r = reg[(reg.factor_set == "US") & (reg.model == "FF3")].iloc[0]
+            g = series_stats(comp.gross, comp.years); b = series_stats(comp.benchmark, comp.years)
+            row.update(excess=float(am.input), alpha_maxing=float(am.value), wealth=float(wm.value), ff3_alpha=float(r.alpha_annual),
+                       ff3_t=float(r.t), twr=g["annualized"], bench=b["annualized"])
+        rows.append(row)
+    with open(root / "leaderboard.csv", "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+    print(f"leaderboard: {len(rows)} funds -> {root / 'leaderboard.csv'}"); return 0
 
 
 def cmd_serve(a):
@@ -236,6 +291,17 @@ def main(argv=None):
             q.add_argument("--firm", default=None, help="wordmark / 'prepared by' on the cover (or env FIRM_NAME)")
             q.add_argument("--prepared-for", default=None, help="'prepared for' line on the cover (or env PREPARED_FOR)")
         q.set_defaults(fn=fn)
+
+    fbld = sub.add_parser("funds-build", help="build 13F clone datasets for the fund universe (SEC EDGAR)")
+    fbld.add_argument("--universe", default="data/reference/edgar/funds.json"); fbld.add_argument("--out", default="data/funds")
+    fbld.add_argument("--contact", default=None, help="SEC User-Agent 'Name email' (or SEC_CONTACT env)")
+    fbld.add_argument("--only", default=None, help="comma-separated slugs"); fbld.add_argument("--no-figi", action="store_true")
+    fbld.set_defaults(fn=cmd_funds_build)
+    fsc = sub.add_parser("funds-score", help="run the report for every fund dataset; write leaderboard.csv")
+    fsc.add_argument("--funds", default="data/funds"); fsc.add_argument("--out", default="output/funds")
+    fsc.add_argument("--n-boot", type=int, default=1000); fsc.add_argument("--n-cohort", type=int, default=2000)
+    fsc.add_argument("--force", action="store_true")
+    fsc.set_defaults(fn=cmd_funds_score)
 
     sv = sub.add_parser("serve", help="serve output/ over HTTP; builds placeholder outputs in the background")
     sv.add_argument("--port", type=int, default=None)

@@ -363,12 +363,15 @@ def account_html(msg: str = "", err: bool = False, mode: str = "signin") -> str:
 <label>Password<input type="password" name="password" required minlength="10" autocomplete="{'new-password' if mode == 'signup' else 'current-password'}"></label>
 <div class="row"><button class="btn">{'Create account' if mode == 'signup' else 'Sign in'}</button>
 <a href="/account?mode={'signin' if mode == 'signup' else 'signup'}" style="font-size:13px">{'Already have an account? Sign in' if mode == 'signup' else 'No account yet? Create one'}</a></div></form>
+<form method="post" action="/guest" style="max-width:440px;margin:0 0 28px"><button class="btn" style="display:block;width:100%;padding:18px 20px;font-size:13px;letter-spacing:.22em;background:var(--goldl);color:#1b2a40;border:0">Continue as guest</button>
+<p class="sub" style="font-size:12.5px;margin:8px 0 0">Upload and analyze straight away. A guest's records disappear when the browser is closed, or after 24 hours — create an account at any point to keep them.</p></form>
 <p class="sub" style="font-size:12.5px;max-width:70ch">Passwords are stored only as salted PBKDF2 hashes. This is a private working tool, not a bank login: there is no email verification or password reset yet — keep your password somewhere safe.</p>
 <p style="display:flex;gap:10px"><a class="btn" href="/">Home</a></p></main>""")
 
 
 def me_html(uid: str, msg: str = "", err: bool = False) -> str:
     recs = AC.list_records(uid)
+    guest = AC.is_guest(uid)
     rows = ""
     for r in recs:
         st = "ready" if r.get("built") else "not analyzed yet"
@@ -377,9 +380,10 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
                  f"<td><span class='st'>{st}</span></td>"
                  f"<td class='n' style='white-space:nowrap'><a class='btn' href='/me/{r['slug']}/'>Analyze</a> "
                  f"<form method='post' action='/me/{r['slug']}/delete' style='display:inline' onsubmit='return confirm(\"Delete this record and its results?\")'><button class='btn' style='background:transparent;color:var(--crit);border:1px solid var(--crit)'>Delete</button></form></td></tr>")
-    return page("My records", ACCOUNT_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records · {html.escape(AC.user_email(uid))}</div><div class="rule"></div><h1>My records</h1>
+    return page("My records", ACCOUNT_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records · {'guest session' if guest else html.escape(AC.user_email(uid))}</div><div class="rule"></div><h1>My records</h1>
 <p class="sub">Upload a return series, a value-and-flow history, or the pipeline's own statement templates, and run the same verification the public managers get. Only you can see these.</p></div></header>
 <main class="wrap">{f'<p class="msg{" err" if err else ""}">{html.escape(msg)}</p>' if msg else ''}
+{'<p class="msg"><b>You are a guest.</b> These records disappear when you close the browser, or after 24 hours. <a href="/account?mode=signup">Create an account</a> and they come with you.</p>' if guest else ''}
 <h2 data-n="Section 01">Your records</h2>
 <table class="recs"><thead><tr><th>record</th><th>status</th><th class="n"></th></tr></thead><tbody>{rows or '<tr><td colspan=3>nothing uploaded yet</td></tr>'}</tbody></table>
 <h2 data-n="Section 02">Upload a record</h2>
@@ -394,7 +398,7 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
 <label>File(s) — CSV or Excel, up to 5 MB each<input type="file" name="files" multiple required accept=".csv,.xlsx,.xls,.txt"></label>
 <label>Claimed annual return, % (optional)<input type="number" name="claimed" step="0.01" placeholder="e.g. 14"></label>
 <div class="row"><button class="btn">Upload</button></div></form>
-<p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="/logout" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">Sign out</a></p></main>""")
+<p style="display:flex;gap:10px"><a class="btn" href="/">Home</a>{'<a class="btn" href="/account?mode=signup" style="background:var(--goldl);color:#1b2a40">Create an account to keep these</a>' if guest else ''}<a class="btn" href="/logout" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">{'Leave' if guest else 'Sign out'}</a></p></main>""")
 
 
 def page(title: str, body: str, refresh: int | None = None) -> str:
@@ -675,12 +679,19 @@ class Handler(SimpleHTTPRequestHandler):
             fields, files = parse_multipart(ctype, body)
         else:
             fields = {k: v[0] for k, v in parse_qs(body.decode("utf-8", errors="replace")).items()}; files = {}
+        if u.path == "/guest":
+            AC.purge_guests()
+            gid = AC.create_guest()
+            return self._redirect_with_cookie("/me", AC.cookie_header(AC.issue_token(gid), self._secure(), session_only=True))
         if u.path == "/account":
             mode = fields.get("mode", "signin"); email = fields.get("email", ""); pw = fields.get("password", "")
             if mode == "signup":
                 uid, err = AC.create_user(email, pw)
                 if err:
                     return self._html(account_html(err, True, "signup"))
+                cur = self._uid()
+                if cur and AC.is_guest(cur):
+                    AC.adopt_guest(cur, uid)          # a guest who signs up keeps their records
             else:
                 uid = AC.authenticate(email, pw)
                 if not uid:
@@ -768,7 +779,8 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path in ("/", "/managers", "/leaderboard", "/index.html"):
             return self._html(directory_html())
         if u.path == "/account":
-            if self._uid():
+            cur = self._uid()
+            if cur and not AC.is_guest(cur):
                 return self._redirect("/me")
             return self._html(account_html(mode=parse_qs(u.query).get("mode", ["signin"])[0]))
         if u.path == "/logout":

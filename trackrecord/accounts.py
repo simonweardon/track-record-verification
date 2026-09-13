@@ -85,6 +85,55 @@ def create_user(email: str, password: str) -> tuple[str | None, str | None]:
     return uid, None
 
 
+GUEST_TTL = 24 * 3600
+
+
+def create_guest() -> str:
+    """A temporary identity: no email, no password; purged after GUEST_TTL."""
+    with _LOCK:
+        d = _load()
+        uid = "g" + secrets.token_hex(8)
+        d["users"][uid] = dict(email="", guest=True, created=time.time())
+        _save(d)
+    (USERDATA / uid).mkdir(parents=True, exist_ok=True)
+    return uid
+
+
+def is_guest(uid: str) -> bool:
+    return bool(_load()["users"].get(uid, {}).get("guest"))
+
+
+def purge_guests(ttl: int = GUEST_TTL) -> int:
+    """Remove guest identities (and their files) older than ttl.  Called opportunistically."""
+    import shutil
+    n = 0
+    with _LOCK:
+        d = _load(); now = time.time()
+        for uid, u in list(d["users"].items()):
+            if u.get("guest") and now - u.get("created", now) > ttl:
+                shutil.rmtree(USERDATA / uid, ignore_errors=True); del d["users"][uid]; n += 1
+        if n:
+            _save(d)
+    return n
+
+
+def adopt_guest(guest_uid: str, uid: str) -> int:
+    """Move a guest's records into a real account (on sign-up from a guest session)."""
+    import shutil
+    src, dst = USERDATA / guest_uid, user_dir(uid); n = 0
+    if src.exists() and guest_uid != uid:
+        for d in src.iterdir():
+            if d.is_dir() and (d / "meta.json").exists():
+                target = dst / d.name; k = 2
+                while target.exists():
+                    target = dst / f"{d.name}-{k}"; k += 1
+                shutil.move(str(d), str(target)); n += 1
+        shutil.rmtree(src, ignore_errors=True)
+        with _LOCK:
+            d = _load(); d["users"].pop(guest_uid, None); _save(d)
+    return n
+
+
 def authenticate(email: str, password: str) -> str | None:
     email = email.strip().lower()
     d = _load()
@@ -123,8 +172,8 @@ def verify_token(token: str | None) -> str | None:
         return None
 
 
-def cookie_header(token: str, secure: bool) -> str:
-    return (f"trsession={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_DAYS * 86400}"
+def cookie_header(token: str, secure: bool, session_only: bool = False) -> str:
+    return (f"trsession={token}; Path=/; HttpOnly; SameSite=Lax" + ("" if session_only else f"; Max-Age={SESSION_DAYS * 86400}")
             + ("; Secure" if secure else ""))
 
 

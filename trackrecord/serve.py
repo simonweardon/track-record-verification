@@ -354,6 +354,51 @@ ACCOUNT_CSS = """<style>
 </style>"""
 
 
+def sheet_svg(headers: list[str], rows: list[list[str]], widths: list[int] | None = None, note: str = "") -> str:
+    """A spreadsheet-looking figure: column letters, row numbers, shaded header row."""
+    widths = widths or [110] * len(headers)
+    rn = 34; rh = 24; hh = 22
+    W = rn + sum(widths) + 2; H = hh + rh * (len(rows) + 1) + 2
+    grey = "var(--surface-2, #f3f0e8)"; head = "var(--accent-wash, rgba(27,42,65,.08))"; line = "var(--line, #e4dfd2)"
+    muted = "var(--muted, #a09883)"; ink = "var(--ink, #23262b)"; navy = "var(--navy, #1b2a41)"; surf = "var(--surface, #fdfcf9)"
+    sans = "Helvetica,Arial,sans-serif"; mono = "Menlo,Consolas,monospace"
+    x = rn; out = [f'<svg viewBox="0 0 {W} {H}" width="100%" style="max-width:{W}px;display:block;border:1px solid {line};background:{surf}" role="img" aria-label="example file">']
+    out.append(f'<rect x="0" y="0" width="{W}" height="{hh}" fill="{grey}"/>')
+    for i_, w in enumerate(widths):
+        out.append(f'<text x="{x + w / 2:.0f}" y="15" text-anchor="middle" font-family="{sans}" font-size="10" fill="{muted}">{chr(65 + i_)}</text>')
+        out.append(f'<line x1="{x}" y1="0" x2="{x}" y2="{H}" stroke="{line}"/>'); x += w
+    out.append(f'<line x1="{x}" y1="0" x2="{x}" y2="{H}" stroke="{line}"/>')
+    for r, cells in enumerate([headers] + rows):
+        y = hh + rh * r
+        if r == 0:
+            out.append(f'<rect x="{rn}" y="{y}" width="{W - rn}" height="{rh}" fill="{head}"/>')
+        out.append(f'<rect x="0" y="{y}" width="{rn}" height="{rh}" fill="{grey}"/>')
+        out.append(f'<text x="{rn / 2:.0f}" y="{y + 16}" text-anchor="middle" font-family="{sans}" font-size="10" fill="{muted}">{r + 1}</text>')
+        out.append(f'<line x1="0" y1="{y}" x2="{W}" y2="{y}" stroke="{line}"/>')
+        x = rn
+        for c, w in zip(cells, widths):
+            out.append(f'<text x="{x + 8}" y="{y + 16}" font-family="{mono}" font-size="11.5" font-weight="{"700" if r == 0 else "400"}" fill="{navy if r == 0 else ink}">{html.escape(c)}</text>'); x += w
+    out.append(f'<line x1="0" y1="{hh + rh * (len(rows) + 1)}" x2="{W}" y2="{hh + rh * (len(rows) + 1)}" stroke="{line}"/>')
+    out.append("</svg>")
+    return "".join(out) + (f'<p class="sub" style="font-size:12px;margin:6px 0 0">{html.escape(note)}</p>' if note else "")
+
+
+EXAMPLES = {
+    "returns": sheet_svg(["date", "return"], [["2020-01-31", "1.8"], ["2020-02-29", "-3.1"], ["2020-03-31", "-9.4"], ["2020-04-30", "7.2"]], [130, 90],
+                         "one row per month (or per year); return as a percent (1.8) or a decimal (0.018)"),
+    "values": sheet_svg(["date", "value", "flow"], [["2020-01-31", "1000000", "1000000"], ["2020-02-29", "969000", "0"], ["2020-03-31", "905000", "25000"], ["2020-04-30", "998000", "-10000"]], [130, 110, 100],
+                        "value = ending balance that period; flow = money in (+) or out (−) during it; first row's flow = opening deposit"),
+    "statements": sheet_svg(["statement_id", "account_id", "custodian", "period_start", "period_end", "ending_value", "beginning_value", "stated_deposits", "stated_withdrawals", "stated_pnl"],
+                            [["FIDE_1234_2005", "FIDE_1234", "Fidelity", "2005-01-01", "2005-12-31", "1234567.89", "1100000.00", "50000.00", "0.00", "84567.89"],
+                             ["FIDE_1234_2006", "FIDE_1234", "Fidelity", "2006-01-01", "2006-12-31", "1402211.10", "1234567.89", "0.00", "20000.00", "187643.21"]],
+                            [130, 90, 80, 100, 100, 100, 110, 110, 120, 100],
+                            "statements.csv — one row per statement; enter what is PRINTED (beginning value, additions, subtractions, change in value); leave blank what isn't"),
+    "flows": sheet_svg(["account_id", "date", "amount", "flow_type", "description"],
+                       [["FIDE_1234", "2005-03-15", "50000.00", "deposit", "EFT from checking"], ["FIDE_1234", "2006-09-01", "-20000.00", "withdrawal", "wire out"]],
+                       [90, 100, 90, 90, 160], "flows.csv — every deposit (+) and withdrawal (−) with its date; dividends and fees are NOT flows"),
+}
+
+
 def account_html(msg: str = "", err: bool = False, mode: str = "signin") -> str:
     return page("Sign in", ACCOUNT_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records</div><div class="rule"></div><h1>{'Create an account' if mode == 'signup' else 'Sign in'}</h1>
 <p class="sub">Your uploads and results are private to your account and stay here between visits. Nothing you upload appears on the public pages.</p></div></header>
@@ -388,9 +433,12 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
 <table class="recs"><thead><tr><th>record</th><th>status</th><th class="n"></th></tr></thead><tbody>{rows or '<tr><td colspan=3>nothing uploaded yet</td></tr>'}</tbody></table>
 <h2 data-n="Section 02">Upload a record</h2>
 <div class="shape">
-<div><b>Returns</b>One row per month or year: <code>date, return</code>. Return as a decimal (0.012) or a percent (1.2). <a href="/templates/returns.csv">template</a>. Nothing to reconcile against → every period shows as <i>unverified</i>.</div>
-<div><b>Values and flows</b>One row per statement: <code>date, value, flow</code> — the account's ending value and any deposit (+) or withdrawal (−) that period. <a href="/templates/values.csv">template</a>. Returns are computed properly net of flows.</div>
-<div><b>Statement templates</b>The pipeline's own <code>statements.csv</code>, <code>flows.csv</code>, <code>positions.csv</code> (and optional <code>accounts.csv</code>), entered from real statements. <a href="/templates/statements.csv">statements</a> · <a href="/templates/flows.csv">flows</a> · <a href="/templates/positions.csv">positions</a> · <a href="/templates/ENTRY_GUIDE.md">guide</a>. The only shape that can reach <i>verified</i>.</div>
+<div><b>Returns</b>One row per month or year: <code>date, return</code>. Return as a decimal (0.012) or a percent (1.2). <a href="/templates/returns.csv">template</a>. Nothing to reconcile against → every period shows as <i>unverified</i>.
+<div style="margin-top:10px">{EXAMPLES["returns"]}</div></div>
+<div><b>Values and flows</b>One row per statement: <code>date, value, flow</code> — the account's ending value and any deposit (+) or withdrawal (−) that period. <a href="/templates/values.csv">template</a>. Returns are computed properly net of flows.
+<div style="margin-top:10px">{EXAMPLES["values"]}</div></div>
+<div style="grid-column:1/-1"><b>Statement templates</b>The pipeline's own <code>statements.csv</code>, <code>flows.csv</code>, <code>positions.csv</code> (and optional <code>accounts.csv</code>), entered from real statements. <a href="/templates/statements.csv">statements</a> · <a href="/templates/flows.csv">flows</a> · <a href="/templates/positions.csv">positions</a> · <a href="/templates/ENTRY_GUIDE.md">guide</a>. The only shape that can reach <i>verified</i>: the pipeline checks each printed number against the prior statement, the positions, and the flows.
+<div style="margin-top:10px;overflow-x:auto">{EXAMPLES["statements"]}</div><div style="margin-top:10px;overflow-x:auto">{EXAMPLES["flows"]}</div></div>
 </div>
 <form class="form" method="post" action="/me/upload" enctype="multipart/form-data">
 <label>Name for this record<input type="text" name="label" required maxlength="60" placeholder="e.g. Main account 1996–2025"></label>

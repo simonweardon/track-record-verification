@@ -31,6 +31,7 @@ from .placeholder_ticker import FAMOUS, NOT_PUBLIC, valid as valid_ticker
 from .fund_universe import STYLES
 from . import accounts as AC
 from . import uploads as UP
+from . import pdfstatements as PS
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output"
@@ -383,7 +384,28 @@ def sheet_svg(headers: list[str], rows: list[list[str]], widths: list[int] | Non
     return "".join(out) + (f'<p class="sub" style="font-size:12px;margin:6px 0 0">{html.escape(note)}</p>' if note else "")
 
 
+def pdf_example_svg() -> str:
+    W, H = 520, 232
+    L = ["Fidelity Investments", "Statement Period: January 1, 2024 – January 31, 2024", "Account Number: X12-345678", "",
+         "ACCOUNT SUMMARY", "Beginning Account Value            $1,000,000.00", "Additions                                  $50,000.00",
+         "Subtractions                              ($20,000.00)", "Change in Investment Value                $12,500.00", "Ending Account Value              $1,042,500.00"]
+    out = [f'<svg viewBox="0 0 {W} {H}" width="100%" style="max-width:{W}px;display:block;border:1px solid var(--line,#e4dfd2);background:#fff" role="img" aria-label="statement example">']
+    y = 26
+    for i, t in enumerate(L):
+        bold = i in (0, 4); mono = i >= 5
+        fam = "Menlo,Consolas,monospace" if mono else "Helvetica,Arial,sans-serif"
+        col = "#1b2a41" if bold or mono else "#23262b"
+        if mono:
+            out.append(f'<rect x="60" y="{y - 13}" width="{W - 120}" height="19" fill="{"rgba(140,122,86,.10)" if i in (5, 9) else "none"}"/>')
+        out.append(f'<text x="70" y="{y}" font-family="{fam}" font-size="{12 if not mono else 11.5}" font-weight="{"700" if bold else "400"}" fill="{col}">{html.escape(t)}</text>')
+        y += 20 if t else 10
+    out.append(f'<text x="70" y="{H - 10}" font-family="Helvetica,Arial,sans-serif" font-size="10.5" fill="#6b7078">the block the parser reads — labels can vary by custodian; what it finds and misses is reported per file</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
 EXAMPLES = {
+    "pdf": pdf_example_svg(),
     "returns": sheet_svg(["date", "return"], [["2020-01-31", "1.8"], ["2020-02-29", "-3.1"], ["2020-03-31", "-9.4"], ["2020-04-30", "7.2"]], [130, 90],
                          "one row per month (or per year); return as a percent (1.8) or a decimal (0.018)"),
     "values": sheet_svg(["date", "value", "flow"], [["2020-01-31", "1000000", "1000000"], ["2020-02-29", "969000", "0"], ["2020-03-31", "905000", "25000"], ["2020-04-30", "998000", "-10000"]], [130, 110, 100],
@@ -420,6 +442,8 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
     rows = ""
     for r in recs:
         st = "ready" if r.get("built") else "not analyzed yet"
+        if r.get("shape") == "pdf":
+            st += f" · {r.get('parsed', 0)} PDF{'s' if r.get('parsed', 0) != 1 else ''} parsed, {r.get('skipped', 0)} skipped — <a href='/me/{r['slug']}/files'>report</a>"
         rows += (f"<tr><td><span class='mgr'>{html.escape(r['label'])}</span><br><span class='fund'>{html.escape(r.get('shape', ''))} · {html.escape(r.get('first', ''))} – {html.escape(r.get('last', ''))} · {r.get('periods', '')} periods · {'monthly' if r.get('grid') == 'M' else 'annual'}"
                  f"{' · claimed ' + format(float(r['claimed']) * 100, '.1f') + '%' if r.get('claimed') else ''}</span></td>"
                  f"<td><span class='st'>{st}</span></td>"
@@ -433,6 +457,8 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
 <table class="recs"><thead><tr><th>record</th><th>status</th><th class="n"></th></tr></thead><tbody>{rows or '<tr><td colspan=3>nothing uploaded yet</td></tr>'}</tbody></table>
 <h2 data-n="Section 02">Upload a record</h2>
 <div class="shape">
+<div style="grid-column:1/-1;border-color:var(--gold)"><b>Statement PDFs — best</b>Upload the monthly or annual statements themselves, straight from the custodian's website (Fidelity, Schwab, Vanguard, Robinhood, IBKR…). The account summary each one prints — beginning value, additions, subtractions, change in value, ending value — is read from every file, chained, and checked, so periods can come out <i>verified</i>. Text PDFs only for now: scanned paper shows as "no text layer" and needs the template route. After upload you get a per-file report of what was found and what wasn't.
+<div style="margin-top:10px">{EXAMPLES["pdf"]}</div></div>
 <div><b>Returns</b>One row per month or year: <code>date, return</code>. Return as a decimal (0.012) or a percent (1.2). <a href="/templates/returns.csv">template</a>. Nothing to reconcile against → every period shows as <i>unverified</i>.
 <div style="margin-top:10px">{EXAMPLES["returns"]}</div></div>
 <div><b>Values and flows</b>One row per statement: <code>date, value, flow</code> — the account's ending value and any deposit (+) or withdrawal (−) that period. <a href="/templates/values.csv">template</a>. Returns are computed properly net of flows.
@@ -442,8 +468,8 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
 </div>
 <form class="form" method="post" action="/me/upload" enctype="multipart/form-data">
 <label>Name for this record<input type="text" name="label" required maxlength="60" placeholder="e.g. Main account 1996–2025"></label>
-<label>Shape<select name="shape"><option value="returns">Returns (date, return)</option><option value="values">Values and flows (date, value, flow)</option><option value="template">Statement templates (statements.csv + flows.csv + …)</option></select></label>
-<label>File(s) — CSV or Excel, up to 5 MB each<input type="file" name="files" multiple required accept=".csv,.xlsx,.xls,.txt"></label>
+<label>Shape<select name="shape"><option value="pdf">Statement PDFs (best)</option><option value="returns">Returns (date, return)</option><option value="values">Values and flows (date, value, flow)</option><option value="template">Statement templates (statements.csv + flows.csv + …)</option></select></label>
+<label>File(s) — PDFs, CSV or Excel, up to 5 MB each; select many at once<input type="file" name="files" multiple required accept=".pdf,.csv,.xlsx,.xls,.txt"></label>
 <label>Claimed annual return, % (optional)<input type="number" name="claimed" step="0.01" placeholder="e.g. 14"></label>
 <div class="row"><button class="btn">Upload</button></div></form>
 <p style="display:flex;gap:10px"><a class="btn" href="/">Home</a>{'<a class="btn" href="/account?mode=signup" style="background:var(--goldl);color:#1b2a40">Create an account to keep these</a>' if guest else ''}<a class="btn" href="/logout" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">{'Leave' if guest else 'Sign out'}</a></p></main>""")
@@ -769,7 +795,14 @@ class Handler(SimpleHTTPRequestHandler):
                 up = files.get("files") or []
                 if not up:
                     raise UP.UploadError("no file received")
-                if shape == "template":
+                if shape == "pdf":
+                    pdfs = [(fn, data) for fn, data in up if fn.lower().endswith(".pdf")]
+                    if not pdfs:
+                        raise UP.UploadError("no PDF files received")
+                    if any(len(d) > UP.MAX_BYTES for _, d in pdfs):
+                        raise UP.UploadError("a PDF is larger than 5 MB")
+                    info, _ = PS.from_pdfs(pdfs, rec / "data", label)
+                elif shape == "template":
                     info = UP.from_template({fn: data for fn, data in up}, rec / "data", label)
                 elif shape == "values":
                     info = UP.from_values(up[0][0], up[0][1], rec / "data", label)
@@ -856,6 +889,19 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._redirect("/account")
             if u.path == "/me":
                 return self._html(me_html(uid))
+            mf = re.match(r"^/me/([a-z0-9\-]{1,48})/files$", u.path)
+            if mf:
+                rec = AC.user_dir(uid) / mf.group(1); rp = rec / "data" / "pdf_report.csv"
+                if not rp.exists():
+                    return self._html(not_found_html(u.path), 404)
+                import csv as _csv
+                rows_ = list(_csv.DictReader(rp.open()))
+                cols = ["file", "period_start", "period_end", "account_last4", "beginning_value", "stated_deposits", "stated_withdrawals", "stated_pnl", "ending_value", "missing", "error"]
+                trs = "".join("<tr>" + "".join(f"<td class='{'n' if c not in ('file', 'missing', 'error') else ''}'>{html.escape(str(r.get(c, '') or ''))}</td>" for c in cols) + "</tr>" for r in rows_)
+                return self._html(page("PDF report", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records</div><div class="rule"></div><h1>What was read from each PDF</h1>
+<p class="sub">A blank cell means the label was not found on that statement; the pipeline leaves it blank rather than guessing. Skipped files say why.</p></div></header>
+<main class="wrap"><div style="overflow-x:auto"><table><thead><tr>{''.join(f'<th>{c.replace("_", " ")}</th>' for c in cols)}</tr></thead><tbody>{trs}</tbody></table></div>
+<p style="display:flex;gap:10px;margin-top:20px"><a class="btn" href="/me">My records</a><a class="btn" href="/me/{mf.group(1)}/" style="background:var(--goldl);color:#1b2a40">Analyze</a></p></main>"""))
             m = re.match(r"^/me/([a-z0-9\-]{1,48})/(dashboard\.html)?$", u.path)
             if not m:
                 return self._html(not_found_html(u.path), 404)

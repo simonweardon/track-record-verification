@@ -91,6 +91,15 @@ only to the owner at `/me/<slug>/dashboard.html`. Everything lives under `USERDA
 on Railway a mounted volume so it survives deploys). Set `SESSION_SECRET` in production. There is no email verification or
 password reset yet.
 
+**Statement PDFs** (`pdfstatements.py`): text PDFs from a custodian's website are read by label — period, account,
+beginning value, additions, subtractions, change in value, ending value — into statements.csv (+ mid-period flows);
+a per-file report says what was found and what wasn't. Scans (no text layer) are refused with a reason; OCR is not
+automated. This is the only upload route that can reach *verified*.
+
+**Brokerage APIs**: Fidelity and Robinhood have no public customer API; the legitimate path is an aggregator (Plaid /
+Akoya), which needs a developer account and reaches back only ~24 months — useful for ongoing verification, not for
+reconstructing decades. Not wired up.
+
 ## Analyze any listed portfolio
 The served site has a ticker box on every page (`/analyze?ticker=FCNTX`): it downloads the monthly adjusted
 history via yfinance, builds a one-account placeholder, runs phases 1–4 on the monthly grid (~40 s), and adds

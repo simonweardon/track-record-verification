@@ -396,12 +396,30 @@ apply();})();
 </main>{js}""")
 
 
-def ticker_status_html(ticker: str, job: dict) -> str:
-    log = "\n".join(html.escape(l) for l in job["log"][-12:])
-    err = f'<p class="err">{html.escape(job["error"])}</p>' if job.get("error") else ""
-    return page(f"{ticker} — analyzing", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Analyzing {html.escape(ticker)}</h1>
-<p class="sub">Running the full pipeline — reconciliation, returns, attribution, factor regressions, luck simulation, scores. This page refreshes itself and opens the dashboard when ready.</p></div></header>
-<main class="wrap"><p><span class="status">{html.escape(job["phase"])}</span> &nbsp; {int(time.time() - job["started"])}s</p>{err}<pre>{log or '(starting)'}</pre><p><a href="/">&larr; All managers</a></p></main>""", refresh=None if job["done"] else 5)
+def ticker_status_html(ticker: str, job: dict, label: str | None = None) -> str:
+    """Wait page: friendly steps, a live timer, and a script that polls and follows the redirect
+    (meta refresh alone is throttled by some mobile browsers)."""
+    steps = ["Reconciling the statement series", "Computing time-weighted returns and the composite",
+             "Attribution: market, size, value and residual", "Factor regressions and Jensen's alpha",
+             "Simulating zero-skill managers (luck test)", "Rolling windows, sub-periods and scores", "Rendering the dashboard"]
+    elapsed = int(time.time() - job["started"])
+    done_n = min(len(steps) - 1, elapsed // 6) if not job["done"] else len(steps)
+    lis = "".join(f"<li class='{'done' if k < done_n else 'now' if k == done_n else ''}'>{st}</li>" for k, st in enumerate(steps))
+    err = f'<p class="err">Could not complete: {html.escape(job["error"])}</p>' if job.get("error") else ""
+    ready = job["done"] and not job.get("error")
+    poll = "" if job["done"] else """<script>setTimeout(function(){location.reload();},4000);</script>"""
+    return page(f"{label or ticker} — analyzing", f"""<style>
+ol.steps{{list-style:none;padding:0;margin:18px 0 0;max-width:60ch}}ol.steps li{{padding:9px 0 9px 26px;border-bottom:1px solid var(--line);position:relative;color:var(--ink2)}}
+ol.steps li::before{{content:"";position:absolute;left:4px;top:15px;width:9px;height:9px;border:1px solid var(--muted);border-radius:50%}}
+ol.steps li.done{{color:var(--ink)}}ol.steps li.done::before{{background:var(--good);border-color:var(--good)}}ol.steps li.now{{color:var(--navy);font-weight:600}}ol.steps li.now::before{{background:var(--gold);border-color:var(--gold)}}
+.timer{{font:600 10px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:16px}}
+</style>
+<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Analyzing {html.escape(label or ticker)}</h1>
+<p class="sub">Running the full verification on this record. The first run takes about half a minute; the dashboard opens by itself when it's ready.</p></div></header>
+<main class="wrap">{err}<ol class="steps">{lis}</ol>
+<p class="timer">{'Ready' if ready else html.escape(job['phase'])} &nbsp;·&nbsp; {elapsed}s</p>
+{'<p><a class="btn" href="' + ('/t/' + ticker + '/dashboard.html' if not ticker.islower() else '/funds/' + ticker + '/dashboard.html') + '">Open the dashboard</a></p>' if ready else ''}
+<p><a href="/">&larr; All managers</a></p></main>{poll}""", refresh=None if job["done"] else 5)
 
 
 def leaderboard_html() -> str:
@@ -520,7 +538,11 @@ class Handler(SimpleHTTPRequestHandler):
             job = start_fund(slug)
             if job["done"] and not job.get("error") and (OUT / "funds" / slug / "dashboard.html").exists():
                 self.send_response(302); self.send_header("Location", f"/funds/{slug}/dashboard.html"); self.send_header("Content-Length", "0"); self.end_headers(); return
-            return self._html(ticker_status_html(slug, job))
+            try:
+                import json as _j; lbl = _j.loads((FUNDS_ROOT / slug / "meta.json").read_text()).get("name", slug)
+            except Exception:
+                lbl = slug
+            return self._html(ticker_status_html(slug, job, label=lbl))
         if u.path.endswith("dashboard.html"):
             f = OUT / u.path.lstrip("/")
             if f.exists():

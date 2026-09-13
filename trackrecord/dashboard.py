@@ -666,46 +666,74 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
                          f"<td class='n'><b>{'' if pd.isna(r.value) else f'{r.value:.0f}'}</b></td></tr>"
                          for _, r in wm_rows[wm_rows.component != "TOTAL"].iterrows()) if len(wm_rows) else ""
 
-    # ---- holdings that made the return (13F clones only)
+    # ---- the stocks behind the outperformance (13F clones only)
     holdings_html = ""
     cpath = Path(data_dir) / "contributions.csv" if data_dir else None
     if cpath and cpath.exists():
         ct = pd.read_csv(cpath)
-        if len(ct) and ct.contribution.notna().any():
-            gains = ct.contribution[ct.contribution > 0].sum(); losses = ct.contribution[ct.contribution < 0].sum()
-            n_all = len(ct); n_pos = int((ct.contribution > 0).sum())
-            def n_for(share):
-                cs = ct.cum_share_of_gains.dropna()
-                return int((cs < share).sum()) + 1 if len(cs) else 0
-            n50, n80, n90 = n_for(0.5), n_for(0.8), n_for(0.9)
-            top = ct.head(12); bottom = ct[ct.contribution < 0].tail(5).iloc[::-1]
-            def r_(x):
-                return dict(label=f"{x.ticker} · {x['name']}", value=float(x.contribution),
-                            tip=f"<b>{esc(x['name'])}</b> ({esc(x.ticker)})<br>contribution {x.contribution * 100:+.1f} pp · held {int(x.months_held)} months · avg weight {x.avg_weight_when_held * 100:.1f}%"
-                                + (f"<br>cumulative share of gains {x.cum_share_of_gains:.0%}" if not pd.isna(x.cum_share_of_gains) else ""))
-            rows = [r_(x) for _, x in top.iterrows()] + [r_(x) for _, x in bottom.iterrows()]
-            chart = contrib_bars(rows)
-            trs = "".join(f"<tr><td class='n'>{int(x['rank'])}</td><td><b>{esc(x.ticker)}</b> <span class='muted'>{esc(x['name'])}</span></td>"
-                          f"<td class='n'>{x.contribution * 100:+.1f} pp</td><td class='n'>{int(x.months_held)}</td><td class='n'>{x.avg_weight_when_held * 100:.1f}%</td>"
-                          f"<td class='n'>{'' if pd.isna(x.share_of_gains) else f'{x.share_of_gains:.1%}'}</td><td class='n'>{'' if pd.isna(x.cum_share_of_gains) else f'{x.cum_share_of_gains:.0%}'}</td></tr>"
-                          for _, x in ct.head(20).iterrows())
-            top5_share = float(ct.head(5).share_of_gains.fillna(0).sum())
+        tl = pd.read_csv(Path(data_dir) / "timeline.csv") if (Path(data_dir) / "timeline.csv").exists() else pd.DataFrame(columns=["month", "ticker", "weight"])
+        if len(ct) and "active" in ct and ct.active.notna().any():
+            win_first, win_last = str(cells[0]), str(cells[-1])
+            months_all = [str(c) for c in cells]
+            pos = float(ct.active[ct.active > 0].sum()); neg = float(ct.active[ct.active < 0].sum()); tot_act = pos + neg
+            n_all = len(ct); n_win = int((ct.active > 0).sum())
+            cs = ct.cum_share_of_outperformance.dropna()
+            n50 = int((cs < 0.5).sum()) + 1 if len(cs) else 0; n80 = int((cs < 0.8).sum()) + 1 if len(cs) else 0
+            top5 = float(ct.head(5).share_of_outperformance.fillna(0).sum())
+            maxw = float(tl.weight.max()) if len(tl) else 1.0
+            def strip(ticker):
+                """Timeline: the scored window left to right; a mark for every month held, darker = bigger weight."""
+                W, H = 260, 14
+                held = tl[tl.ticker == ticker]
+                idx = {m: k for k, m in enumerate(months_all)}
+                n = max(len(months_all), 1); cw = W / n
+                out = [f'<svg viewBox="0 0 {W} {H}" width="{W}" height="{H}" class="strip" role="img"><rect x="0" y="5" width="{W}" height="4" class="track"/>']
+                for _, r in held.iterrows():
+                    k = idx.get(r.month)
+                    if k is None: continue
+                    op = 0.35 + 0.65 * min(1.0, float(r.weight) / maxw) if maxw > 0 else 0.7
+                    out.append(f'<rect x="{k * cw:.2f}" y="1" width="{max(cw + 0.6, 1.4):.2f}" height="12" class="held" fill-opacity="{op:.2f}" shape-rendering="crispEdges"/>')
+                out.append("</svg>")
+                return "".join(out)
+            years = sorted({m[:4] for m in months_all})
+            axis = " ".join(f"<span>{y}</span>" for y in years[::max(1, len(years) // 6)])
+            def row(x, kind):
+                share = x.share_of_outperformance
+                big = (f"{share:.0%}" if not pd.isna(share) else f"{x.active * 100:+.0f} pp")
+                sub = ("of the outperformance" if not pd.isna(share) else "drag on the outperformance")
+                yrs = f"{x.first_held[:4]} → {x.last_held[:4]}" if isinstance(x.first_held, str) and x.first_held else ""
+                return (f"<li class='{kind}'><div class='rk'>{int(x['rank']) if kind == 'win' else '▼'}</div>"
+                        f"<div class='who'><b>{esc(x['name'])}</b> <span class='muted'>{esc(x.ticker)}</span><div class='sub2'>{yrs} · held {int(x.months_held)} months · avg weight {x.avg_weight_when_held * 100:.0f}%</div></div>"
+                        f"<div class='big'>{big}<div class='sub2'>{sub}</div></div>"
+                        f"<div class='pp'>{x.active * 100:+.1f} pp <span class='muted'>vs market</span><br><span class='muted'>{x.contribution * 100:+.1f} pp gross</span></div>"
+                        f"<div class='tlc'>{strip(x.ticker)}</div></li>")
+            winners = ct[ct.active > 0].head(10); drags = ct[ct.active < 0].tail(3).iloc[::-1]
+            lis = "".join(row(x, "win") for _, x in winners.iterrows()) + "".join(row(x, "drag") for _, x in drags.iterrows())
+            top_names = ", ".join(f"{esc(x['name'])} ({x.share_of_outperformance:.0%})" for _, x in ct.head(5).iterrows() if not pd.isna(x.share_of_outperformance))
+            if tot_act > 0:
+                lead = (f"Over {esc(win_first)}–{esc(win_last)} the clone beat the market by <b>{tot_act * 100:+.0f} percentage points</b> in total. "
+                        f"<b>{n80} of the {n_all} names ever held produced 80% of that outperformance</b>; the top five — {top_names} — made {top5:.0%} of it.")
+                lead = lead.replace("<b>1 of the", "<b>Just 1 of the")
+            else:
+                lead = (f"Over {esc(win_first)}–{esc(win_last)} the disclosed book <b>trailed the market by {abs(tot_act) * 100:.0f} percentage points</b> in total. "
+                        f"Its winners added +{pos * 100:.0f} pp of outperformance — <b>{n80} name{'s' if n80 != 1 else ''} made 80% of it</b>; the top five — {top_names} — made {top5:.0%} — "
+                        f"but the losers cost {neg * 100:.0f} pp.")
             holdings_html = f"""
 <section>
-  <div class="sh"><h2>Which holdings made the return</h2>{chip("estimated", "13F clone")}</div>
+  <div class="sh"><h2>The stocks behind the outperformance</h2>{chip("estimated", "13F clone")}</div>
   <div class="card">
-    <div class="tiles" style="margin-bottom:14px">
-      <div class="tile"><div class="tl">Holdings ever held</div><div class="tv">{n_all}</div><div class="td muted">{n_pos} gained, {n_all - n_pos} lost</div></div>
-      <div class="tile"><div class="tl">Names for half the gains</div><div class="tv">{n50}</div><div class="td muted">of {n_pos} winners</div></div>
-      <div class="tile"><div class="tl">Names for 80% of gains</div><div class="tv">{n80}</div><div class="td muted">{n80 / n_all:.0%} of all holdings</div></div>
-      <div class="tile"><div class="tl">Top five's share</div><div class="tv">{top5_share:.0%}</div><div class="td muted">of all gains</div></div>
-      <div class="tile"><div class="tl">Gains vs losses</div><div class="tv">{gains * 100:+.0f} / {losses * 100:.0f}</div><div class="td muted">percentage points, arithmetic</div></div>
+    <p class="cap" style="max-width:none;font-size:15px;margin:0 0 16px">{lead}</p>
+    <div class="tiles" style="margin-bottom:18px">
+      <div class="tile"><div class="tl">Names for half the outperformance</div><div class="tv">{n50}</div><div class="td muted">of {n_win} winners</div></div>
+      <div class="tile"><div class="tl">Names for 80%</div><div class="tv">{n80}</div><div class="td muted">{n80 / n_all:.0%} of {n_all} ever held</div></div>
+      <div class="tile"><div class="tl">Top five's share</div><div class="tv">{top5:.0%}</div><div class="td muted">of all outperformance</div></div>
+      <div class="tile"><div class="tl">Winners / losers</div><div class="tv small">{pos * 100:+.0f} / {neg * 100:.0f}</div><div class="td muted">pp vs market, arithmetic</div></div>
     </div>
-    {chart}
-    <p class="cap">Top twelve contributors and the five largest detractors over the scored window. Each holding's contribution is the sum of its weight × its monthly return, so the contributions of every holding add up exactly to the clone's return.</p>
-    <div class="tscroll" style="margin-top:14px"><table class="metrics"><thead><tr><th class="n">#</th><th>holding</th><th class="n">contribution</th><th class="n">months held</th><th class="n">avg weight</th><th class="n">share of gains</th><th class="n">cumulative</th></tr></thead><tbody>{trs}</tbody></table></div>
-    {explain("The classic Pareto picture: a handful of names usually produce most of a manager's result. <b>Names for 80% of gains</b> says how few holdings carried the record — the smaller that number relative to everything ever held, the more the outcome rode on a few decisions. The cumulative column walks down the ranking: read it to the row where it passes 50% or 80%. Losses are shown separately so a big winner doesn't hide a big loser.",
-              "For every month in the scored window, each holding's contribution is its beginning-of-month weight (after drift) × its return that month; summed over months it gives the arithmetic contribution in percentage points, and the sum over holdings equals the sum of the clone's monthly returns. Share of gains = a winner's contribution ÷ the sum of all winners' contributions; cumulative share = running total in rank order. Weights are those of the 13F clone (disclosed top-60 holdings, rebalanced at each filing), so this describes the clone, not the fund's actual trades or sizing.")}
+    <div class="tlaxis"><span class="lbl">Held when</span>{axis}</div>
+    <ol class="stocks">{lis}</ol>
+    <p class="cap">The ten names that added most over the market, then the three that cost most. The share is each name's contribution to the excess return over the US market as a fraction of all positive contributions; the timeline marks every month the clone held the name, darker where the position was larger. Window: {esc(win_first)} to {esc(win_last)} — 13F data is structured only from 2013, so earlier holdings are not observable.</p>
+    {explain("Almost every great record rests on a handful of names. This list answers 'which ones, and when?' <b>Share of the outperformance</b> is how much of the manager's beating-the-market this stock delivered: 60% means that without it, more than half the edge disappears. A stock that simply rose with the market shows near zero here even if it made money — this is about what the manager did <i>better</i> than the index. The timeline shows when it was held and how big it was.",
+              "For every month in the scored window, each holding's active contribution is its beginning-of-month weight (after drift within the quarter) × (its return − the US market's return). Summed over months, the active contributions of all holdings add up exactly to the sum of the clone's monthly excess returns over the market. Share = a winner's active contribution ÷ the sum of all winners' active contributions; the cumulative share in rank order gives 'names for 50% / 80%'. The gross figure is weight × return without subtracting the market. Weights are the 13F clone's (disclosed top-60, rebalanced at each filing), so this describes the reconstruction, not the fund's actual trades.")}
   </div>
 </section>
 """
@@ -1083,6 +1111,23 @@ details.how summary:focus-visible { outline: 2px solid var(--gold); outline-offs
 .howb { margin-top: 8px; padding: 12px 16px; background: var(--surface-2); border-left: 2px solid var(--gold); color: var(--ink); line-height: 1.6; max-width: 90ch; font-size: 13.5px; }
 .howb b { color: var(--navy); }
 .tile .exp { margin-top: 8px; gap: 2px 14px; }
+/* stocks behind the outperformance */
+ol.stocks { list-style: none; margin: 0; padding: 0; }
+ol.stocks li { display: grid; grid-template-columns: 34px minmax(200px, 1.4fr) 110px 130px 260px; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+ol.stocks li.drag { background: var(--crit-wash); margin: 0 -6px; padding: 10px 6px; }
+ol.stocks .rk { font: 600 12px var(--sans); color: var(--muted); text-align: center; }
+ol.stocks li.drag .rk { color: var(--crit); }
+ol.stocks .who b { font-weight: 400; font-size: 16px; color: var(--navy); }
+ol.stocks .sub2 { font-size: 12px; color: var(--ink-2); }
+ol.stocks .big { font: 400 24px/1 var(--serif); color: var(--navy); }
+ol.stocks li.drag .big { color: var(--crit); }
+ol.stocks .big .sub2 { font: 400 11px var(--sans); margin-top: 3px; }
+ol.stocks .pp { font: 500 12.5px/1.5 var(--sans); font-variant-numeric: tabular-nums; color: var(--ink); }
+.tlaxis { display: flex; justify-content: space-between; margin-left: calc(34px + 14px + 200px + 14px + 110px + 14px + 130px + 14px); width: 260px; font: 600 9px var(--sans); letter-spacing: .1em; color: var(--muted); }
+.tlaxis .lbl { position: absolute; margin-left: -130px; }
+svg.strip .track { fill: var(--dim-wash); } svg.strip .held { fill: var(--accent); }
+ol.stocks li.drag svg.strip .held { fill: var(--crit); }
+@media (max-width: 900px) { ol.stocks li { grid-template-columns: 34px 1fr 100px; } ol.stocks .pp, ol.stocks .tlc { grid-column: 2 / -1; } .tlaxis { display: none; } }
 /* charts */
 .chart { display: block; font-family: var(--sans); }
 .chart text { fill: var(--ink-2); font-size: 11px; }

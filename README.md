@@ -76,10 +76,12 @@ activist / long-short track the long book; multi-strategy, quant and macro clone
 Managers with < 36 months of filings (e.g. Situational Awareness, from 2025) are listed as not scorable.
 The served site has `/managers` (by strategy) and `/f/<slug>/` (lazy build); datasets are committed under `data/funds/`.
 
-For each clone, `contributions.csv` holds every holding's arithmetic contribution (Σ weight × monthly return over
-the scored window, which sums exactly to the clone's return), months held, average weight, share of gains and
-cumulative share in rank order; the dashboard's "Which holdings made the return" section shows the Pareto view
-(names for 50 % / 80 % of gains, top contributors and detractors).
+For each clone, `contributions.csv` holds every holding's contribution over the scored window — gross (Σ w·r, sums to
+the clone's return) and **active** (Σ w·(r − r_market), sums to the excess over the US market) — with months held,
+first/last month, average weight, share of outperformance and cumulative share in rank order; `timeline.csv` holds
+month-by-month weights for the names that matter. The dashboard section "The stocks behind the outperformance"
+lists the ten names that added most over the market and the three that cost most, each with its share and a
+holding-timeline strip.
 
 ## Analyze any listed portfolio
 The served site has a ticker box on every page (`/analyze?ticker=FCNTX`): it downloads the monthly adjusted

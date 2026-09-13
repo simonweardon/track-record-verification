@@ -344,25 +344,46 @@ def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame, detail: boo
     return out, cov, pd.DataFrame(summary)
 
 
-def contribution_table(contrib: pd.DataFrame, weights: pd.DataFrame, months: pd.Index, names: dict) -> pd.DataFrame:
-    """Per-holding contribution over `months` (the scored window): arithmetic sum of w×r,
-    months held, average weight when held, and the Pareto columns — share of total gains
-    (positives) and cumulative share in rank order."""
+def contribution_table(contrib: pd.DataFrame, weights: pd.DataFrame, months: pd.Index, names: dict,
+                       rm: pd.Series | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Per-holding contribution over `months` (the scored window).
+
+    contribution  = Σ_t w_it · r_it                (adds up to the clone's return)
+    active        = Σ_t w_it · (r_it − r_mt)       (adds up to the clone's excess over the market —
+                                                    a stock that merely matched the market contributes 0)
+    share_of_outperformance = active ÷ Σ positive actives; cumulative share in rank order.
+    Also returns a long timeline (ticker, month, weight) for the names that matter."""
     c = contrib.reindex(months).fillna(0.0); w = weights.reindex(months)
-    tot = c.sum(); held = (w > 0).sum(); avg_w = w.mean()
-    df = pd.DataFrame({"ticker": tot.index, "contribution": tot.values, "months_held": held.reindex(tot.index).values,
-                       "avg_weight_when_held": avg_w.reindex(tot.index).values})
+    tot = c.sum()
+    if rm is not None:
+        rmm = rm.reindex(months).fillna(0.0)
+        act = (c - w.fillna(0.0).mul(rmm, axis=0)).sum()      # w·r − w·rm
+    else:
+        act = tot.copy()
+    held = w.notna() & (w > 0)
+    df = pd.DataFrame({"ticker": tot.index, "contribution": tot.values, "active": act.reindex(tot.index).values,
+                       "months_held": held.sum().reindex(tot.index).values,
+                       "avg_weight_when_held": w.where(held).mean().reindex(tot.index).values})
+    first = {t: held.index[held[t]].min() for t in tot.index if held[t].any()}
+    last = {t: held.index[held[t]].max() for t in tot.index if held[t].any()}
+    df["first_held"] = df.ticker.map(lambda t: str(first[t].date()) if t in first else "")
+    df["last_held"] = df.ticker.map(lambda t: str(last[t].date()) if t in last else "")
     df["name"] = df.ticker.map(names).fillna(df.ticker)
-    df = df.sort_values("contribution", ascending=False).reset_index(drop=True)
-    gains = df.contribution[df.contribution > 0].sum()
-    df["share_of_gains"] = np.where(df.contribution > 0, df.contribution / gains if gains > 0 else np.nan, np.nan)
-    df["cum_share_of_gains"] = df.share_of_gains.fillna(0).cumsum().where(df.contribution > 0)
+    df = df.sort_values("active", ascending=False).reset_index(drop=True)
+    pos = df.active[df.active > 0].sum()
+    df["share_of_outperformance"] = np.where(df.active > 0, df.active / pos if pos > 0 else np.nan, np.nan)
+    df["cum_share_of_outperformance"] = df.share_of_outperformance.fillna(0).cumsum().where(df.active > 0)
     df["rank"] = np.arange(1, len(df) + 1)
-    return df
+    keep = list(df.head(20).ticker) + list(df.tail(6).ticker)
+    tl = w[[t for t in keep if t in w.columns]].where(held).stack().reset_index()
+    tl.columns = ["month", "ticker", "weight"]
+    tl["month"] = pd.to_datetime(tl["month"]).dt.strftime("%Y-%m")
+    return df, tl
 
 
 def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.DataFrame, out_dir: Path,
-                       contrib: pd.DataFrame | None = None, weights: pd.DataFrame | None = None, names: dict | None = None) -> dict | None:
+                       contrib: pd.DataFrame | None = None, weights: pd.DataFrame | None = None, names: dict | None = None,
+                       rm: pd.Series | None = None) -> dict | None:
     from .fund_universe import STYLES
     # keep only the longest gap-free stretch: a series is never chained across a hole
     valid = ret.notna()
@@ -416,8 +437,8 @@ def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.D
                        strategy="default", benchmark="US_MKT", notes="13F long-only clone; not the fund's return")]).to_csv(out_dir / "accounts.csv", index=False)
     summary.to_csv(out_dir / "filings.csv", index=False)
     if contrib is not None and weights is not None:
-        ct = contribution_table(contrib, weights, ret.index[ret.index > first], names or {})
-        ct.to_csv(out_dir / "contributions.csv", index=False)
+        ct, tl = contribution_table(contrib, weights, ret.index[ret.index > first], names or {}, rm)
+        ct.to_csv(out_dir / "contributions.csv", index=False); tl.to_csv(out_dir / "timeline.csv", index=False)
     meta = dict(slug=fund["slug"], name=fund["name"], manager=fund["manager"], style=fund["style"],
                 style_name=STYLES[fund["style"]][0], style_note=STYLES[fund["style"]][1],
                 months=int(len(st_rows)), status="ok", first=str(first.date()), last=str(ret.dropna().index.max().date()),
@@ -444,6 +465,11 @@ def build_all(funds: list[dict], out_root: Path, log=print, only: list[str] | No
     tickers = sorted({t for t in cmap.values() if t})
     log(f"mapped {len(tickers)} tickers; fetching prices")
     prices = monthly_prices(tickers, log)
+    try:                                   # US market monthly return, for contribution to outperformance
+        from .reference import load_all
+        rm = load_all()["US_MKT"]; rm.index = pd.DatetimeIndex(rm.index).to_period("M").to_timestamp("M")
+    except Exception as e:
+        log(f"  market series unavailable ({e}); active contributions fall back to gross"); rm = None
     metas = []
     for f in sel:
         h = H[f["slug"]]
@@ -455,7 +481,7 @@ def build_all(funds: list[dict], out_root: Path, log=print, only: list[str] | No
             t = cmap.get(cusip)
             if t and t not in names:
                 names[t] = nm.title()
-        meta = write_fund_dataset(f, ret, cov, summary, out_root / f["slug"], contrib, weights, names)
+        meta = write_fund_dataset(f, ret, cov, summary, out_root / f["slug"], contrib, weights, names, rm)
         if meta:
             metas.append(meta)
             log(f"  {f['slug']}: {meta['status']} {meta.get('months', 0)} months, coverage {meta.get('avg_coverage') or 0:.0%}")

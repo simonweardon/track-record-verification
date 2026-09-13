@@ -849,6 +849,7 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   </div>
 </section>
 
+{holdings_html}
 <section>
   <div class="sh"><h2>Score breakdown</h2>{chip("inference")}</div>
   <div class="card"><h3>Wealth-management score = {f"{wm.value:.0f}" if wm is not None else "n/a"} / 100 &nbsp;·&nbsp; Alpha-maxing score = {f"{am.value:.0f}" if am is not None else "n/a"} / 100</h3>
@@ -911,7 +912,6 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   </div>
 </section>
 
-{holdings_html}
 <section>
   <div class="sh"><h2>Is it real? Skill or luck</h2>{chip("inference")}</div>
   <div class="card"><h3>Which ratio answers it</h3>

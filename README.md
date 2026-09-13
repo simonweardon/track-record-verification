@@ -17,7 +17,7 @@ All of it runs today on two placeholder datasets. Swapping in real statements ch
 | placeholder | what it is | what it exercises |
 |---|---|---|
 | `data/synthetic` | 12 invented accounts, real market history, +2%/yr injected alpha, six injected defects | Phase 1 reconciliation, composites with closed accounts, annual-grid inference, ground-truth recovery |
-| `data/brk` | Berkshire Hathaway Class A monthly closes 1985–2026 (yfinance), one account, no statements | Monthly grid: 36/60-month rolling alpha, real drawdowns, HAC errors; results check against "Buffett's Alpha" (β≈0.7, SMB<0, HML>0, alpha shrinking under FF5) |
+| `data/brk` | Berkshire Hathaway Class A monthly closes 1985–2026 (yfinance), one account, no statements — kept as a local test dataset; **no longer shown on the site** (removed 2026-09-13; Berkshire appears as its 13F clone instead) | Monthly grid: 36/60-month rolling alpha, real drawdowns, HAC errors; results check against "Buffett's Alpha" (β≈0.7, SMB<0, HML>0, alpha shrinking under FF5) |
 
 The BRK series is the stock, not Buffett's public-equity book, and a price feed is not a custodian statement — Phase 1 marks every period unverified, which is the correct label.
 

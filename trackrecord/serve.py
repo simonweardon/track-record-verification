@@ -37,10 +37,7 @@ JOBS: dict[str, dict] = {}          # ticker -> {phase, log, error, started}
 JOBS_LOCK = threading.Lock()
 
 DATASETS = [
-    # (label, out subdir, build steps)
-    ("Berkshire Hathaway BRK-A (monthly, 1985–2026)", "brk", [
-        ["fetch-brk"], ["brk-placeholder"],
-        ["report", "--data", "data/brk", "--out", "output/brk", "--grid", "M", "--claimed", "0.198"]]),
+    # (label, out subdir, build steps) — the BRK-A stock analysis was removed from the site (2026-09-13)
     ("Synthetic accounts (annual, injected +2% alpha)", "synthetic", [
         ["synth", "--out", "data/synthetic"],
         ["report", "--data", "data/synthetic", "--out", "output/synthetic", "--claimed", "0.14"]]),
@@ -245,7 +242,7 @@ def leaderboard_rows() -> list[dict]:
     """Every analyzed portfolio with its two scores, from the scores.csv files on disk."""
     import csv
     rows = []
-    cands = [("brk", OUT / "brk"), ("synthetic", OUT / "synthetic")] + \
+    cands = [("synthetic", OUT / "synthetic")] + \
             [(p.name, p) for p in sorted((OUT / "t").glob("*")) if p.is_dir()]
     for key, d in cands:
         f = d / "phase4" / "scores.csv"
@@ -337,9 +334,6 @@ def directory_html() -> str:
         return am, wm, ex
     # ---- listed vehicles: BRK stock + any committed ticker dataset
     listed = []
-    am, wm, ex = scores_of(OUT / "brk")
-    listed.append(dict(key="brk", href="/f/brk/", mgr="Warren Buffett", fund="Berkshire Hathaway Class A — the share price, not the 13F holdings", tag="listed · 1985–2026",
-                       alpha=am, wealth=wm, excess=ex, ok=True))
     tdir = ROOT / "data" / "tickers"
     if tdir.exists():
         for d in sorted(tdir.iterdir()):
@@ -406,7 +400,7 @@ apply();})();
 <dl class="stats"><div><dt>Managers in the system</dt><dd>{len(frows) + len(listed)}</dd></div><div><dt>Scorable today</dt><dd>{n_ok + len(listed)}</dd></div><div><dt>Listed vehicles</dt><dd>{len(listed)}</dd></div><div><dt>13F clones</dt><dd>{len(frows)}</dd></div></dl>
 </div></header>
 <main class="wrap">
-<h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record. Berkshire's <i>stock</i> is in the table below, separately.</p>
+<h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
 <div class="cards">{cards}</div>
 <h2 data-n="All managers">Every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist and long-short clones track the real book; multi-strategy, quant and macro clones are flagged as not meaningful on their pages.</p>
@@ -447,7 +441,7 @@ ol.steps li.now::before{{animation:tr-pulse 1.2s ease-in-out infinite}}
 
 
 def startup_wait_html(which: str) -> str:
-    label = {"brk": "Berkshire Hathaway (the stock)", "synthetic": "the synthetic placeholder"}.get(which, which)
+    label = {"synthetic": "the synthetic placeholder"}.get(which, which)
     ready = (OUT / which / "dashboard.html").exists()
     log = "\n".join(html.escape(l) for l in STATE["log"][-6:])
     return page(f"{label} — preparing", f"""<style>
@@ -557,10 +551,6 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/managers", "/leaderboard", "/index.html"):
             return self._html(directory_html())
-        if u.path == "/f/brk/":
-            if (OUT / "brk" / "dashboard.html").exists():
-                return self._redirect("/brk/dashboard.html")
-            return self._html(startup_wait_html("brk"))
         if u.path == "/analyze":
             t = (parse_qs(u.query).get("ticker", [""])[0] or "").strip().upper()
             if not valid_ticker(t):
@@ -596,7 +586,7 @@ class Handler(SimpleHTTPRequestHandler):
             if f.exists():
                 doc = f.read_text(encoding="utf-8")
                 parts = u.path.strip("/").split("/")
-                crumb = {"brk": "Berkshire Hathaway — the stock", "synthetic": "Synthetic placeholder"}.get(parts[0], "")
+                crumb = {"synthetic": "Synthetic placeholder"}.get(parts[0], "")
                 if parts[0] == "funds":
                     try:
                         import json as _j; crumb = _j.loads((FUNDS_ROOT / parts[1] / "meta.json").read_text()).get("name", parts[1]) + " — 13F clone"
@@ -611,7 +601,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._redirect(f"/f/{parts[1]}/")
             if parts[0] == "t" and len(parts) == 3 and valid_ticker(parts[1]):
                 return self._redirect(f"/analyze?ticker={parts[1]}")
-            if parts[0] in ("brk", "synthetic"):
+            if parts[0] == "synthetic":
                 return self._html(startup_wait_html(parts[0]))
             return self._html(not_found_html(u.path), 404)
         if u.path in ("/", "/status", "/index.html"):

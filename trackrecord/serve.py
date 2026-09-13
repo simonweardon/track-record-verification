@@ -500,6 +500,11 @@ def directory_html() -> str:
     extra_css = """<style>
 th.sort{cursor:pointer;user-select:none;white-space:nowrap}th.sort::after{content:"";display:inline-block;width:0;height:0;margin-left:7px;vertical-align:middle;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--line)}
 th.sort.on::after{border-top-color:var(--gold)}th.sort.on.asc::after{border-top:0;border-bottom:5px solid var(--gold)}th.sort:hover{color:var(--gold)}
+.cta{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:26px 0 0;max-width:760px}
+.cta .big{display:grid;gap:4px;padding:20px 22px;text-decoration:none;border:1px solid var(--goldl);color:var(--coverink);background:rgba(232,228,218,.04)}
+.cta .big.gold{background:var(--goldl);color:#1b2a40;border-color:var(--goldl)}
+.cta .big .t{font:400 22px/1.15 var(--serif)}.cta .big .s{font:600 9.5px/1.3 var(--sans);letter-spacing:.18em;text-transform:uppercase;opacity:.75}
+.cta .big:hover{filter:brightness(1.08)}@media(max-width:640px){.cta{grid-template-columns:1fr}}
 .stats{display:flex;gap:40px;margin-top:30px;padding-top:18px;border-top:1px solid rgba(232,228,218,.18)}.stats div{display:grid;gap:4px}.stats dt{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--covermuted)}.stats dd{margin:0;font:400 30px/1 var(--serif);color:var(--coverink)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:6px 0 10px}
 .card{display:block;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:16px 18px;text-decoration:none;color:var(--ink)}
@@ -513,6 +518,7 @@ th.sort.on::after{border-top-color:var(--gold)}th.sort.on.asc::after{border-top:
 (function(){const q=document.getElementById('q'),rows=[...document.querySelectorAll('#tbl tbody tr')],cnt=document.getElementById('cnt'),tb=document.querySelector('#tbl tbody');
 function apply(){const s=q.value.trim().toLowerCase();let n=0;rows.forEach(r=>{const ok=!s||r.dataset.s.includes(s);r.hidden=!ok;if(ok)n++;});cnt.textContent=n+' of '+rows.length;}
 q.addEventListener('input',apply);
+const gs=document.getElementById('go-search');if(gs)gs.addEventListener('click',e=>{e.preventDefault();document.getElementById('all').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>q.focus(),400);});
 function sortBy(k,dir){const num=k!=='n';[...tb.querySelectorAll('tr')].sort((x,y)=>{let a=x.dataset[k],b=y.dataset[k];if(num){a=parseFloat(a);b=parseFloat(b);return dir==='asc'?a-b:b-a;}return dir==='asc'?a.localeCompare(b):b.localeCompare(a);}).forEach(r=>tb.appendChild(r));}
 document.querySelectorAll('th.sort').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;let dir=th.dataset.dir;if(th.classList.contains('on')){dir=dir==='asc'?'desc':'asc';th.dataset.dir=dir;}
 document.querySelectorAll('th.sort').forEach(x=>x.classList.remove('on','asc'));th.classList.add('on');if(dir==='asc')th.classList.add('asc');sortBy(k,dir);}));
@@ -521,13 +527,14 @@ apply();})();
     return page("Track Record Verification", f"""{extra_css}<div class="banner"><b>Illustrative data</b> Public records and SEC 13F reconstructions used to demonstrate the pipeline. Nothing here is the record under verification.</div>
 <header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Track Record Verification</h1>
 <p class="sub">One system, applied the same way to every manager: reconcile the record, compute time-weighted returns, remove what the market and known factors explain, simulate how often luck alone does as well, test stability, and score. Press <b>Analyze</b> on any row.</p>
-<p style="margin:22px 0 0"><a class="btn" href="/me" style="background:var(--goldl);color:#1b2a40">My records — upload your own</a></p>
+<div class="cta"><a class="big" href="#all" id="go-search"><span class="t">Search other people's returns</span><span class="s">{len(frows) + len(listed)} managers · 13F clones and listed funds</span></a>
+<a class="big gold" href="/me"><span class="t">My records</span><span class="s">Upload my records</span></a></div>
 <dl class="stats"><div><dt>Managers in the system</dt><dd>{len(frows) + len(listed)}</dd></div><div><dt>Scorable today</dt><dd>{n_ok + len(listed)}</dd></div><div><dt>Listed vehicles</dt><dd>{len(listed)}</dd></div><div><dt>13F clones</dt><dd>{len(frows)}</dd></div></dl>
 </div></header>
 <main class="wrap">
 <h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
 <div class="cards">{cards}</div>
-<h2 data-n="All managers">Every manager in the system</h2>
+<h2 data-n="All managers" id="all">Every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
 <table id="tbl">{head}<tbody>{table}</tbody></table>

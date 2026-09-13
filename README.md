@@ -83,6 +83,14 @@ month-by-month weights for the names that matter. The dashboard section "The sto
 lists the ten names that added most over the market and the three that cost most, each with its share and a
 holding-timeline strip.
 
+## Private records (accounts)
+`/account` creates an account (email + password, PBKDF2 hashes, HMAC-signed HttpOnly session cookie); `/me` lists that
+user's uploads and takes new ones — a returns file (`date, return`), a values-and-flows file (`date, value, flow`), or
+the pipeline's own statement templates — converts them into a dataset, runs the full report, and serves the dashboard
+only to the owner at `/me/<slug>/dashboard.html`. Everything lives under `USERDATA_DIR` (default `userdata/`, gitignored;
+on Railway a mounted volume so it survives deploys). Set `SESSION_SECRET` in production. There is no email verification or
+password reset yet.
+
 ## Analyze any listed portfolio
 The served site has a ticker box on every page (`/analyze?ticker=FCNTX`): it downloads the monthly adjusted
 history via yfinance, builds a one-account placeholder, runs phases 1–4 on the monthly grid (~40 s), and adds

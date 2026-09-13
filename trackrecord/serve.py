@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import hmac
+import json
 import re
 import html
 import os
@@ -28,6 +29,8 @@ from urllib.parse import parse_qs, urlparse
 
 from .placeholder_ticker import FAMOUS, NOT_PUBLIC, valid as valid_ticker
 from .fund_universe import STYLES
+from . import accounts as AC
+from . import uploads as UP
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output"
@@ -283,9 +286,115 @@ NAV_CSS = """<style>
 </style>"""
 
 
-def nav_html(crumb: str = "") -> str:
+def nav_html(crumb: str = "", me: bool = False) -> str:
     return (NAV_CSS + '<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>'
-            '<a class="home" href="/">Home</a>' + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
+            '<a class="home" href="/">Home</a><a href="/me">My records</a>' + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
+
+
+# ---------------------------------------------------------------- private records
+
+def build_user_record(uid: str, slug: str) -> None:
+    key = f"user:{uid}:{slug}"; job = JOBS[key]
+    rec = AC.user_dir(uid) / slug
+    try:
+        meta = json.loads((rec / "meta.json").read_text())
+        job["phase"] = "running phases 1–4 on your record"
+        args = ["report", "--data", str(rec / "data"), "--out", str(rec / "out"), "--grid", meta.get("grid", "M"),
+                "--label", meta.get("label", slug), "--n-boot", "2000", "--n-cohort", "4000"]
+        if meta.get("claimed"):
+            args += ["--claimed", str(meta["claimed"])]
+        _run_job(job, args)
+        job["phase"] = "ready"
+    except Exception as e:
+        job["error"] = str(e); job["phase"] = "failed"
+    finally:
+        job["done"] = True
+
+
+def start_user_record(uid: str, slug: str) -> dict:
+    key = f"user:{uid}:{slug}"
+    with JOBS_LOCK:
+        job = JOBS.get(key)
+        if job and not job["done"]:
+            return job
+        if (AC.user_dir(uid) / slug / "out" / "dashboard.html").exists():
+            JOBS[key] = job = {"phase": "ready", "log": [], "error": None, "started": time.time(), "done": True}
+            return job
+        JOBS[key] = job = {"phase": "queued", "log": [], "error": None, "started": time.time(), "done": False}
+    threading.Thread(target=build_user_record, args=(uid, slug), daemon=True).start()
+    return job
+
+
+def parse_multipart(content_type: str, body: bytes) -> tuple[dict, dict]:
+    """fields: name -> str; files: name -> list of (filename, bytes)."""
+    from email.parser import BytesParser
+    from email.policy import default
+    msg = BytesParser(policy=default).parsebytes(b"Content-Type: " + content_type.encode() + b"\r\nMIME-Version: 1.0\r\n\r\n" + body)
+    fields, files = {}, {}
+    if not msg.is_multipart():
+        return fields, files
+    for part in msg.iter_parts():
+        name = part.get_param("name", header="content-disposition") or ""
+        fn = part.get_filename()
+        payload = part.get_payload(decode=True) or b""
+        if fn:
+            files.setdefault(name, []).append((Path(fn).name, payload))
+        else:
+            fields[name] = payload.decode("utf-8", errors="replace")
+    return fields, files
+
+
+ACCOUNT_CSS = """<style>
+.form{max-width:440px;display:grid;gap:12px;margin:8px 0 24px}.form label{display:grid;gap:5px;font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.form input[type=text],.form input[type=email],.form input[type=password],.form input[type=number],.form select{font:15px var(--serif);padding:9px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.form input[type=file]{font:13px var(--sans);color:var(--ink2)}.form .row{display:flex;gap:10px;align-items:center}
+.msg{padding:10px 14px;border-left:2px solid var(--gold);background:var(--surface);margin:0 0 16px;max-width:70ch}.msg.err{border-color:var(--crit);color:var(--crit)}
+.recs td .st{font:600 9px/14px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.shape{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:10px 0 18px}.shape div{background:var(--surface);border:1px solid var(--line);padding:12px 14px;font-size:13px}.shape b{display:block;font:400 16px var(--serif);color:var(--navy);margin-bottom:4px}.shape code{font:12px Menlo,monospace;color:var(--ink2)}
+</style>"""
+
+
+def account_html(msg: str = "", err: bool = False, mode: str = "signin") -> str:
+    return page("Sign in", ACCOUNT_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records</div><div class="rule"></div><h1>{'Create an account' if mode == 'signup' else 'Sign in'}</h1>
+<p class="sub">Your uploads and results are private to your account and stay here between visits. Nothing you upload appears on the public pages.</p></div></header>
+<main class="wrap">{f'<p class="msg{" err" if err else ""}">{html.escape(msg)}</p>' if msg else ''}
+<form class="form" method="post" action="/account"><input type="hidden" name="mode" value="{mode}">
+<label>Email<input type="email" name="email" required autocomplete="email"></label>
+<label>Password<input type="password" name="password" required minlength="10" autocomplete="{'new-password' if mode == 'signup' else 'current-password'}"></label>
+<div class="row"><button class="btn">{'Create account' if mode == 'signup' else 'Sign in'}</button>
+<a href="/account?mode={'signin' if mode == 'signup' else 'signup'}" style="font-size:13px">{'Already have an account? Sign in' if mode == 'signup' else 'No account yet? Create one'}</a></div></form>
+<p class="sub" style="font-size:12.5px;max-width:70ch">Passwords are stored only as salted PBKDF2 hashes. This is a private working tool, not a bank login: there is no email verification or password reset yet — keep your password somewhere safe.</p>
+<p style="display:flex;gap:10px"><a class="btn" href="/">Home</a></p></main>""")
+
+
+def me_html(uid: str, msg: str = "", err: bool = False) -> str:
+    recs = AC.list_records(uid)
+    rows = ""
+    for r in recs:
+        st = "ready" if r.get("built") else "not analyzed yet"
+        rows += (f"<tr><td><span class='mgr'>{html.escape(r['label'])}</span><br><span class='fund'>{html.escape(r.get('shape', ''))} · {html.escape(r.get('first', ''))} – {html.escape(r.get('last', ''))} · {r.get('periods', '')} periods · {'monthly' if r.get('grid') == 'M' else 'annual'}"
+                 f"{' · claimed ' + format(float(r['claimed']) * 100, '.1f') + '%' if r.get('claimed') else ''}</span></td>"
+                 f"<td><span class='st'>{st}</span></td>"
+                 f"<td class='n' style='white-space:nowrap'><a class='btn' href='/me/{r['slug']}/'>Analyze</a> "
+                 f"<form method='post' action='/me/{r['slug']}/delete' style='display:inline' onsubmit='return confirm(\"Delete this record and its results?\")'><button class='btn' style='background:transparent;color:var(--crit);border:1px solid var(--crit)'>Delete</button></form></td></tr>")
+    return page("My records", ACCOUNT_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records · {html.escape(AC.user_email(uid))}</div><div class="rule"></div><h1>My records</h1>
+<p class="sub">Upload a return series, a value-and-flow history, or the pipeline's own statement templates, and run the same verification the public managers get. Only you can see these.</p></div></header>
+<main class="wrap">{f'<p class="msg{" err" if err else ""}">{html.escape(msg)}</p>' if msg else ''}
+<h2 data-n="Section 01">Your records</h2>
+<table class="recs"><thead><tr><th>record</th><th>status</th><th class="n"></th></tr></thead><tbody>{rows or '<tr><td colspan=3>nothing uploaded yet</td></tr>'}</tbody></table>
+<h2 data-n="Section 02">Upload a record</h2>
+<div class="shape">
+<div><b>Returns</b>One row per month or year: <code>date, return</code>. Return as a decimal (0.012) or a percent (1.2). <a href="/templates/returns.csv">template</a>. Nothing to reconcile against → every period shows as <i>unverified</i>.</div>
+<div><b>Values and flows</b>One row per statement: <code>date, value, flow</code> — the account's ending value and any deposit (+) or withdrawal (−) that period. <a href="/templates/values.csv">template</a>. Returns are computed properly net of flows.</div>
+<div><b>Statement templates</b>The pipeline's own <code>statements.csv</code>, <code>flows.csv</code>, <code>positions.csv</code> (and optional <code>accounts.csv</code>), entered from real statements. <a href="/templates/statements.csv">statements</a> · <a href="/templates/flows.csv">flows</a> · <a href="/templates/positions.csv">positions</a> · <a href="/templates/ENTRY_GUIDE.md">guide</a>. The only shape that can reach <i>verified</i>.</div>
+</div>
+<form class="form" method="post" action="/me/upload" enctype="multipart/form-data">
+<label>Name for this record<input type="text" name="label" required maxlength="60" placeholder="e.g. Main account 1996–2025"></label>
+<label>Shape<select name="shape"><option value="returns">Returns (date, return)</option><option value="values">Values and flows (date, value, flow)</option><option value="template">Statement templates (statements.csv + flows.csv + …)</option></select></label>
+<label>File(s) — CSV or Excel, up to 5 MB each<input type="file" name="files" multiple required accept=".csv,.xlsx,.xls,.txt"></label>
+<label>Claimed annual return, % (optional)<input type="number" name="claimed" step="0.01" placeholder="e.g. 14"></label>
+<div class="row"><button class="btn">Upload</button></div></form>
+<p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="/logout" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">Sign out</a></p></main>""")
 
 
 def page(title: str, body: str, refresh: int | None = None) -> str:
@@ -408,6 +517,7 @@ apply();})();
     return page("Track Record Verification", f"""{extra_css}<div class="banner"><b>Illustrative data</b> Public records and SEC 13F reconstructions used to demonstrate the pipeline. Nothing here is the record under verification.</div>
 <header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Track Record Verification</h1>
 <p class="sub">One system, applied the same way to every manager: reconcile the record, compute time-weighted returns, remove what the market and known factors explain, simulate how often luck alone does as well, test stability, and score. Press <b>Analyze</b> on any row.</p>
+<p style="margin:22px 0 0"><a class="btn" href="/me" style="background:var(--goldl);color:#1b2a40">My records — upload your own</a></p>
 <dl class="stats"><div><dt>Managers in the system</dt><dd>{len(frows) + len(listed)}</dd></div><div><dt>Scorable today</dt><dd>{n_ok + len(listed)}</dd></div><div><dt>Listed vehicles</dt><dd>{len(listed)}</dd></div><div><dt>13F clones</dt><dd>{len(frows)}</dd></div></dl>
 </div></header>
 <main class="wrap">
@@ -421,7 +531,7 @@ apply();})();
 </main>{js}""")
 
 
-def ticker_status_html(ticker: str, job: dict, label: str | None = None) -> str:
+def ticker_status_html(ticker: str, job: dict, label: str | None = None, ready_href: str | None = None) -> str:
     """Wait page: friendly steps, a live timer, and a script that polls and follows the redirect
     (meta refresh alone is throttled by some mobile browsers)."""
     steps = ["Reconciling the statement series", "Computing time-weighted returns and the composite",
@@ -447,7 +557,7 @@ ol.steps li.now::before{{animation:tr-pulse 1.2s ease-in-out infinite}}
 <p class="sub">{'The analysis of <b>' + html.escape(label or ticker) + '</b> is ready.' if ready else 'Analyzing <b>' + html.escape(label or ticker) + '</b> — the first run takes about half a minute. This page opens the dashboard by itself when it is done; there is nothing to press.'}</p></div></header>
 <main class="wrap">{err}<ol class="steps">{lis}</ol>
 <p class="timer">{'Ready' if ready else html.escape(job['phase'])} &nbsp;·&nbsp; {elapsed}s</p>
-{'<p><a class="btn" href="' + ('/t/' + ticker + '/dashboard.html' if not ticker.islower() else '/funds/' + ticker + '/dashboard.html') + '">Open the dashboard</a></p>' if ready else ''}
+{'<p><a class="btn" href="' + (ready_href or ('/t/' + ticker + '/dashboard.html' if not ticker.islower() else '/funds/' + ticker + '/dashboard.html')) + '">Open the dashboard</a></p>' if ready else ''}
 <p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="javascript:history.back()" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">&larr; Back</a></p></main>{poll}""", refresh=None if job["done"] else 5)
 
 
@@ -527,6 +637,101 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=str(OUT), **kw)
 
+    # ---- sessions -------------------------------------------------------------
+    def _uid(self) -> str | None:
+        raw = self.headers.get("Cookie", "")
+        for part in raw.split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "trsession":
+                return AC.verify_token(v)
+        return None
+
+    def _secure(self) -> bool:
+        return self.headers.get("X-Forwarded-Proto", "").lower() == "https"
+
+    def _same_origin(self) -> bool:
+        host = self.headers.get("Host", "")
+        for h in ("Origin", "Referer"):
+            v = self.headers.get(h)
+            if v:
+                from urllib.parse import urlparse as _u
+                return _u(v).netloc == host
+        return True
+
+    def _redirect_with_cookie(self, to: str, cookie: str):
+        self.send_response(302); self.send_header("Location", to); self.send_header("Set-Cookie", cookie)
+        self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", "0"); self.end_headers()
+
+    def do_POST(self):
+        u = urlparse(self.path)
+        if not self._same_origin():
+            return self._html(page("Blocked", "<main class='wrap'><h1>Blocked</h1><p>Cross-site request.</p></main>"), 403)
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length > 6 * UP.MAX_BYTES:
+            return self._html(page("Too large", "<main class='wrap'><h1>Too large</h1><p>Uploads are limited to 5 MB per file.</p></main>"), 413)
+        body = self.rfile.read(length)
+        ctype = self.headers.get("Content-Type", "")
+        if ctype.startswith("multipart/form-data"):
+            fields, files = parse_multipart(ctype, body)
+        else:
+            fields = {k: v[0] for k, v in parse_qs(body.decode("utf-8", errors="replace")).items()}; files = {}
+        if u.path == "/account":
+            mode = fields.get("mode", "signin"); email = fields.get("email", ""); pw = fields.get("password", "")
+            if mode == "signup":
+                uid, err = AC.create_user(email, pw)
+                if err:
+                    return self._html(account_html(err, True, "signup"))
+            else:
+                uid = AC.authenticate(email, pw)
+                if not uid:
+                    return self._html(account_html("Email or password not recognised.", True, "signin"))
+            return self._redirect_with_cookie("/me", AC.cookie_header(AC.issue_token(uid), self._secure()))
+        uid = self._uid()
+        if not uid:
+            return self._redirect("/account")
+        if u.path == "/me/upload":
+            label = (fields.get("label") or "").strip()[:60] or "My record"
+            shape = fields.get("shape", "returns")
+            claimed = fields.get("claimed", "").strip()
+            slug = AC.slugify(label)
+            base = AC.user_dir(uid); rec = base / slug
+            n = 2
+            while rec.exists():
+                rec = base / f"{slug}-{n}"; n += 1
+            slug = rec.name
+            try:
+                up = files.get("files") or []
+                if not up:
+                    raise UP.UploadError("no file received")
+                if shape == "template":
+                    info = UP.from_template({fn: data for fn, data in up}, rec / "data", label)
+                elif shape == "values":
+                    info = UP.from_values(up[0][0], up[0][1], rec / "data", label)
+                else:
+                    info = UP.from_returns(up[0][0], up[0][1], rec / "data", label)
+                meta = dict(slug=slug, label=label, created=time.time(), **info)
+                if claimed:
+                    try:
+                        meta["claimed"] = float(claimed) / 100.0
+                    except ValueError:
+                        pass
+                (rec / "meta.json").write_text(json.dumps(meta))
+            except UP.UploadError as e:
+                import shutil; shutil.rmtree(rec, ignore_errors=True)
+                return self._html(me_html(uid, f"Could not use that upload: {e}", True), 400)
+            except Exception as e:
+                import shutil; shutil.rmtree(rec, ignore_errors=True)
+                return self._html(me_html(uid, f"Could not use that upload: {e}", True), 400)
+            start_user_record(uid, slug)
+            return self._redirect(f"/me/{slug}/")
+        m = re.match(r"^/me/([a-z0-9\-]{1,48})/delete$", u.path)
+        if m:
+            import shutil
+            shutil.rmtree(AC.user_dir(uid) / m.group(1), ignore_errors=True)
+            JOBS.pop(f"user:{uid}:{m.group(1)}", None)
+            return self._redirect("/me")
+        return self._html(not_found_html(u.path), 404)
+
     def _authorized(self) -> bool:
         pw = os.environ.get("DASHBOARD_PASSWORD")
         if not pw:
@@ -562,6 +767,47 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/managers", "/leaderboard", "/index.html"):
             return self._html(directory_html())
+        if u.path == "/account":
+            if self._uid():
+                return self._redirect("/me")
+            return self._html(account_html(mode=parse_qs(u.query).get("mode", ["signin"])[0]))
+        if u.path == "/logout":
+            return self._redirect_with_cookie("/", AC.clear_cookie_header(self._secure()))
+        if u.path.startswith("/templates/"):
+            name = u.path.split("/", 2)[2]
+            if name in UP.TEMPLATES:
+                b = UP.TEMPLATES[name].encode(); self.send_response(200); self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", f"attachment; filename={name}"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+            f = ROOT / "templates" / name
+            if f.exists() and f.is_file() and re.match(r"^[A-Za-z0-9_.\-]+$", name):
+                b = f.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Disposition", f"attachment; filename={name}"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+            return self._html(not_found_html(u.path), 404)
+        if u.path == "/me" or u.path.startswith("/me/"):
+            uid = self._uid()
+            if not uid:
+                return self._redirect("/account")
+            if u.path == "/me":
+                return self._html(me_html(uid))
+            m = re.match(r"^/me/([a-z0-9\-]{1,48})/(dashboard\.html)?$", u.path)
+            if not m:
+                return self._html(not_found_html(u.path), 404)
+            slug = m.group(1); rec = AC.user_dir(uid) / slug
+            if not (rec / "meta.json").exists():
+                return self._html(not_found_html(u.path), 404)
+            dash = rec / "out" / "dashboard.html"
+            if m.group(2):
+                if not dash.exists():
+                    return self._redirect(f"/me/{slug}/")
+                doc = dash.read_text(encoding="utf-8")
+                label = json.loads((rec / "meta.json").read_text()).get("label", slug)
+                doc = doc.replace('<main class="wrap">', nav_html(label + " — private", me=True) + '<main class="wrap">', 1)
+                return self._html(doc)
+            job = start_user_record(uid, slug)
+            if job["done"] and not job.get("error") and dash.exists():
+                return self._redirect(f"/me/{slug}/dashboard.html")
+            label = json.loads((rec / "meta.json").read_text()).get("label", slug)
+            return self._html(ticker_status_html(slug, job, label=label, ready_href=f"/me/{slug}/dashboard.html"))
         if u.path == "/analyze":
             t = (parse_qs(u.query).get("ticker", [""])[0] or "").strip().upper()
             if not valid_ticker(t):

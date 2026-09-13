@@ -422,6 +422,23 @@ ol.steps li.done{{color:var(--ink)}}ol.steps li.done::before{{background:var(--g
 <p><a href="/">&larr; All managers</a></p></main>{poll}""", refresh=None if job["done"] else 5)
 
 
+def startup_wait_html(which: str) -> str:
+    label = {"brk": "Berkshire Hathaway (the stock)", "synthetic": "the synthetic placeholder"}.get(which, which)
+    ready = (OUT / which / "dashboard.html").exists()
+    log = "\n".join(html.escape(l) for l in STATE["log"][-6:])
+    return page(f"{label} — preparing", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Preparing {html.escape(label)}</h1>
+<p class="sub">The server was just restarted and is rebuilding its baseline records (about a minute). This page opens the dashboard by itself when it's ready.</p></div></header>
+<main class="wrap"><p class="timer" style="font:600 10px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)">{html.escape(STATE["phase"])} &nbsp;·&nbsp; {int(time.time() - STATE["started"])}s since restart</p>
+<pre>{log or '(starting)'}</pre>{'<p><a class="btn" href="/' + which + '/dashboard.html">Open the dashboard</a></p>' if ready else ''}<p><a href="/">&larr; All managers</a></p></main>
+{'' if ready else '<script>setTimeout(function(){location.reload();},4000);</script>'}""", refresh=None if ready else 5)
+
+
+def not_found_html(path: str) -> str:
+    return page("Not found", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Nothing here</h1>
+<p class="sub">There is no page at <code style="color:var(--goldl)">{html.escape(path)}</code>. Every manager in the system is one click from the home page.</p></div></header>
+<main class="wrap"><p><a class="btn" href="/">All managers</a></p></main>""")
+
+
 def leaderboard_html() -> str:
     rows = leaderboard_rows()
     def sc(v):
@@ -512,7 +529,9 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path in ("/", "/managers", "/leaderboard", "/index.html"):
             return self._html(directory_html())
         if u.path == "/f/brk/":
-            self.send_response(302); self.send_header("Location", "/brk/dashboard.html"); self.send_header("Content-Length", "0"); self.end_headers(); return
+            if (OUT / "brk" / "dashboard.html").exists():
+                return self._redirect("/brk/dashboard.html")
+            return self._html(startup_wait_html("brk"))
         if u.path == "/analyze":
             t = (parse_qs(u.query).get("ticker", [""])[0] or "").strip().upper()
             if not valid_ticker(t):
@@ -549,12 +568,35 @@ class Handler(SimpleHTTPRequestHandler):
                 doc = f.read_text(encoding="utf-8")
                 doc = doc.replace('<main class="wrap">', nav_html() + '<main class="wrap">', 1)
                 return self._html(doc)
+            parts = u.path.strip("/").split("/")          # not built (fresh container?) -> build it
+            if parts[0] == "funds" and len(parts) == 3 and (FUNDS_ROOT / parts[1] / "meta.json").exists():
+                return self._redirect(f"/f/{parts[1]}/")
+            if parts[0] == "t" and len(parts) == 3 and valid_ticker(parts[1]):
+                return self._redirect(f"/analyze?ticker={parts[1]}")
+            if parts[0] in ("brk", "synthetic"):
+                return self._html(startup_wait_html(parts[0]))
+            return self._html(not_found_html(u.path), 404)
         if u.path in ("/", "/status", "/index.html"):
             body = index_html().encode()
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
         return super().do_GET()
+
+    def _redirect(self, to: str):
+        self.send_response(302); self.send_header("Location", to); self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0"); self.end_headers()
+
+    def send_error(self, code, message=None, explain=None):
+        """Styled 404 instead of the stdlib 'Error response' page."""
+        if code == 404:
+            body = not_found_html(self.path).encode("utf-8")
+            self.send_response(404); self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body))); self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+            return
+        return super().send_error(code, message, explain)
 
     def _html(self, doc: str, code: int = 200):
         body = doc.encode("utf-8")

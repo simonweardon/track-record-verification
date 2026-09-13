@@ -475,7 +475,13 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
 <p style="display:flex;gap:10px"><a class="btn" href="/">Home</a>{'<a class="btn" href="/account?mode=signup" style="background:var(--goldl);color:#1b2a40">Create an account to keep these</a>' if guest else ''}<a class="btn" href="/logout" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">{'Leave' if guest else 'Sign out'}</a></p></main>""")
 
 
-def page(title: str, body: str, refresh: int | None = None) -> str:
+def topbar(is_home: bool = False) -> str:
+    return ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>'
+            + ('' if is_home else '<a class="home" href="/">Home</a>') + '<a href="/me">My records</a></div>')
+
+
+def page(title: str, body: str, refresh: int | None = None, is_home: bool = False) -> str:
+    body = NAV_CSS + topbar(is_home) + body
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title>{f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ''}
 <style>
@@ -613,7 +619,7 @@ apply();})();
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
 <table id="tbl">{head}<tbody>{table}</tbody></table>
 <div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. First analysis of a manager takes about half a minute; afterwards it opens instantly. Past performance is not indicative of future results; nothing here is investment advice.</div>
-</main>{js}""")
+</main>{js}""", is_home=True)
 
 
 def ticker_status_html(ticker: str, job: dict, label: str | None = None, ready_href: str | None = None) -> str:

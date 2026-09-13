@@ -357,12 +357,18 @@ def directory_html() -> str:
     n_ok = sum(1 for r in frows if r["ok"])
     def row(r, kind):
         a, w, e = num(r["alpha"]), num(r["wealth"]), num(r["excess"])
+        nm = r.get("nm", False)
         btn = f"<a class='btn' href='{r['href']}'>Analyze</a>" if r["ok"] else "<span class='btn off'>Analyze</span>"
         search = html.escape(f"{r['mgr']} {r['fund']} {r.get('style', '')} {kind}".lower(), quote=True)
+        if nm and r["ok"]:
+            cells = "<td colspan='3' class='n'><span class='sub2' style='color:var(--muted)'>clone not meaningful for this strategy — actual returns are private</span></td>"
+            w = a = -2; e = -99
+        else:
+            cells = f"<td class='n'>{_f(r['excess'], '{:+.1%}')}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td>"
         return (f"<tr data-s='{search}' data-w='{w if w is not None else -1}' data-a='{a if a is not None else -1}' data-e='{e if e is not None else -99}'>"
                 f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}<br>"
                 f"<span class='fund'>{html.escape(r['fund'])} · {html.escape(r['tag'])}</span></td>"
-                f"<td class='n'>{_f(r['excess'], '{:+.1%}')}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td><td class='n'>{btn}</td></tr>")
+                f"{cells}<td class='n'>{btn}</td></tr>")
     ordered = sorted(frows, key=lambda r: (1 if r.get("nm") else 0, -(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
     table = "".join(row(r, "listed") for r in listed) + "".join(row(r, "hedge fund") for r in ordered)
     # ---- featured

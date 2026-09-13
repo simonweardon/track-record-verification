@@ -1,0 +1,2 @@
+account_id,date,amount,flow_type,description,source_statement_id
+SACHEM_HEAD,2020-06-30,1000000.0,deposit,notional $1m at first 13F rebalance,SACHEM_HEAD_2020-06

@@ -33,7 +33,9 @@ EDGAR = ROOT / "data" / "reference" / "edgar"
 UA = None                       # set via set_contact(); SEC requires "Name email"
 XML_ERA = "2013-06-30"          # first period with structured information tables
 TOP_N = 60                      # positions kept per filing (by value)
-MIN_COVERAGE = 0.5              # below this share of priced value, the month is NaN
+MIN_COVERAGE = 0.6              # below this share of priced value, the month is NaN
+MIN_POSITIONS = 5               # fewer priced names than this and the month is NaN (a clone, not a bet)
+STALE_MONTHS = 4                # a filing's holdings are held at most this long without a newer filing
 
 _last = [0.0]
 
@@ -211,7 +213,7 @@ def map_cusips(holdings: pd.DataFrame, log=print, figi: bool = True) -> dict[str
     cache = EDGAR / "cusip_map.json"
     m: dict = json.loads(cache.read_text()) if cache.exists() else {}
     need = holdings.drop_duplicates("cusip")
-    need = need[~need.cusip.isin(m)]
+    need = need[~need.cusip.isin(m) | need.cusip.map(lambda c: m.get(c) is None)]   # retry unmapped with the SEC table
     if len(need):
         sec = sec_ticker_table(); by_norm = dict(zip(sec.norm, sec.ticker))
         hit = 0
@@ -307,7 +309,8 @@ def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame) -> tuple[pd
     summary = []
     order = sorted(periods, key=lambda p: reb[p])
     for k, p in enumerate(order):
-        start = reb[p]; end = reb[order[k + 1]] if k + 1 < len(order) else months[-1]
+        start = reb[p]
+        end = reb[order[k + 1]] if k + 1 < len(order) else min(months[-1], start + pd.DateOffset(months=STALE_MONTHS))
         hp = h[h.period == p].copy()
         hp["ticker"] = hp.cusip.map(cmap)
         hp = hp[hp.ticker.notna() & hp.ticker.isin(prices.columns)]
@@ -325,7 +328,7 @@ def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame) -> tuple[pd
             ok = r.notna()
             c = float(cur[ok].sum()) * priced_share
             cov[m] = c
-            if cur[ok].sum() <= 0 or c < MIN_COVERAGE:
+            if cur[ok].sum() <= 0 or c < MIN_COVERAGE or int(ok.sum()) < MIN_POSITIONS:
                 continue
             wk = cur[ok] / cur[ok].sum()
             out[m] = float((wk * r[ok]).sum())
@@ -335,11 +338,25 @@ def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame) -> tuple[pd
 
 def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.DataFrame, out_dir: Path) -> dict | None:
     from .fund_universe import STYLES
+    # keep only the longest gap-free stretch: a series is never chained across a hole
+    valid = ret.notna()
+    best, cur_start, cur_len, best_start = 0, None, 0, None
+    for i, ok in enumerate(valid.values):
+        if ok:
+            if cur_start is None: cur_start = i
+            cur_len += 1
+            if cur_len > best: best, best_start = cur_len, cur_start
+        else:
+            cur_start, cur_len = None, 0
+    total_valid = int(valid.sum())
+    ret = ret.iloc[best_start:best_start + best] if best else ret.iloc[0:0]
     r = ret.dropna()
     if len(r) < 36:
         meta = dict(slug=fund["slug"], name=fund["name"], manager=fund["manager"], style=fund["style"],
                     style_name=STYLES[fund["style"]][0], style_note=STYLES[fund["style"]][1],
-                    months=int(len(r)), status="insufficient", note=f"only {len(r)} months of clone history (need 36)",
+                    months=int(len(r)), status="insufficient",
+                    note=(f"only {len(r)} months of clone history (need 36)" if total_valid < 36 else
+                          f"longest gap-free stretch is {len(r)} months ({total_valid} scattered valid months); too few priced holdings"),
                     first=str(r.index.min().date()) if len(r) else None, last=str(r.index.max().date()) if len(r) else None,
                     filings=int(len(summary)))
         out_dir.mkdir(parents=True, exist_ok=True); (out_dir / "meta.json").write_text(json.dumps(meta)); return meta
@@ -375,8 +392,9 @@ def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.D
     meta = dict(slug=fund["slug"], name=fund["name"], manager=fund["manager"], style=fund["style"],
                 style_name=STYLES[fund["style"]][0], style_note=STYLES[fund["style"]][1],
                 months=int(len(st_rows)), status="ok", first=str(first.date()), last=str(ret.dropna().index.max().date()),
-                filings=int(len(summary)), avg_coverage=float(cov.dropna().mean()) if cov.notna().any() else None,
-                avg_positions=float(summary.n.mean()) if len(summary) else None, holes=int(ret[ret.index > first].isna().sum()),
+                filings=int(len(summary)), avg_coverage=float(cov.reindex(r.index).dropna().mean()) if cov.notna().any() else None,
+                avg_positions=float(summary.n.mean()) if len(summary) else None, holes=0, dropped_months=int(total_valid - len(r)),
+                last_filing=str(summary.period.max()) if len(summary) else None,
                 ciks=[f["cik"] for f in fund["filers"]])
     (out_dir / "meta.json").write_text(json.dumps(meta))
     return meta

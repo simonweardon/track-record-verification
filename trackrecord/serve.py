@@ -370,7 +370,7 @@ def directory_html() -> str:
     ordered = sorted(frows, key=lambda r: (-(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
     table = "".join(row(r, "listed") for r in listed) + "".join(row(r, "hedge fund") for r in ordered)
     # ---- featured
-    feat_keys = [("brk", "Warren Buffett", "Berkshire Hathaway — the stock"), ("appaloosa", "David Tepper", "Appaloosa — 13F clone"),
+    feat_keys = [("berkshire-13f", "Warren Buffett", "Berkshire Hathaway holdings — 13F clone"), ("appaloosa", "David Tepper", "Appaloosa — 13F clone"),
                  ("atreides", "Gavin Baker", "Atreides — 13F clone"), ("FCNTX", "Will Danoff", "Fidelity Contrafund — listed")]
     by_key = {r["key"]: r for r in listed + frows}
     cards = ""
@@ -406,7 +406,7 @@ apply();})();
 <dl class="stats"><div><dt>Managers in the system</dt><dd>{len(frows) + len(listed)}</dd></div><div><dt>Scorable today</dt><dd>{n_ok + len(listed)}</dd></div><div><dt>Listed vehicles</dt><dd>{len(listed)}</dd></div><div><dt>13F clones</dt><dd>{len(frows)}</dd></div></dl>
 </div></header>
 <main class="wrap">
-<h2 data-n="Featured">Start here</h2><p class="note">A real public record (Berkshire's stock), a listed fund with a 35-year history, and two hedge funds seen through their disclosed holdings.</p>
+<h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record. Berkshire's <i>stock</i> is in the table below, separately.</p>
 <div class="cards">{cards}</div>
 <h2 data-n="All managers">Every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist and long-short clones track the real book; multi-strategy, quant and macro clones are flagged as not meaningful on their pages.</p>

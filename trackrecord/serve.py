@@ -296,59 +296,104 @@ a{{color:var(--navy)}}.foot{{margin-top:40px;padding-top:14px;border-top:1px sol
 
 
 def directory_html() -> str:
-    """The one home page: every fund in the system, one Analyze button each."""
+    """The home screen: cover with the system at a glance, featured managers, then every
+    manager in one searchable, sortable table with an Analyze button each."""
+    import csv, json
+    def num(v):
+        try: return float(v)
+        except (TypeError, ValueError): return None
     def sc(v):
-        try: v = float(v)
-        except (TypeError, ValueError): return ""
+        v = num(v)
+        if v is None: return ""
         return f'<span class="sc {"g" if v >= 70 else "m" if v >= 45 else "b"}">{v:.0f}</span>'
-    # listed vehicles with a real public record
-    listed = [dict(key="brk", href="/f/brk/", mgr="Warren Buffett", fund="Berkshire Hathaway Class A — the stock (not the 13F holdings)", tag="listed", out=OUT / "brk")]
-    for p in sorted((OUT / "t").glob("*")) if (OUT / "t").exists() else []:
-        if (p / "dashboard.html").exists():
-            import json
-            meta = ROOT / "data" / "tickers" / p.name / "meta.json"
-            nm = json.loads(meta.read_text()).get("name", p.name) if meta.exists() else p.name
-            listed.append(dict(key=p.name, href=f"/t/{p.name}/dashboard.html", mgr=nm, fund=f"{p.name} — listed, distributions reinvested", tag="listed", out=p))
     def scores_of(out):
         f = out / "phase4" / "scores.csv"
         if not f.exists(): return (None, None, None)
-        import csv
         am = wm = ex = None
         with f.open() as fh:
             for r in csv.DictReader(fh):
                 if r["score"] == "Alpha-maxing score": am = r["value"]; ex = r["input"]
                 if r["score"] == "Wealth-management score" and r["component"] == "TOTAL": wm = r["value"]
         return am, wm, ex
-    rows = ""
-    for r in listed:
-        am, wm, ex = scores_of(r["out"])
-        rows += (f"<tr><td><span class='mgr'>{html.escape(r['mgr'])}</span><span class='tag'>{r['tag']}</span><br><span class='fund'>{html.escape(r['fund'])}</span></td>"
-                 f"<td class='n'>{_f(ex, '{:+.1%}')}</td><td class='n'>{sc(am)}</td><td class='n'>{sc(wm)}</td><td class='n'><a class='btn' href='{r['href']}'>Analyze</a></td></tr>")
+    # ---- listed vehicles: BRK stock + any committed ticker dataset
+    listed = []
+    am, wm, ex = scores_of(OUT / "brk")
+    listed.append(dict(key="brk", href="/f/brk/", mgr="Warren Buffett", fund="Berkshire Hathaway Class A — the share price, not the 13F holdings", tag="listed · 1985–2026",
+                       alpha=am, wealth=wm, excess=ex, ok=True))
+    tdir = ROOT / "data" / "tickers"
+    if tdir.exists():
+        for d in sorted(tdir.iterdir()):
+            m = d / "meta.json"
+            if not m.exists(): continue
+            meta = json.loads(m.read_text())
+            am, wm, ex = scores_of(OUT / "t" / d.name)
+            listed.append(dict(key=d.name, href=f"/analyze?ticker={d.name}", mgr=meta.get("name", d.name), fund=f"{d.name} — listed, distributions reinvested",
+                               tag=f"listed · {(meta.get('first') or '')[:4]}–{(meta.get('last') or '')[:4]}", alpha=am, wealth=wm, excess=ex, ok=True))
+    # ---- funds
     funds = fund_index()
-    ok = [r for r in funds if r.get("status") == "ok"]; bad = [r for r in funds if r.get("status") != "ok"]
-    ok.sort(key=lambda r: (-(float(r["wealth"]) if r.get("wealth") not in (None, "") else -1), r["name"]))
-    frows = ""
-    for r in ok:
-        span = f"{(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} of book priced"
-        frows += (f"<tr><td><span class='mgr'>{html.escape(r.get('manager') or r['name'])}</span><span class='tag'>{html.escape(r.get('style_name') or '')}</span><br>"
-                  f"<span class='fund'>{html.escape(r['name'])} · {span}</span></td>"
-                  f"<td class='n'>{_f(r.get('excess'), '{:+.1%}')}</td><td class='n'>{sc(r.get('alpha_maxing'))}</td><td class='n'>{sc(r.get('wealth'))}</td>"
-                  f"<td class='n'><a class='btn' href='/f/{r['slug']}/'>Analyze</a></td></tr>")
-    for r in bad:
-        frows += (f"<tr><td><span class='mgr'>{html.escape(r.get('manager') or r['name'])}</span><span class='tag'>{html.escape(r.get('style_name') or '')}</span><br>"
-                  f"<span class='fund'>{html.escape(r['name'])} · <span class='err'>not scorable yet — {html.escape(str(r.get('months') or 0))} months of filings (36 needed)</span></span></td>"
-                  f"<td></td><td></td><td></td><td class='n'><span class='btn off'>Analyze</span></td></tr>")
+    frows = []
+    for r in funds:
+        ok = r.get("status") == "ok"
+        frows.append(dict(key=r["slug"], href=f"/f/{r['slug']}/", mgr=r.get("manager") or r["name"], fund=r["name"], style=r.get("style_name") or "",
+                          tag=(f"13F clone · {(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} priced" if ok
+                               else f"not scorable yet — {r.get('months') or 0} months of usable filings (36 needed)"),
+                          alpha=r.get("alpha_maxing"), wealth=r.get("wealth"), excess=r.get("excess"), ok=ok))
+    n_ok = sum(1 for r in frows if r["ok"])
+    def row(r, kind):
+        a, w, e = num(r["alpha"]), num(r["wealth"]), num(r["excess"])
+        btn = f"<a class='btn' href='{r['href']}'>Analyze</a>" if r["ok"] else "<span class='btn off'>Analyze</span>"
+        search = html.escape(f"{r['mgr']} {r['fund']} {r.get('style', '')} {kind}".lower(), quote=True)
+        return (f"<tr data-s='{search}' data-w='{w if w is not None else -1}' data-a='{a if a is not None else -1}' data-e='{e if e is not None else -99}'>"
+                f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}<br>"
+                f"<span class='fund'>{html.escape(r['fund'])} · {html.escape(r['tag'])}</span></td>"
+                f"<td class='n'>{_f(r['excess'], '{:+.1%}')}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td><td class='n'>{btn}</td></tr>")
+    ordered = sorted(frows, key=lambda r: (-(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
+    table = "".join(row(r, "listed") for r in listed) + "".join(row(r, "hedge fund") for r in ordered)
+    # ---- featured
+    feat_keys = [("brk", "Warren Buffett", "Berkshire Hathaway — the stock"), ("appaloosa", "David Tepper", "Appaloosa — 13F clone"),
+                 ("atreides", "Gavin Baker", "Atreides — 13F clone"), ("FCNTX", "Will Danoff", "Fidelity Contrafund — listed")]
+    by_key = {r["key"]: r for r in listed + frows}
+    cards = ""
+    for k, who, what in feat_keys:
+        r = by_key.get(k)
+        if not r: continue
+        cards += (f"<a class='card' href='{r['href']}'><div class='who'>{html.escape(who)}</div><div class='what'>{html.escape(what)}</div>"
+                  f"<div class='nums'><div><span class='lbl'>excess /yr</span>{_f(r['excess'], '{:+.1%}') or '—'}</div><div><span class='lbl'>alpha-max</span>{sc(r['alpha']) or '—'}</div><div><span class='lbl'>wealth</span>{sc(r['wealth']) or '—'}</div></div>"
+                  f"<div class='go'>Analyze &rarr;</div></a>")
     head = "<thead><tr><th>manager</th><th class='n'>excess vs market /yr</th><th class='n'>alpha-maxing</th><th class='n'>wealth-mgmt</th><th></th></tr></thead>"
-    return page("Track Record Verification", f"""<div class="banner"><b>Illustrative data</b> Public records and SEC 13F reconstructions used to demonstrate the pipeline. Nothing here is the record under verification.</div>
+    extra_css = """<style>
+.stats{display:flex;gap:40px;margin-top:30px;padding-top:18px;border-top:1px solid rgba(232,228,218,.18)}.stats div{display:grid;gap:4px}.stats dt{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--covermuted)}.stats dd{margin:0;font:400 30px/1 var(--serif);color:var(--coverink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:6px 0 10px}
+.card{display:block;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:16px 18px;text-decoration:none;color:var(--ink)}
+.card .who{font:400 20px/1.15 var(--serif);color:var(--navy)}.card .what{color:var(--ink2);font-size:13px;margin:2px 0 12px}
+.card .nums{display:flex;gap:16px;font:600 13px var(--sans)}.card .nums div{display:grid;gap:4px}.card .lbl{font:600 8.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.card .go{margin-top:12px;font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 10px}.tools input{font:15px var(--serif);padding:8px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);flex:1;min-width:220px}
+.tools .sort{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--ink2)}.tools button{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--line);background:var(--surface);color:var(--navy);cursor:pointer}.tools button.on{background:var(--navy);color:var(--coverink);border-color:var(--navy)}
+.count{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-left:auto}
+</style>"""
+    js = """<script>
+(function(){const q=document.getElementById('q'),rows=[...document.querySelectorAll('#tbl tbody tr')],cnt=document.getElementById('cnt');
+function apply(){const s=q.value.trim().toLowerCase();let n=0;rows.forEach(r=>{const ok=!s||r.dataset.s.includes(s);r.hidden=!ok;if(ok)n++;});cnt.textContent=n+' of '+rows.length;}
+q.addEventListener('input',apply);
+document.querySelectorAll('.tools button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tools button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+const k=b.dataset.k,tb=document.querySelector('#tbl tbody');[...tb.querySelectorAll('tr')].sort((x,y)=>parseFloat(y.dataset[k])-parseFloat(x.dataset[k])).forEach(r=>tb.appendChild(r));}));
+apply();})();
+</script>"""
+    return page("Track Record Verification", f"""{extra_css}<div class="banner"><b>Illustrative data</b> Public records and SEC 13F reconstructions used to demonstrate the pipeline. Nothing here is the record under verification.</div>
 <header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Track Record Verification</h1>
-<p class="sub">Every manager in the system. Press <b>Analyze</b> to run the full verification — returns, factor alphas, luck simulation, stability, scores — on that record.</p></div></header>
+<p class="sub">One system, applied the same way to every manager: reconcile the record, compute time-weighted returns, remove what the market and known factors explain, simulate how often luck alone does as well, test stability, and score. Press <b>Analyze</b> on any row.</p>
+<dl class="stats"><div><dt>Managers in the system</dt><dd>{len(frows) + len(listed)}</dd></div><div><dt>Scorable today</dt><dd>{n_ok + len(listed)}</dd></div><div><dt>Listed vehicles</dt><dd>{len(listed)}</dd></div><div><dt>13F clones</dt><dd>{len(frows)}</dd></div></dl>
+</div></header>
 <main class="wrap">
-<h2 data-n="Section 01">Listed vehicles — real public records</h2><p class="note">Share prices with distributions reinvested. These are the vehicles' actual returns.</p>
-<table>{head}<tbody>{rows}</tbody></table>
-<h2 data-n="Section 02">Hedge funds and family offices — 13F clones</h2><p class="note">Private funds publish no returns. Each is represented by a long-only clone of its disclosed US holdings (SEC 13F, quarterly, from 2013), rebalanced when each filing becomes public. A clone is a reconstruction, not the fund: no shorts, options, cash, leverage or non-US holdings, entered ~45 days late. It tracks concentrated and activist managers well; for multi-strategy, quant and macro shops it is not meaningful, and each page says so. Sorted by wealth-management score; unscored managers last. First analysis of a manager takes about half a minute.</p>
-<table>{head}<tbody>{frows or '<tr><td colspan=5>no fund datasets yet</td></tr>'}</tbody></table>
-<div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. Past performance is not indicative of future results; nothing here is investment advice.</div>
-</main>""")
+<h2 data-n="Featured">Start here</h2><p class="note">A real public record (Berkshire's stock), a listed fund with a 35-year history, and two hedge funds seen through their disclosed holdings.</p>
+<div class="cards">{cards}</div>
+<h2 data-n="All managers">Every manager in the system</h2>
+<p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist and long-short clones track the real book; multi-strategy, quant and macro clones are flagged as not meaningful on their pages.</p>
+<div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="sort">Sort</span><button data-k="w" class="on">Wealth-mgmt</button><button data-k="a">Alpha-maxing</button><button data-k="e">Excess return</button><span class="count" id="cnt"></span></div>
+<table id="tbl">{head}<tbody>{table}</tbody></table>
+<div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. First analysis of a manager takes about half a minute; afterwards it opens instantly. Past performance is not indicative of future results; nothing here is investment advice.</div>
+</main>{js}""")
 
 
 def ticker_status_html(ticker: str, job: dict) -> str:

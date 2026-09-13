@@ -1,0 +1,2 @@
+account_id,date,amount,flow_type,description,source_statement_id
+FCNTX,1985-01-31,12.25,deposit,notional purchase of 100 FCNTX at month-end,FCNTX_1985-01

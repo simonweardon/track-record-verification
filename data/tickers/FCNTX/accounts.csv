@@ -1,0 +1,2 @@
+account_id,label,owner_type,discretionary,strategy,benchmark,notes
+FCNTX,Fidelity Contrafund (FCNTX),principal,Y,default,US_MKT,public price series via yfinance; not the record under verification

@@ -1,0 +1,2 @@
+account_id,date,amount,flow_type,description,source_statement_id
+SEQUX,1985-01-31,226.64,deposit,notional purchase of 100 SEQUX at month-end,SEQUX_1985-01

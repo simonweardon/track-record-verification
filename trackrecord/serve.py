@@ -342,7 +342,7 @@ def directory_html() -> str:
             meta = json.loads(m.read_text())
             am, wm, ex = scores_of(OUT / "t" / d.name)
             listed.append(dict(key=d.name, href=f"/analyze?ticker={d.name}", mgr=meta.get("name", d.name), fund=f"{d.name} — listed, distributions reinvested",
-                               tag=f"listed · {(meta.get('first') or '')[:4]}–{(meta.get('last') or '')[:4]}", alpha=am, wealth=wm, excess=ex, ok=True))
+                               tag=f"{(meta.get('first') or '')[:4]}–{(meta.get('last') or '')[:4]}", alpha=am, wealth=wm, excess=ex, ok=True))
     # ---- funds
     funds = fund_index()
     NOT_MEANINGFUL = {"multi", "macro", "mm"}
@@ -365,7 +365,7 @@ def directory_html() -> str:
             w = a = -2; e = -99
         else:
             cells = f"<td class='n'>{_f(r['excess'], '{:+.1%}')}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td>"
-        return (f"<tr data-s='{search}' data-w='{w if w is not None else -1}' data-a='{a if a is not None else -1}' data-e='{e if e is not None else -99}'>"
+        return (f"<tr data-s='{search}' data-n='{html.escape(r['mgr'].lower(), quote=True)}' data-w='{w if w is not None else -1}' data-a='{a if a is not None else -1}' data-e='{e if e is not None else -99}'>"
                 f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}<br>"
                 f"<span class='fund'>{html.escape(r['fund'])} · {html.escape(r['tag'])}</span></td>"
                 f"{cells}<td class='n'>{btn}</td></tr>")
@@ -382,8 +382,11 @@ def directory_html() -> str:
         cards += (f"<a class='card' href='{r['href']}'><div class='who'>{html.escape(who)}</div><div class='what'>{html.escape(what)}</div>"
                   f"<div class='nums'><div><span class='lbl'>excess /yr</span>{_f(r['excess'], '{:+.1%}') or '—'}</div><div><span class='lbl'>alpha-max</span>{sc(r['alpha']) or '—'}</div><div><span class='lbl'>wealth</span>{sc(r['wealth']) or '—'}</div></div>"
                   f"<div class='go'>Analyze &rarr;</div></a>")
-    head = "<thead><tr><th>manager</th><th class='n'>excess vs market /yr</th><th class='n'>alpha-maxing</th><th class='n'>wealth-mgmt</th><th></th></tr></thead>"
+    head = ("<thead><tr><th class='sort' data-k='n' data-dir='asc'>manager</th><th class='n sort' data-k='e' data-dir='desc'>excess vs market /yr</th>"
+            "<th class='n sort' data-k='a' data-dir='desc'>alpha-maxing</th><th class='n sort on' data-k='w' data-dir='desc'>wealth-mgmt</th><th></th></tr></thead>")
     extra_css = """<style>
+th.sort{cursor:pointer;user-select:none;white-space:nowrap}th.sort::after{content:"";display:inline-block;width:0;height:0;margin-left:7px;vertical-align:middle;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--line)}
+th.sort.on::after{border-top-color:var(--gold)}th.sort.on.asc::after{border-top:0;border-bottom:5px solid var(--gold)}th.sort:hover{color:var(--gold)}
 .stats{display:flex;gap:40px;margin-top:30px;padding-top:18px;border-top:1px solid rgba(232,228,218,.18)}.stats div{display:grid;gap:4px}.stats dt{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--covermuted)}.stats dd{margin:0;font:400 30px/1 var(--serif);color:var(--coverink)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:6px 0 10px}
 .card{display:block;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:16px 18px;text-decoration:none;color:var(--ink)}
@@ -391,15 +394,15 @@ def directory_html() -> str:
 .card .nums{display:flex;gap:16px;font:600 13px var(--sans)}.card .nums div{display:grid;gap:4px}.card .lbl{font:600 8.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
 .card .go{margin-top:12px;font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
 .tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 10px}.tools input{font:15px var(--serif);padding:8px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);flex:1;min-width:220px}
-.tools .sort{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--ink2)}.tools button{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--line);background:var(--surface);color:var(--navy);cursor:pointer}.tools button.on{background:var(--navy);color:var(--coverink);border-color:var(--navy)}
 .count{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-left:auto}
 </style>"""
     js = """<script>
-(function(){const q=document.getElementById('q'),rows=[...document.querySelectorAll('#tbl tbody tr')],cnt=document.getElementById('cnt');
+(function(){const q=document.getElementById('q'),rows=[...document.querySelectorAll('#tbl tbody tr')],cnt=document.getElementById('cnt'),tb=document.querySelector('#tbl tbody');
 function apply(){const s=q.value.trim().toLowerCase();let n=0;rows.forEach(r=>{const ok=!s||r.dataset.s.includes(s);r.hidden=!ok;if(ok)n++;});cnt.textContent=n+' of '+rows.length;}
 q.addEventListener('input',apply);
-document.querySelectorAll('.tools button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tools button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-const k=b.dataset.k,tb=document.querySelector('#tbl tbody');[...tb.querySelectorAll('tr')].sort((x,y)=>parseFloat(y.dataset[k])-parseFloat(x.dataset[k])).forEach(r=>tb.appendChild(r));}));
+function sortBy(k,dir){const num=k!=='n';[...tb.querySelectorAll('tr')].sort((x,y)=>{let a=x.dataset[k],b=y.dataset[k];if(num){a=parseFloat(a);b=parseFloat(b);return dir==='asc'?a-b:b-a;}return dir==='asc'?a.localeCompare(b):b.localeCompare(a);}).forEach(r=>tb.appendChild(r));}
+document.querySelectorAll('th.sort').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;let dir=th.dataset.dir;if(th.classList.contains('on')){dir=dir==='asc'?'desc':'asc';th.dataset.dir=dir;}
+document.querySelectorAll('th.sort').forEach(x=>x.classList.remove('on','asc'));th.classList.add('on');if(dir==='asc')th.classList.add('asc');sortBy(k,dir);}));
 apply();})();
 </script>"""
     return page("Track Record Verification", f"""{extra_css}<div class="banner"><b>Illustrative data</b> Public records and SEC 13F reconstructions used to demonstrate the pipeline. Nothing here is the record under verification.</div>
@@ -412,7 +415,7 @@ apply();})();
 <div class="cards">{cards}</div>
 <h2 data-n="All managers">Every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
-<div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="sort">Sort</span><button data-k="w" class="on">Wealth-mgmt</button><button data-k="a">Alpha-maxing</button><button data-k="e">Excess return</button><span class="count" id="cnt"></span></div>
+<div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
 <table id="tbl">{head}<tbody>{table}</tbody></table>
 <div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. First analysis of a manager takes about half a minute; afterwards it opens instantly. Past performance is not indicative of future results; nothing here is investment advice.</div>
 </main>{js}""")

@@ -294,8 +294,10 @@ def monthly_prices(tickers: list[str], log=print) -> pd.DataFrame:
 
 # ---------------------------------------------------------------- clone
 
-def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame) -> tuple[pd.Series, pd.Series, pd.DataFrame]:
-    """Monthly clone return, monthly priced coverage, and a per-period summary."""
+def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame, detail: bool = False):
+    """Monthly clone return, monthly priced coverage, and a per-period summary.
+    With detail=True also returns (contrib, weights): month × ticker frames of w_i × r_i and of the
+    beginning-of-month weight, so contributions add up exactly to each month's return."""
     rets = prices.pct_change(fill_method=None)
     last_full = (pd.Timestamp.today().to_period("M") - 1).to_timestamp("M")     # drop the partial current month
     prices = prices[prices.index <= last_full]; rets = rets[rets.index <= last_full]
@@ -306,7 +308,7 @@ def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame) -> tuple[pd
         reb[p] = filed.to_period("M").to_timestamp("M")      # rebalance at end of the filing month
     months = pd.date_range(min(reb.values()), prices.index.max(), freq="ME")
     out = pd.Series(np.nan, index=months); cov = pd.Series(np.nan, index=months)
-    summary = []
+    summary = []; contrib_rows = {}; weight_rows = {}
     order = sorted(periods, key=lambda p: reb[p])
     for k, p in enumerate(order):
         start = reb[p]
@@ -332,11 +334,35 @@ def clone_returns(h: pd.DataFrame, cmap: dict, prices: pd.DataFrame) -> tuple[pd
                 continue
             wk = cur[ok] / cur[ok].sum()
             out[m] = float((wk * r[ok]).sum())
+            if detail:
+                contrib_rows[m] = (wk * r[ok]).to_dict(); weight_rows[m] = wk.to_dict()
             cur = cur[ok] * (1 + r[ok]); cur = cur / cur.sum()
+    if detail:
+        contrib = pd.DataFrame.from_dict(contrib_rows, orient="index").sort_index()
+        weights = pd.DataFrame.from_dict(weight_rows, orient="index").sort_index()
+        return out, cov, pd.DataFrame(summary), contrib, weights
     return out, cov, pd.DataFrame(summary)
 
 
-def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.DataFrame, out_dir: Path) -> dict | None:
+def contribution_table(contrib: pd.DataFrame, weights: pd.DataFrame, months: pd.Index, names: dict) -> pd.DataFrame:
+    """Per-holding contribution over `months` (the scored window): arithmetic sum of w×r,
+    months held, average weight when held, and the Pareto columns — share of total gains
+    (positives) and cumulative share in rank order."""
+    c = contrib.reindex(months).fillna(0.0); w = weights.reindex(months)
+    tot = c.sum(); held = (w > 0).sum(); avg_w = w.mean()
+    df = pd.DataFrame({"ticker": tot.index, "contribution": tot.values, "months_held": held.reindex(tot.index).values,
+                       "avg_weight_when_held": avg_w.reindex(tot.index).values})
+    df["name"] = df.ticker.map(names).fillna(df.ticker)
+    df = df.sort_values("contribution", ascending=False).reset_index(drop=True)
+    gains = df.contribution[df.contribution > 0].sum()
+    df["share_of_gains"] = np.where(df.contribution > 0, df.contribution / gains if gains > 0 else np.nan, np.nan)
+    df["cum_share_of_gains"] = df.share_of_gains.fillna(0).cumsum().where(df.contribution > 0)
+    df["rank"] = np.arange(1, len(df) + 1)
+    return df
+
+
+def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.DataFrame, out_dir: Path,
+                       contrib: pd.DataFrame | None = None, weights: pd.DataFrame | None = None, names: dict | None = None) -> dict | None:
     from .fund_universe import STYLES
     # keep only the longest gap-free stretch: a series is never chained across a hole
     valid = ret.notna()
@@ -389,6 +415,9 @@ def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.D
     pd.DataFrame([dict(account_id=acct, label=f"{fund['name']} — 13F clone", owner_type="principal", discretionary="Y",
                        strategy="default", benchmark="US_MKT", notes="13F long-only clone; not the fund's return")]).to_csv(out_dir / "accounts.csv", index=False)
     summary.to_csv(out_dir / "filings.csv", index=False)
+    if contrib is not None and weights is not None:
+        ct = contribution_table(contrib, weights, ret.index[ret.index > first], names or {})
+        ct.to_csv(out_dir / "contributions.csv", index=False)
     meta = dict(slug=fund["slug"], name=fund["name"], manager=fund["manager"], style=fund["style"],
                 style_name=STYLES[fund["style"]][0], style_note=STYLES[fund["style"]][1],
                 months=int(len(st_rows)), status="ok", first=str(first.date()), last=str(ret.dropna().index.max().date()),
@@ -420,8 +449,13 @@ def build_all(funds: list[dict], out_root: Path, log=print, only: list[str] | No
         h = H[f["slug"]]
         if h.empty:
             log(f"  {f['slug']}: no structured filings"); continue
-        ret, cov, summary = clone_returns(h, cmap, prices)
-        meta = write_fund_dataset(f, ret, cov, summary, out_root / f["slug"])
+        ret, cov, summary, contrib, weights = clone_returns(h, cmap, prices, detail=True)
+        names = {}
+        for cusip, nm in zip(h.cusip, h.name):
+            t = cmap.get(cusip)
+            if t and t not in names:
+                names[t] = nm.title()
+        meta = write_fund_dataset(f, ret, cov, summary, out_root / f["slug"], contrib, weights, names)
         if meta:
             metas.append(meta)
             log(f"  {f['slug']}: {meta['status']} {meta.get('months', 0)} months, coverage {meta.get('avg_coverage') or 0:.0%}")

@@ -158,7 +158,8 @@ def cmd_report(a):
     dash = build_dashboard(out, claimed=a.claimed, placeholder=placeholder, placeholder_note=note,
                            fee_desc=res2.config.fee.describe(), data_label=label, claimed_note=claimed_note,
                            headline_model=res4.config.headline_model,
-                           firm=a.firm or os.environ.get("FIRM_NAME", ""), prepared_for=a.prepared_for or os.environ.get("PREPARED_FOR", ""))
+                           firm=a.firm or os.environ.get("FIRM_NAME", ""), prepared_for=a.prepared_for or os.environ.get("PREPARED_FOR", ""),
+                           data_dir=a.data)
     print(f"report: {path}\ndashboard: {dash}"); return 0
 
 

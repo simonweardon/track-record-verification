@@ -432,6 +432,35 @@ def vol_by_year(years, vol_p, vol_b, width=760, height=220, name_b="benchmark"):
     return "".join(out)
 
 
+def contrib_bars(rows, width=860, x_fmt=lambda v: f"{v * 100:+.1f} pp"):
+    """rows: dict(label, value). Horizontal bars from a zero line; positive navy, negative oxblood."""
+    max_chars = 40
+    ml = int(min(max((len(r["label"]) for r in rows), default=20), max_chars) * 6.9) + 24
+    mr, mt, mb = 80, 10, 26
+    rh = 24
+    height = mt + rh * len(rows) + mb
+    vals = [r["value"] for r in rows]
+    ticks = nice_ticks(min(min(vals), 0), max(max(vals), 0), 5)
+    xs = Lin(min(ticks), max(ticks), ml, width - mr)
+    out = [svg_open(width, height, "hb")]
+    for t in ticks:
+        out.append(f'<line class="grid" x1="{xs(t):.1f}" x2="{xs(t):.1f}" y1="{mt}" y2="{height - mb}"/>')
+        out.append(f'<text class="ax" x="{xs(t):.1f}" y="{height - 8}" text-anchor="middle">{esc(x_fmt(t))}</text>')
+    x0 = xs(0)
+    out.append(f'<line class="axis zero" x1="{x0:.1f}" x2="{x0:.1f}" y1="{mt}" y2="{height - mb}"/>')
+    for i, r in enumerate(rows):
+        y = mt + rh * i + 4
+        lab = r["label"] if len(r["label"]) <= max_chars else r["label"][:max_chars - 1] + "…"
+        x1 = xs(r["value"]); left, w = min(x0, x1), abs(x1 - x0)
+        cls = "pos" if r["value"] >= 0 else "neg"
+        out.append(f'<text class="rowlab" x="{ml - 12}" y="{y + 13:.1f}" text-anchor="end" data-tip="{esc(r["tip"])}">{esc(lab)}</text>')
+        out.append(f'<rect class="bar {cls}" x="{left:.1f}" y="{y}" width="{max(w, 1):.1f}" height="16" data-tip="{esc(r["tip"])}"/>')
+        tx = x1 + 6 if r["value"] >= 0 else x0 + 6          # negatives label just right of zero, where the row is empty
+        out.append(f'<text class="lab" x="{tx:.1f}" y="{y + 13:.1f}" text-anchor="start">{esc(x_fmt(r["value"]))}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
 # ---------------------------------------------------------------- page
 
 def _read(out: Path, rel: str, **kw) -> pd.DataFrame:
@@ -454,7 +483,7 @@ def explain(means: str, method: str, short: bool = False) -> str:
 def build_dashboard(out_dir: str | Path, claimed: float | None = None, placeholder: bool = True,
                     placeholder_note: str = "placeholder data", fee_desc: str = "assumed fee schedule",
                     data_label: str = "", claimed_note: str = "", headline_model: str = "FF3",
-                    firm: str = "", prepared_for: str = "") -> Path:
+                    firm: str = "", prepared_for: str = "", data_dir: str | Path | None = None) -> Path:
     out = Path(out_dir)
     comp = _read(out, "phase2/composite_returns.csv", index_col=0)
     monthly = len(comp) and "-" in str(comp.index[0])
@@ -637,6 +666,50 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
                          f"<td class='n'><b>{'' if pd.isna(r.value) else f'{r.value:.0f}'}</b></td></tr>"
                          for _, r in wm_rows[wm_rows.component != "TOTAL"].iterrows()) if len(wm_rows) else ""
 
+    # ---- holdings that made the return (13F clones only)
+    holdings_html = ""
+    cpath = Path(data_dir) / "contributions.csv" if data_dir else None
+    if cpath and cpath.exists():
+        ct = pd.read_csv(cpath)
+        if len(ct) and ct.contribution.notna().any():
+            gains = ct.contribution[ct.contribution > 0].sum(); losses = ct.contribution[ct.contribution < 0].sum()
+            n_all = len(ct); n_pos = int((ct.contribution > 0).sum())
+            def n_for(share):
+                cs = ct.cum_share_of_gains.dropna()
+                return int((cs < share).sum()) + 1 if len(cs) else 0
+            n50, n80, n90 = n_for(0.5), n_for(0.8), n_for(0.9)
+            top = ct.head(12); bottom = ct[ct.contribution < 0].tail(5).iloc[::-1]
+            def r_(x):
+                return dict(label=f"{x.ticker} · {x['name']}", value=float(x.contribution),
+                            tip=f"<b>{esc(x['name'])}</b> ({esc(x.ticker)})<br>contribution {x.contribution * 100:+.1f} pp · held {int(x.months_held)} months · avg weight {x.avg_weight_when_held * 100:.1f}%"
+                                + (f"<br>cumulative share of gains {x.cum_share_of_gains:.0%}" if not pd.isna(x.cum_share_of_gains) else ""))
+            rows = [r_(x) for _, x in top.iterrows()] + [r_(x) for _, x in bottom.iterrows()]
+            chart = contrib_bars(rows)
+            trs = "".join(f"<tr><td class='n'>{int(x['rank'])}</td><td><b>{esc(x.ticker)}</b> <span class='muted'>{esc(x['name'])}</span></td>"
+                          f"<td class='n'>{x.contribution * 100:+.1f} pp</td><td class='n'>{int(x.months_held)}</td><td class='n'>{x.avg_weight_when_held * 100:.1f}%</td>"
+                          f"<td class='n'>{'' if pd.isna(x.share_of_gains) else f'{x.share_of_gains:.1%}'}</td><td class='n'>{'' if pd.isna(x.cum_share_of_gains) else f'{x.cum_share_of_gains:.0%}'}</td></tr>"
+                          for _, x in ct.head(20).iterrows())
+            top5_share = float(ct.head(5).share_of_gains.fillna(0).sum())
+            holdings_html = f"""
+<section>
+  <div class="sh"><h2>Which holdings made the return</h2>{chip("estimated", "13F clone")}</div>
+  <div class="card">
+    <div class="tiles" style="margin-bottom:14px">
+      <div class="tile"><div class="tl">Holdings ever held</div><div class="tv">{n_all}</div><div class="td muted">{n_pos} gained, {n_all - n_pos} lost</div></div>
+      <div class="tile"><div class="tl">Names for half the gains</div><div class="tv">{n50}</div><div class="td muted">of {n_pos} winners</div></div>
+      <div class="tile"><div class="tl">Names for 80% of gains</div><div class="tv">{n80}</div><div class="td muted">{n80 / n_all:.0%} of all holdings</div></div>
+      <div class="tile"><div class="tl">Top five's share</div><div class="tv">{top5_share:.0%}</div><div class="td muted">of all gains</div></div>
+      <div class="tile"><div class="tl">Gains vs losses</div><div class="tv">{gains * 100:+.0f} / {losses * 100:.0f}</div><div class="td muted">percentage points, arithmetic</div></div>
+    </div>
+    {chart}
+    <p class="cap">Top twelve contributors and the five largest detractors over the scored window. Each holding's contribution is the sum of its weight × its monthly return, so the contributions of every holding add up exactly to the clone's return.</p>
+    <div class="tscroll" style="margin-top:14px"><table class="metrics"><thead><tr><th class="n">#</th><th>holding</th><th class="n">contribution</th><th class="n">months held</th><th class="n">avg weight</th><th class="n">share of gains</th><th class="n">cumulative</th></tr></thead><tbody>{trs}</tbody></table></div>
+    {explain("The classic Pareto picture: a handful of names usually produce most of a manager's result. <b>Names for 80% of gains</b> says how few holdings carried the record — the smaller that number relative to everything ever held, the more the outcome rode on a few decisions. The cumulative column walks down the ranking: read it to the row where it passes 50% or 80%. Losses are shown separately so a big winner doesn't hide a big loser.",
+              "For every month in the scored window, each holding's contribution is its beginning-of-month weight (after drift) × its return that month; summed over months it gives the arithmetic contribution in percentage points, and the sum over holdings equals the sum of the clone's monthly returns. Share of gains = a winner's contribution ÷ the sum of all winners' contributions; cumulative share = running total in rank order. Weights are those of the 13F clone (disclosed top-60 holdings, rebalanced at each filing), so this describes the clone, not the fund's actual trades or sizing.")}
+  </div>
+</section>
+"""
+
     # ---- skill vs luck table
     skill_rows = ""
     for _, k in skill.iterrows():
@@ -810,6 +883,7 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
   </div>
 </section>
 
+{holdings_html}
 <section>
   <div class="sh"><h2>Is it real? Skill or luck</h2>{chip("inference")}</div>
   <div class="card"><h3>Which ratio answers it</h3>

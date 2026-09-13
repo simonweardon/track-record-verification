@@ -345,10 +345,12 @@ def directory_html() -> str:
                                tag=f"listed · {(meta.get('first') or '')[:4]}–{(meta.get('last') or '')[:4]}", alpha=am, wealth=wm, excess=ex, ok=True))
     # ---- funds
     funds = fund_index()
+    NOT_MEANINGFUL = {"multi", "macro", "mm"}
     frows = []
     for r in funds:
         ok = r.get("status") == "ok"
-        frows.append(dict(key=r["slug"], href=f"/f/{r['slug']}/", mgr=r.get("manager") or r["name"], fund=r["name"], style=r.get("style_name") or "",
+        nm = r.get("style") in NOT_MEANINGFUL
+        frows.append(dict(key=r["slug"], href=f"/f/{r['slug']}/", mgr=r.get("manager") or r["name"], fund=r["name"], style=r.get("style_name") or "", nm=nm,
                           tag=(f"13F clone · {(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} priced" if ok
                                else f"not scorable yet — {r.get('months') or 0} months of usable filings (36 needed)"),
                           alpha=r.get("alpha_maxing"), wealth=r.get("wealth"), excess=r.get("excess"), ok=ok))
@@ -361,7 +363,7 @@ def directory_html() -> str:
                 f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}<br>"
                 f"<span class='fund'>{html.escape(r['fund'])} · {html.escape(r['tag'])}</span></td>"
                 f"<td class='n'>{_f(r['excess'], '{:+.1%}')}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td><td class='n'>{btn}</td></tr>")
-    ordered = sorted(frows, key=lambda r: (-(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
+    ordered = sorted(frows, key=lambda r: (1 if r.get("nm") else 0, -(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
     table = "".join(row(r, "listed") for r in listed) + "".join(row(r, "hedge fund") for r in ordered)
     # ---- featured
     feat_keys = [("berkshire-13f", "Warren Buffett", "Berkshire Hathaway holdings — 13F clone"), ("appaloosa", "David Tepper", "Appaloosa — 13F clone"),
@@ -403,7 +405,7 @@ apply();})();
 <h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
 <div class="cards">{cards}</div>
 <h2 data-n="All managers">Every manager in the system</h2>
-<p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist and long-short clones track the real book; multi-strategy, quant and macro clones are flagged as not meaningful on their pages.</p>
+<p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="sort">Sort</span><button data-k="w" class="on">Wealth-mgmt</button><button data-k="a">Alpha-maxing</button><button data-k="e">Excess return</button><span class="count" id="cnt"></span></div>
 <table id="tbl">{head}<tbody>{table}</tbody></table>
 <div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. First analysis of a manager takes about half a minute; afterwards it opens instantly. Past performance is not indicative of future results; nothing here is investment advice.</div>

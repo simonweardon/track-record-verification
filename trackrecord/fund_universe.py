@@ -11,6 +11,8 @@ STYLES = {
     "multi":  ("Multi-strategy / quant", "Clone is NOT meaningful: thousands of hedged positions, derivatives, high turnover."),
     "macro":  ("Global macro", "Clone is NOT meaningful: the book is futures, FX and rates, not US stocks."),
     "fo":     ("Family office", "Clone tracks the disclosed US long book of a closed fund."),
+    "lo":     ("Long-only asset manager", "Clone tracks the book well — long-only, diversified, low turnover."),
+    "mm":     ("Market maker", "Clone is NOT meaningful: a 13F here is trading inventory, hedged and 45 days stale, not a portfolio."),
 }
 
 FUNDS = [
@@ -109,7 +111,9 @@ FUNDS = [
     dict(slug="man-group", name="Man Group", manager="Man AHL / Numeric (quant)", style="multi", search=["MAN GROUP PLC"]),
     dict(slug="winton", name="Winton Group", manager="David Harding (quant)", style="multi", search=["WINTON GROUP"]),
     dict(slug="arrowstreet", name="Arrowstreet Capital", manager="quant", style="multi", search=["ARROWSTREET CAPITAL"]),
-    dict(slug="jane-street", name="Jane Street", manager="market maker", style="multi", search=["JANE STREET GROUP"]),
+    dict(slug="jane-street", name="Jane Street", manager="market maker", style="mm", search=["JANE STREET GROUP"]),
+    dict(slug="belvedere", name="Belvedere Trading", manager="market maker (options)", style="mm", search=["BELVEDERE TRADING LLC"]),
+    dict(slug="fisher", name="Fisher Investments", manager="Ken Fisher", style="lo", search=["FISHER ASSET MANAGEMENT"]),
     dict(slug="kingdon", name="Kingdon Capital", manager="Mark Kingdon", style="ls", search=["KINGDON CAPITAL MANAGEMENT"]),
     dict(slug="omega", name="Omega Advisors (closed 2018)", manager="Leon Cooperman", style="ls", search=["OMEGA ADVISORS"]),
     dict(slug="passport", name="Passport Capital (closed 2019)", manager="John Burbank", style="ls", search=["PASSPORT CAPITAL"]),

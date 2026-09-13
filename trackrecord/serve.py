@@ -64,9 +64,27 @@ def _run(args: list[str]) -> None:
         raise RuntimeError(f"{args[0]} failed ({r.returncode}): {' / '.join(tail)}")
 
 
+def _ticker_datasets() -> list:
+    """Committed ticker datasets (data/tickers/<T>/) get built at startup, after the two baselines."""
+    import json
+    out = []
+    tdir = ROOT / "data" / "tickers"
+    if tdir.exists():
+        for d in sorted(tdir.iterdir()):
+            if (d / "statements.csv").exists():
+                try:
+                    name = json.loads((d / "meta.json").read_text()).get("name", d.name)
+                except Exception:
+                    name = d.name
+                out.append((f"{name} ({d.name})", f"t/{d.name}",
+                            [["report", "--data", f"data/tickers/{d.name}", "--out", f"output/t/{d.name}", "--grid", "M", "--placeholder",
+                              "--n-boot", "1500", "--n-cohort", "3000"]]))
+    return out
+
+
 def build_all() -> None:
     try:
-        for label, sub, steps in DATASETS:
+        for label, sub, steps in DATASETS + _ticker_datasets():
             if (OUT / sub / "dashboard.html").exists() and os.environ.get("REBUILD", "1") != "1":
                 continue
             STATE["phase"] = f"building {label}"
@@ -260,15 +278,17 @@ def leaderboard_rows() -> list[dict]:
 
 
 NAV_CSS = """<style>
-.tr-nav{position:sticky;top:0;z-index:6;display:flex;gap:8px 18px;align-items:center;padding:8px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
-.tr-nav form{display:flex;gap:6px;align-items:center}.tr-nav input{font:inherit;padding:5px 8px;border:1px solid var(--line,#e4dfd2);width:130px;background:var(--surface-2,#f3f0e8);color:inherit;text-transform:uppercase}
-.tr-nav button{font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;padding:7px 12px;border:0;background:var(--navy,#1b2a41);color:#e8e4da;cursor:pointer}
-.tr-nav a{color:var(--navy,#1b2a41);text-decoration:none}.tr-nav .quick a{margin-right:10px;font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.12em}.tr-nav .lb{margin-left:auto;font-weight:700}
+.tr-nav{position:sticky;top:0;z-index:6;display:flex;gap:10px;align-items:center;padding:8px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
+.tr-nav a,.tr-nav button{display:inline-flex;align-items:center;gap:6px;font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--navy,#1b2a41);background:transparent;color:var(--navy,#1b2a41);text-decoration:none;cursor:pointer}
+.tr-nav a.home{background:var(--navy,#1b2a41);color:var(--cover-ink,#e8e4da)}
+.tr-nav .crumb{margin-left:auto;font:600 9px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--muted,#a09883)}
+@media(prefers-color-scheme:dark){.tr-nav a,.tr-nav button{border-color:var(--gold-l,#c9b48a);color:var(--gold-l,#c9b48a)}.tr-nav a.home{background:var(--gold-l,#c9b48a);color:#1b2a40}}
 </style>"""
 
 
-def nav_html() -> str:
-    return (NAV_CSS + '<div class="tr-nav"><a href="/">&larr; All managers</a></div>')
+def nav_html(crumb: str = "") -> str:
+    return (NAV_CSS + '<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>'
+            '<a class="home" href="/">Home</a>' + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
 
 
 def page(title: str, body: str, refresh: int | None = None) -> str:
@@ -419,7 +439,7 @@ ol.steps li.done{{color:var(--ink)}}ol.steps li.done::before{{background:var(--g
 <main class="wrap">{err}<ol class="steps">{lis}</ol>
 <p class="timer">{'Ready' if ready else html.escape(job['phase'])} &nbsp;·&nbsp; {elapsed}s</p>
 {'<p><a class="btn" href="' + ('/t/' + ticker + '/dashboard.html' if not ticker.islower() else '/funds/' + ticker + '/dashboard.html') + '">Open the dashboard</a></p>' if ready else ''}
-<p><a href="/">&larr; All managers</a></p></main>{poll}""", refresh=None if job["done"] else 5)
+<p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="javascript:history.back()" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">&larr; Back</a></p></main>{poll}""", refresh=None if job["done"] else 5)
 
 
 def startup_wait_html(which: str) -> str:
@@ -429,14 +449,14 @@ def startup_wait_html(which: str) -> str:
     return page(f"{label} — preparing", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Preparing {html.escape(label)}</h1>
 <p class="sub">The server was just restarted and is rebuilding its baseline records (about a minute). This page opens the dashboard by itself when it's ready.</p></div></header>
 <main class="wrap"><p class="timer" style="font:600 10px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)">{html.escape(STATE["phase"])} &nbsp;·&nbsp; {int(time.time() - STATE["started"])}s since restart</p>
-<pre>{log or '(starting)'}</pre>{'<p><a class="btn" href="/' + which + '/dashboard.html">Open the dashboard</a></p>' if ready else ''}<p><a href="/">&larr; All managers</a></p></main>
+<pre>{log or '(starting)'}</pre>{'<p><a class="btn" href="/' + which + '/dashboard.html">Open the dashboard</a></p>' if ready else ''}<p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="javascript:history.back()" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">&larr; Back</a></p></main>
 {'' if ready else '<script>setTimeout(function(){location.reload();},4000);</script>'}""", refresh=None if ready else 5)
 
 
 def not_found_html(path: str) -> str:
     return page("Not found", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Nothing here</h1>
 <p class="sub">There is no page at <code style="color:var(--goldl)">{html.escape(path)}</code>. Every manager in the system is one click from the home page.</p></div></header>
-<main class="wrap"><p><a class="btn" href="/">All managers</a></p></main>""")
+<main class="wrap"><p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="javascript:history.back()" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">&larr; Back</a></p></main>""")
 
 
 def leaderboard_html() -> str:
@@ -566,7 +586,16 @@ class Handler(SimpleHTTPRequestHandler):
             f = OUT / u.path.lstrip("/")
             if f.exists():
                 doc = f.read_text(encoding="utf-8")
-                doc = doc.replace('<main class="wrap">', nav_html() + '<main class="wrap">', 1)
+                parts = u.path.strip("/").split("/")
+                crumb = {"brk": "Berkshire Hathaway — the stock", "synthetic": "Synthetic placeholder"}.get(parts[0], "")
+                if parts[0] == "funds":
+                    try:
+                        import json as _j; crumb = _j.loads((FUNDS_ROOT / parts[1] / "meta.json").read_text()).get("name", parts[1]) + " — 13F clone"
+                    except Exception:
+                        crumb = parts[1]
+                elif parts[0] == "t":
+                    crumb = parts[1] + " — listed"
+                doc = doc.replace('<main class="wrap">', nav_html(crumb) + '<main class="wrap">', 1)
                 return self._html(doc)
             parts = u.path.strip("/").split("/")          # not built (fresh container?) -> build it
             if parts[0] == "funds" and len(parts) == 3 and (FUNDS_ROOT / parts[1] / "meta.json").exists():

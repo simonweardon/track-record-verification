@@ -434,8 +434,8 @@ ol.steps li::before{{content:"";position:absolute;left:4px;top:15px;width:9px;he
 ol.steps li.done{{color:var(--ink)}}ol.steps li.done::before{{background:var(--good);border-color:var(--good)}}ol.steps li.now{{color:var(--navy);font-weight:600}}ol.steps li.now::before{{background:var(--gold);border-color:var(--gold)}}
 .timer{{font:600 10px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:16px}}
 </style>
-<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Analyzing {html.escape(label or ticker)}</h1>
-<p class="sub">Running the full verification on this record. The first run takes about half a minute; the dashboard opens by itself when it's ready.</p></div></header>
+<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>{'Ready' if ready else 'Please wait'}</h1>
+<p class="sub">{'The analysis of <b>' + html.escape(label or ticker) + '</b> is ready.' if ready else 'Analyzing <b>' + html.escape(label or ticker) + '</b> — the first run takes about half a minute. This page opens the dashboard by itself when it is done; there is nothing to press.'}</p></div></header>
 <main class="wrap">{err}<ol class="steps">{lis}</ol>
 <p class="timer">{'Ready' if ready else html.escape(job['phase'])} &nbsp;·&nbsp; {elapsed}s</p>
 {'<p><a class="btn" href="' + ('/t/' + ticker + '/dashboard.html' if not ticker.islower() else '/funds/' + ticker + '/dashboard.html') + '">Open the dashboard</a></p>' if ready else ''}
@@ -446,8 +446,8 @@ def startup_wait_html(which: str) -> str:
     label = {"brk": "Berkshire Hathaway (the stock)", "synthetic": "the synthetic placeholder"}.get(which, which)
     ready = (OUT / which / "dashboard.html").exists()
     log = "\n".join(html.escape(l) for l in STATE["log"][-6:])
-    return page(f"{label} — preparing", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Preparing {html.escape(label)}</h1>
-<p class="sub">The server was just restarted and is rebuilding its baseline records (about a minute). This page opens the dashboard by itself when it's ready.</p></div></header>
+    return page(f"{label} — preparing", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>{'Ready' if ready else 'Please wait'}</h1>
+<p class="sub">{'<b>' + html.escape(label) + '</b> is ready.' if ready else 'Preparing <b>' + html.escape(label) + '</b> — the server was just restarted and is rebuilding its baseline records (about a minute). This page opens the dashboard by itself when it is done; there is nothing to press.'}</p></div></header>
 <main class="wrap"><p class="timer" style="font:600 10px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)">{html.escape(STATE["phase"])} &nbsp;·&nbsp; {int(time.time() - STATE["started"])}s since restart</p>
 <pre>{log or '(starting)'}</pre>{'<p><a class="btn" href="/' + which + '/dashboard.html">Open the dashboard</a></p>' if ready else ''}<p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="javascript:history.back()" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">&larr; Back</a></p></main>
 {'' if ready else '<script>setTimeout(function(){location.reload();},4000);</script>'}""", refresh=None if ready else 5)

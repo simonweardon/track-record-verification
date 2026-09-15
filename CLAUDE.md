@@ -17,7 +17,7 @@ the context that is not in the code.
 - Disclose AI assistance plainly (README/cover note): built with Claude Code as pair programmer;
   methodology, data-quality rules and verification are Simon's.
 
-## Feature plan (agreed Sept 15, 2026), in priority order
+## Feature plan (agreed Sept 15, 2026), in priority order — 1, 2, 3 DONE Sept 15
 1. **13F signals backtest** — `trackrecord/signals13f.py` (to write): best-ideas (each manager's largest
    position, Cohen–Polk–Silli), crowding (# managers holding), conviction changes (new / added / trimmed /
    sold, from shares). Equal-weight quarterly portfolios formed at end of Feb/May/Aug/Nov (45-day 13F lag),
@@ -30,6 +30,7 @@ the context that is not in the code.
 3. **Due-diligence memo per manager** — `/f/<slug>/memo`: verdict, alpha with CI, factor loadings and
    rolling drift, replication test, risks, auto-generated quarterly-meeting questions. All inputs already
    exist in `output/funds/<slug>/phase4/*.csv` (regressions, rolling, metrics, skill, scores, cohort, bootstrap).
+   (R is installed locally via Homebrew with Rglpk + data.table; `r/construct.R` is tested against Python.)
 4. **R reproduction** of headline numbers (FF3 alpha, t, scores) with data.table; test asserting Python ≈ R.
 5. Research-notes page, pre-build everything a reviewer might click (lazy 30 s builds are bad first
    impressions), cover note.

@@ -33,3 +33,20 @@ def test_reconcile_exit_code_reflects_flags(tmp_path):
     assert main(["reconcile", "--data", str(data), "--out", str(tmp_path / "o1")]) == 0
     main(["synth", "--out", str(data)])
     assert main(["reconcile", "--data", str(data), "--out", str(tmp_path / "o2")]) == 1
+
+
+def test_memo_builds_from_pipeline_output(tmp_path):
+    """The due-diligence memo assembles from phase 2–4 outputs alone (annual synthetic data here)."""
+    try:
+        from trackrecord.reference import load_all
+        load_all()
+    except Exception as e:
+        pytest.skip(f"reference data unavailable: {e}")
+    from trackrecord.memo import build_memo, verdict
+    data = tmp_path / "synthetic"; out = tmp_path / "out"
+    assert main(["synth", "--out", str(data)]) == 0
+    assert main(["report", "--data", str(data), "--out", str(out), "--n-boot", "100", "--n-cohort", "200"]) == 0
+    doc = build_memo(out, data, label="Synthetic")
+    assert doc and "Questions for the manager" in doc and "Recommendation" in doc and 'f"' not in doc
+    assert verdict(2.5, 0.01, 0.02) == ("yes", "evidence of skill")
+    assert verdict(2.5, 0.20, 0.02)[0] == "weak" and verdict(0.3, None, None)[0] == "no" and verdict(-1.5, None, None)[0] == "neg"

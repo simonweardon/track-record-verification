@@ -307,6 +307,8 @@ def main(argv=None):
 
     sg = sub.add_parser("signals13f", help="13F research: best-ideas / crowding / conviction portfolios, spreads, ICs -> data/research/13f-signals")
     sg.set_defaults(fn=lambda a: (__import__("trackrecord.signals13f", fromlist=["build"]).build(), 0)[1])
+    ct = sub.add_parser("construct", help="LP portfolio construction demo: backtest, latest trade list, R twin check -> data/research/construction")
+    ct.set_defaults(fn=lambda a: (__import__("trackrecord.construct", fromlist=["backtest"]).backtest(), 0)[1])
     cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
     cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
     cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")

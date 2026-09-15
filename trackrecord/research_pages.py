@@ -232,3 +232,152 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
 <div id="tip" class="tip" hidden></div>
 <script>{JS}</script>
 """
+
+
+# ---------------------------------------------------------------- portfolio construction note
+
+def construction_html(out_dir: Path | None = None) -> str | None:
+    from .construct import OUT_DIR as CON_DIR
+    d = out_dir or CON_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    summ = pd.read_csv(d / "summary.csv").set_index("key")
+    rb = pd.read_csv(d / "rebalances.csv")
+    R = pd.read_csv(d / "backtest_monthly.csv", index_col=0, parse_dates=True)
+    tl = pd.read_csv(d / "trade_list.csv")
+    sec = pd.read_csv(d / "sectors_latest.csv")
+    c = man["constraints"]; L = man["latest"]; rt = man.get("r_twin", {})
+    P, U, B = summ.loc["portfolio"], summ.loc["unconstrained"], summ.loc["benchmark"]
+
+    # growth chart
+    Rg = R[["benchmark", "portfolio", "unconstrained"]].dropna(how="all")
+    cells = [x.strftime("%Y-%m") for x in Rg.index]
+    series = []
+    for k, name, cls in [("benchmark", "Benchmark", "s0"), ("portfolio", "Constrained LP portfolio", "s1"), ("unconstrained", "Unconstrained top decile", "s4")]:
+        g = (1 + Rg[k].fillna(0)).cumprod()
+        series.append(dict(name=name, values=[float(v) for v in g], cls=cls, emph=(k == "portfolio")))
+    growth = line_chart(cells, series, height=300, width=860, y_fmt=lambda v: f"{v:.1f}×", y_log=True, end_labels=False, uid="cgrowth")
+    legend = "".join(f'<span><span class="k {cls}"></span>{esc(n)}</span>' for _, n, cls in [(0, "Benchmark", "s0"), (0, "Constrained LP portfolio", "s1"), (0, "Unconstrained top decile", "s4")])
+    # active return by year
+    act = (R.portfolio - R.benchmark).dropna(); ay = act.groupby(act.index.year).sum()
+    act_bars = diverging_bars([str(i) for i in ay.index], [float(v) for v in ay.values], height=200, width=860,
+                              tips=[f"{i}: portfolio − benchmark {v * 100:+.1f} pp" for i, v in ay.items()])
+    # ex-ante vs realized TE per rebalance (realized over the following quarter)
+    te_rows = ""
+    for _, r in rb.tail(10).iloc[::-1].iterrows():
+        te_rows += (f"<tr><td>{esc(str(r.formation))}</td><td class='n'>{int(r.universe)}</td><td class='n'>{int(r.names)}</td><td class='n'>{r.turnover:.1%}</td>"
+                    f"<td class='n'>{r.active_share:.0%}</td><td class='n'>{r.ex_ante_te:.1%}</td><td class='n'>{r.max_active:.1%}</td><td class='n'>{r.max_sector_active:.1%}</td><td class='n'>{r.sum_abs_active / 2:.1%}</td>"
+                    f"<td class='n'>{r.expected_alpha - r.bench_alpha:+.2f}</td><td>{'turnover relaxed ×' + str(2 ** int(r.relaxed)) if r.relaxed else ''}</td></tr>")
+    # trade list (top 12 each way)
+    buys = tl[tl.side == "BUY"].head(12); sells = tl[tl.side == "SELL"].head(12)
+    def trow(x):
+        return "".join(f"<tr><td><b>{esc(r.ticker)}</b> <span class='muted'>{esc(str(r['name'])[:28])}</span></td><td class='muted'>{esc(r.sector)}</td>"
+                       f"<td class='n'>{r.current_wt:.2%}</td><td class='n'>{r.target_wt:.2%}</td><td class='n'>{r.active_wt:+.2%}</td><td class='n'>{'—' if pd.isna(r.alpha_z) else f'{r.alpha_z:+.2f}'}</td>"
+                       f"<td class='n'>{r.shares:+,}</td><td class='n'>${r.trade_usd / 1e6:+,.2f}m</td></tr>" for _, r in x.iterrows())
+    sec_rows = "".join(f"<tr><td>{esc(r.sector)}</td><td class='n'>{r.benchmark:.1%}</td><td class='n'>{r.portfolio:.1%}</td><td class='n'>{r.active:+.1%}</td></tr>" for _, r in sec.iterrows())
+    r_block = (f"<p>The same problem was handed to <b>R</b> — <code>r/construct.R</code>, data.table for the inputs, Rglpk (GLPK simplex) for the solve — on the {esc(L['formation'])} inputs. "
+               f"Both solvers hold {rt.get('names_r')} / {rt.get('names_python')} names with expected alpha {rt.get('expected_alpha_r', 0):.4f} vs {rt.get('expected_alpha_python', 0):.4f}; "
+               f"largest weight difference {rt.get('max_abs_diff', 0):.1e}, total {rt.get('sum_abs_diff', 0):.1e}. Linear programs have one optimum value; ties between equally good corners can differ, which is why the objective — not the weights — is the check.</p>"
+               if rt.get("available") else f"<p>R twin not run on this build ({esc(str(rt.get('reason', '')))}). The script is <code>r/construct.R</code>; the unit test compares it with the Python solve whenever Rscript and Rglpk are present.</p>")
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portfolio construction — LP with trade list</title>
+<style>{CSS}{EXTRA_CSS}</style>
+<div class="banner" role="note"><span class="bl">Research note</span> A demonstration mandate on public data — a transparent signal through a real constraint set. Not a strategy and not investment advice.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Quantitative portfolio management · construction</div></div>
+  <div class="gold-rule"></div>
+  <h1>From signal to trade list,<br>under a mandate's constraints</h1>
+  <p class="sub">A linear program turns alpha scores into target weights that respect name caps, active and sector bands and a turnover budget — then into the buy and sell tickets a trader would receive. Rebalanced {man['rebalances']} times since {man['first'][:7]}; solved in Python (HiGHS) and R (Rglpk) and checked against each other.</p>
+  <dl class="meta">
+    <div><dt>Rebalances</dt><dd>{man['rebalances']} · {man['first'][:7]} → {man['last'][:7]}</dd></div>
+    <div><dt>Universe</dt><dd>names held by ≥ {man['min_holders']} managers</dd></div>
+    <div><dt>Mandate NAV</dt><dd>${man['nav'] / 1e6:,.0f}m</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+<section class="verdict">
+  <div class="sh"><h2>What the constraints bought and cost</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Active return, constrained</div><div class="tv">{pct(P.active_return, 1)}</div><div class="td muted">per year vs the aggregate book, after {c['cost_bps']:.0f} bps costs</div></div>
+    <div class="tile"><div class="tl">Tracking error</div><div class="tv">{pct(P.tracking_error, 1, False)}</div><div class="td muted">realized · ex-ante averaged {pct(P.avg_ex_ante_te, 1, False)}</div></div>
+    <div class="tile"><div class="tl">Information ratio</div><div class="tv">{num(P.information_ratio)}</div><div class="td muted">active return ÷ tracking error · hit rate {P.hit_rate:.0%} of months</div></div>
+    <div class="tile"><div class="tl">Turnover</div><div class="tv">{P.avg_turnover:.0%}</div><div class="td muted">one-way per quarter · budget {c['turnover']:.0%} · {P.avg_names:.0f} names on average</div></div>
+    <div class="tile"><div class="tl">Unconstrained top decile</div><div class="tv">{pct(U.active_return, 1)}</div><div class="td muted">same signal, no constraints: TE {pct(U.tracking_error, 1, False)}, IR {num(U.information_ratio)}, turnover {U.avg_turnover:.0%}, {U.avg_names:.0f} names</div></div>
+    <div class="tile"><div class="tl">Benchmark</div><div class="tv">{pct(B.ann_return, 1, False)}</div><div class="td muted">aggregate disclosed book, dollar-weighted · vol {pct(B.ann_vol, 1, False)} · max DD {pct(B.max_dd, 0, False)}</div></div>
+  </div>
+  <p class="cap" style="margin-top:14px">The signal here is 12-1 month price momentum, chosen because it is transparent and available for every name — not because it is good. The point of the page is the machinery: the same code takes any alpha vector. Read the constrained and unconstrained rows together: the constraints trade raw signal exposure for a portfolio a benchmark-relative mandate could actually hold.</p>
+</section>
+
+<section>
+  <div class="sh"><h2>Growth of $1</h2></div>
+  <div class="card"><div class="legend">{legend}</div>{growth}
+  <p class="cap">Log scale. Costs of {c['cost_bps']:.0f} bps per dollar traded are charged in the month after each rebalance, on both the constrained and the unconstrained portfolio.</p></div>
+  <div class="card" style="margin-top:14px"><h3>Active return by year (constrained − benchmark)</h3>{act_bars}</div>
+</section>
+
+<section>
+  <div class="sh"><h2>The mandate</h2></div>
+  <div class="grid2">
+    <div class="card"><h3>Constraints</h3>
+      <div class="tscroll"><table><tbody>
+      <tr><td>Long-only, fully invested</td><td class="n">0 ≤ w, Σw = 1</td></tr>
+      <tr><td>Name cap</td><td class="n">w ≤ {c['max_weight']:.0%}</td></tr>
+      <tr><td>Active band per name</td><td class="n">|w − b| ≤ {c['active_band']:.0%}</td></tr>
+      <tr><td>Sector band vs benchmark</td><td class="n">|Σ<sub>s</sub>w − Σ<sub>s</sub>b| ≤ {c['sector_band']:.0%}</td></tr>
+      <tr><td>Active share cap</td><td class="n">Σ|w − b| / 2 ≤ {c['active_share']:.0%}</td></tr>
+      <tr><td>Turnover budget, one-way</td><td class="n">Σ|w − w₀| / 2 ≤ {c['turnover']:.0%}</td></tr>
+      <tr><td>Names leaving the universe</td><td class="n">forced to 0</td></tr>
+      <tr><td>Objective</td><td class="n">max α'w − {c['cost_bps']:.0f} bps × traded</td></tr>
+      </tbody></table></div>
+      <p class="cap">Linear in w = w₀ + buy − sell, so it is an LP: {L['n_vars']:,} variables and {L['n_constraints']:,} constraints at the latest rebalance, solved in well under a second. When the drifted book cannot meet the sector bands within the turnover budget the budget is doubled and the rebalance is flagged.</p>
+    </div>
+    <div class="card"><h3>Sector exposure at the latest rebalance ({esc(L['formation'])})</h3>
+      <div class="tscroll"><table><thead><tr><th>sector</th><th class="n">benchmark</th><th class="n">portfolio</th><th class="n">active</th></tr></thead><tbody>{sec_rows}</tbody></table></div>
+      <p class="cap">Sectors from Yahoo Finance for {man['sectors_known']} names; {man['sectors_unknown']} unclassified names sit in their own "Unknown" band. A production mandate would use the index vendor's GICS.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><h2>Trade list — {esc(L['formation'])}</h2></div>
+  <p class="note">{L['trades']} tickets: {L['buys']} buys, {L['sells']} sells, ${L['traded_usd'] / 1e6:,.1f}m traded on a ${man['nav'] / 1e6:,.0f}m book (one-way turnover {L['turnover']:.1%}), estimated cost ${L['est_cost_usd'] / 1e3:,.0f}k. Ex-ante tracking error {L['ex_ante_te']:.1%}. Largest tickets each way:</p>
+  <div>
+    <div class="card tscroll"><h3>Buys</h3><table><thead><tr><th>stock</th><th>sector</th><th class="n">now</th><th class="n">target</th><th class="n">active</th><th class="n">α z</th><th class="n">shares</th><th class="n">$</th></tr></thead><tbody>{trow(buys)}</tbody></table></div>
+    <div class="card tscroll" style="margin-top:14px"><h3>Sells</h3><table><thead><tr><th>stock</th><th>sector</th><th class="n">now</th><th class="n">target</th><th class="n">active</th><th class="n">α z</th><th class="n">shares</th><th class="n">$</th></tr></thead><tbody>{trow(sells)}</tbody></table></div>
+  </div>
+  <p class="cap">Full list with every name: <a href="/research/construction/trade_list.csv">trade_list.csv</a>. Shares are rounded to whole shares at the formation-date close; "now" is the previous target drifted through the quarter.</p>
+</section>
+
+<section>
+  <div class="sh"><h2>Rebalance log</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>date</th><th class="n">universe</th><th class="n">held</th><th class="n">turnover</th><th class="n">active share</th><th class="n">ex-ante TE</th><th class="n">max |active|</th><th class="n">max |sector|</th><th class="n">active share</th><th class="n">α gain vs bench</th><th>note</th></tr></thead><tbody>{te_rows}</tbody></table>
+  <p class="cap">Last ten rebalances. "α gain" is the expected alpha of the portfolio minus that of the benchmark, in z-score units — what the optimizer bought within the bands. Full log: <a href="/research/construction/rebalances.csv">rebalances.csv</a>.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Same problem in R</h2></div>
+  <div class="card">{r_block}</div>
+</section>
+
+<section>
+  <div class="sh"><h2>Method and limits</h2></div>
+  <div class="card">
+    <p><b>Universe and benchmark.</b> Each quarter, the US names held by at least {man['min_holders']} of the managers in the system, priced at $1 or more. The benchmark is those names weighted by the total dollars the managers hold — the aggregate disclosed book. It is a real, investable, public portfolio, but it is not an index; a mandate would use one.</p>
+    <p><b>Signal.</b> 12-1 momentum: the return from twelve months before the rebalance to one month before, z-scored across the universe and clipped at ±3. Nothing else. No fundamentals, no risk model factors, no combination — the page demonstrates construction, not alpha.</p>
+    <p><b>Costs and drift.</b> {c['cost_bps']:.0f} bps per dollar traded, charged in the first month after each rebalance. Between rebalances every portfolio, including the benchmark, holds with drift; delisted names drop at their last price (survivorship, disclosed).</p>
+    <p><b>Risk.</b> Ex-ante tracking error is √(12 · a'Σa) with Σ the trailing-36-month sample covariance shrunk halfway toward constant correlation. It is reported, not constrained: a quadratic term would leave the LP, and the active and sector bands are the linear proxy most benchmark-relative mandates actually use. Realized TE is the standard deviation of monthly active returns, annualized.</p>
+    <p><b>Honesty.</b> The constraints were fixed before any backtest was run and were not tuned. Both the constrained and the unconstrained rows are shown, whatever they say.</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
+  <h4>Important information</h4>
+  <p>Built from public SEC EDGAR 13F-HR filings and Yahoo Finance prices and sector labels; factor data from the Kenneth R. French Data Library. A demonstration of portfolio-construction machinery on public data, with the limits stated above; not a strategy, a recommendation or investment advice. Past performance is not indicative of future results. Rebuild: <code>python -m trackrecord construct</code>; R twin: <code>Rscript r/construct.R data/research/construction/inputs_latest</code>.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""

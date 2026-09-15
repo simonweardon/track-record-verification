@@ -1,0 +1,8 @@
+{
+ "max_weight": 0.04,
+ "active_band": 0.02,
+ "sector_band": 0.03,
+ "active_share": 0.3,
+ "turnover": 0.2,
+ "cost_bps": 10.0
+}

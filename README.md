@@ -43,7 +43,10 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                placeholder_ticker.py  any listed vehicle as a placeholder (yfinance, distributions reinvested)
                hedge13f.py   13F clone engine: EDGAR filings → holdings → CUSIP map → prices → monthly clone → statement format
                signals13f.py 13F research: best-ideas / crowding / conviction portfolios, spreads, ICs → data/research/13f-signals
-               research_pages.py  research notes rendered from those CSVs (served at /research/13f-signals)
+               construct.py  LP portfolio construction (HiGHS) with trade list, active-share/sector/turnover constraints, ex-ante TE; backtest of a demo mandate
+               memo.py       due-diligence memo per manager, assembled from phases 2–4 (/f/<slug>/memo)
+               research_pages.py  research notes rendered from those CSVs (/research/13f-signals, /research/construction)
+r/             construct.R   the same LP in R (data.table + Rglpk); checked against the Python solve in tests and on every build
                compact.py    the committed ~15 MB bundle of every cache a fresh clone needs (compact-pack / compact-unpack)
                fund_universe.py  the ~108 managers, search names and style tags
                serve.py      HTTP server: dashboards, /managers, /f/<slug>/, /analyze?ticker=, /leaderboard, /status
@@ -73,6 +76,22 @@ held with drift, and tested against the Carhart four factors with HAC errors, as
 `/research/13f-signals`. Result on 90 managers, 2013–2026: no exploitable signal after the 45-day lag; fresh buys
 lag the names just sold; the one apparent anomaly (least-crowded names) sits exactly where the price panel's
 survivorship bias lives and is reported as unreliable.
+
+## Portfolio construction: from signal to trade list
+`python -m trackrecord construct` runs a demonstration mandate: universe = names held by ≥ 5 managers each quarter,
+benchmark = the aggregate disclosed book, alpha = 12-1 momentum z-score, and a **linear program** that maximises
+expected alpha net of a 10 bps cost under long-only, name-cap, active-band, sector-band, active-share and turnover
+constraints, with names leaving the universe forced out. Output: monthly backtest vs the benchmark and an
+unconstrained top-decile portfolio, a rebalance log with ex-ante tracking error (shrunk covariance), and the latest
+**trade list** (shares, $ and cost on a $100m book). The same LP is solved in R with Rglpk (`r/construct.R`) and the
+two solutions are compared on every build. Served at `/research/construction`.
+
+## Due-diligence memo
+`/f/<slug>/memo` (and `/t/<ticker>/memo`) assembles a one-page investment-committee memo from the pipeline's own
+outputs: what is claimed vs verified, skill vs exposure (all factor models, plain-English reading of the loadings,
+replication test), whether it is believable (parametric, bootstrap, zero-skill cohort, years needed at t = 2),
+stability (rolling loadings, drift, alpha by half, timing test), risk and concentration, an auto-generated list of
+**questions for the manager**, and a fixed-rule recommendation. Every sentence is generated from the numbers.
 
 ## Hedge funds: 13F clones
 Private funds publish no returns. `python -m trackrecord funds-build --contact "Name email"` (SEC requires a

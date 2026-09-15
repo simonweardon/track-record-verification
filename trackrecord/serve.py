@@ -290,9 +290,10 @@ NAV_CSS = """<style>
 </style>"""
 
 
-def nav_html(crumb: str = "", me: bool = False) -> str:
+def nav_html(crumb: str = "", me: bool = False, extra: tuple[str, str] | None = None) -> str:
     return (NAV_CSS + '<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>'
-            '<a class="home" href="/">Home</a><a href="/me">My records</a>' + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
+            '<a class="home" href="/">Home</a><a href="/me">My records</a>' + (f'<a href="{html.escape(extra[1], quote=True)}">{html.escape(extra[0])}</a>' if extra else '')
+            + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
 
 
 # ---------------------------------------------------------------- private records
@@ -617,7 +618,7 @@ apply();})();
 <main class="wrap">
 <h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
 <div class="cards">{cards}</div>
-<p class="note" style="margin-top:14px"><b>Research:</b> <a href="/research/13f-signals">Do managers' disclosed books carry a signal?</a> — best ideas, crowding and fresh buys from every filing in the system, tested as portfolios.</p>
+<p class="note" style="margin-top:14px"><b>Research:</b> <a href="/research/13f-signals">Do managers' disclosed books carry a signal?</a> — best ideas, crowding and fresh buys from every filing, tested as portfolios. &nbsp;·&nbsp; <a href="/research/construction">From signal to trade list</a> — an LP portfolio constructor under a mandate's constraints, in Python and R.</p>
 <h2 data-n="All managers" id="all">Every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
@@ -937,6 +938,19 @@ class Handler(SimpleHTTPRequestHandler):
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
             return self._html(doc.replace('<main class="wrap">', nav_html("Research · 13F signals") + '<main class="wrap">', 1))
+        if u.path == "/research/construction":
+            from .research_pages import construction_html
+            doc = construction_html()
+            if doc is None:
+                return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord construct</code>.</p></main>"), 404)
+            return self._html(doc.replace('<main class="wrap">', nav_html("Research · portfolio construction") + '<main class="wrap">', 1))
+        if u.path.startswith("/research/construction/") and u.path.endswith(".csv"):
+            from .construct import OUT_DIR as CON_DIR
+            f = CON_DIR / u.path.rsplit("/", 1)[1]
+            if f.exists() and re.match(r"^[a-z_]+\.csv$", f.name):
+                b = f.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", f"attachment; filename={f.name}"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+            return self._html(not_found_html(u.path), 404)
         if u.path == "/analyze":
             t = (parse_qs(u.query).get("ticker", [""])[0] or "").strip().upper()
             if not valid_ticker(t):
@@ -967,20 +981,35 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception:
                 lbl = slug
             return self._html(ticker_status_html(slug, job, label=lbl))
+        mm = re.match(r"^/(f|t)/([A-Za-z0-9.\-]{1,40})/memo$", u.path)
+        if mm:
+            kind, key = mm.group(1), mm.group(2)
+            out = OUT / ("funds" if kind == "f" else "t") / key
+            data = (FUNDS_ROOT / key) if kind == "f" else (ROOT / "data" / "tickers" / key)
+            if not (out / "phase4" / "regressions.csv").exists():
+                return self._redirect(f"/f/{key}/" if kind == "f" else f"/analyze?ticker={key}")
+            from .memo import build_memo
+            doc = build_memo(out, data)
+            if doc is None:
+                return self._html(not_found_html(u.path), 404)
+            back = f"/funds/{key}/dashboard.html" if kind == "f" else f"/t/{key}/dashboard.html"
+            return self._html(doc.replace('<main class="wrap memo">', nav_html("Due-diligence memo", extra=("Dashboard", back)) + '<main class="wrap memo">', 1))
         if u.path.endswith("dashboard.html"):
             f = OUT / u.path.lstrip("/")
             if f.exists():
                 doc = f.read_text(encoding="utf-8")
                 parts = u.path.strip("/").split("/")
                 crumb = {"synthetic": "Synthetic placeholder"}.get(parts[0], "")
+                extra = None
                 if parts[0] == "funds":
                     try:
                         import json as _j; crumb = _j.loads((FUNDS_ROOT / parts[1] / "meta.json").read_text()).get("name", parts[1]) + " — 13F clone"
                     except Exception:
                         crumb = parts[1]
+                    extra = ("Due-diligence memo", f"/f/{parts[1]}/memo")
                 elif parts[0] == "t":
-                    crumb = parts[1] + " — listed"
-                doc = doc.replace('<main class="wrap">', nav_html(crumb) + '<main class="wrap">', 1)
+                    crumb = parts[1] + " — listed"; extra = ("Due-diligence memo", f"/t/{parts[1]}/memo")
+                doc = doc.replace('<main class="wrap">', nav_html(crumb, extra=extra) + '<main class="wrap">', 1)
                 return self._html(doc)
             parts = u.path.strip("/").split("/")          # not built (fresh container?) -> build it
             if parts[0] == "funds" and len(parts) == 3 and (FUNDS_ROOT / parts[1] / "meta.json").exists():

@@ -311,6 +311,15 @@ def main(argv=None):
     ct.set_defaults(fn=lambda a: (__import__("trackrecord.construct", fromlist=["backtest"]).backtest(), 0)[1])
     rv = sub.add_parser("r-verify", help="recompute every manager's headline stats in R and compare -> data/research/r-verify")
     rv.set_defaults(fn=lambda a: (__import__("trackrecord.rverify", fromlist=["build"]).build(), 0)[1])
+    fd = sub.add_parser("fundamentals", help="pull SEC XBRL company facts for the research universe -> data/reference/compact/fundamentals.csv.gz")
+    fd.add_argument("--contact", default=None, help="SEC User-Agent 'Name email' (or SEC_CONTACT env)")
+    def _fund(a):
+        import os
+        from trackrecord import fundamentals as F
+        contact = a.contact or os.environ.get("SEC_CONTACT")
+        assert contact, "SEC requires a contact: --contact 'Name email' or SEC_CONTACT"
+        F.build(F.universe_tickers(), contact); return 0
+    fd.set_defaults(fn=_fund)
     cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
     cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
     cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")

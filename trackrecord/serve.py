@@ -316,14 +316,30 @@ NAV_CSS = """<style>
 </style>"""
 
 
-TOOLS = [("Home", "/"), ("Screener", "/#all"), ("13F signals", "/research/13f-signals"), ("Construction", "/research/construction"),
-         ("R check", "/research/r-verify"), ("Research data", "/research"), ("My records", "/me")]
+TOOLS = [("Home", "/"), ("Passive", "/passive"), ("Active", "/active"), ("External managers", "/external"), ("My records", "/me")]
+
+
+_AREAS_CACHE = {"t": 0.0, "live": set()}
+
+
+def live_areas() -> set[str]:
+    """Areas that have at least one built tool (cached a minute); an empty area stays out of the bar."""
+    if time.time() - _AREAS_CACHE["t"] > 60:
+        try:
+            from .areas import tool_cards
+            _AREAS_CACHE["live"] = {k for k, v in tool_cards().items() if v}
+        except Exception:
+            _AREAS_CACHE["live"] = {"active", "external"}
+        _AREAS_CACHE["t"] = time.time()
+    return _AREAS_CACHE["live"]
 
 
 def toolbar(current: str = "", extra: tuple[str, str] | None = None, crumb: str = "") -> str:
     """The same bar on every page: Back, then every tool (the current one filled). Page-specific
     links (a manager's memo, back to its dashboard) go on a thin line underneath, never in the bar."""
-    links = "".join(f'<a class="{"home" if href == "/" else "on" if href == current else ""}" href="{href}">{label}</a>' for label, href in TOOLS)
+    live = live_areas()
+    links = "".join(f'<a class="{"home" if href == "/" else "on" if href == current else ""}" href="{href}">{label}</a>'
+                    for label, href in TOOLS if href.strip("/") not in ("passive", "active", "external") or href.strip("/") in live)
     bar = ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>' + links + '</div>')
     if extra or crumb:
         bar += ('<div class="tr-sub">' + (f'<a href="{html.escape(extra[1], quote=True)}">{html.escape(extra[0])} &rarr;</a>' if extra else '')
@@ -626,7 +642,6 @@ def directory_html() -> str:
                 f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}<br>"
                 f"<span class='fund'>{html.escape(r['fund'])} · {html.escape(r['tag'])}</span></td>"
                 f"{cells}<td class='n'>{memo}{btn}</td></tr>")
-    rcards, _have = _research_cards()
     styles = sorted({r["style"] for r in frows if r.get("style")} | ({"Listed vehicle"} if listed else set()))
     style_opts = "".join(f"<option value='{html.escape(x.lower(), quote=True)}'>{html.escape(x)}</option>" for x in styles)
     ordered = sorted(frows, key=lambda r: (1 if r.get("nm") else 0, -(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
@@ -713,21 +728,9 @@ document.querySelectorAll('th.sort').forEach(th=>th.addEventListener('click',()=
 document.querySelectorAll('th.sort').forEach(x=>x.classList.remove('on','asc'));th.classList.add('on');if(dir==='asc')th.classList.add('asc');sortBy(k,dir);}));
 apply();})();
 </script>"""
-    return page("Track Record Verification", f"""{extra_css}<div class="banner"><b>Illustrative data</b> Public records and SEC 13F reconstructions used to demonstrate the pipeline. Nothing here is the record under verification.</div>
-<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Track Record Verification</h1>
-<p class="sub">One system, applied the same way to every manager: reconcile the record, compute time-weighted returns, remove what the market and known factors explain, simulate how often luck alone does as well, test stability, and score. Press <b>Analyze</b> on any row.</p>
-<div class="cta"><a class="big" href="#all" id="go-search"><span class="t">Search other people's returns</span><span class="s">{len(frows) + len(listed)} managers · 13F clones and listed funds</span></a>
-<a class="big gold" href="/me"><span class="t">My records</span><span class="s">Upload my records</span></a></div>
-<dl class="stats"><div><dt>Managers in the system</dt><dd>{len(frows) + len(listed)}</dd></div><div><dt>Scorable today</dt><dd>{n_ok + len(listed)}</dd></div><div><dt>Listed vehicles</dt><dd>{len(listed)}</dd></div><div><dt>13F clones</dt><dd>{len(frows)}</dd></div></dl>
-</div></header>
-<main class="wrap">
-<h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
-<div class="cards">{cards}</div>
-<h2 data-n="Research" id="research">Use it as a research tool</h2>
-<p class="note">Four things you can do with the system beyond looking up one manager. Every number on these pages is generated from the data underneath it, and the data comes down as CSV. Full index: <a href="/research">all research and datasets</a>.</p>
-<div class="rcards">{rcards}</div>
-<h2 data-n="All managers" id="all">Screen every manager in the system</h2>
-<p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
+    from .areas import area_html
+    screener = f"""<h2 data-n="All managers" id="all">Screen every manager in the system</h2>
+<p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms a 13F is trading inventory, not a portfolio, so no score is shown. Press <b>Analyze</b> for the full dashboard, <b>Memo</b> for the due-diligence memo.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
 <div class="filters">
   <label>Evidence of alpha <select id="f-t">
@@ -743,8 +746,9 @@ apply();})();
   <button type="button" id="dl" class="dlbtn">Download CSV</button>
 </div>
 <div class="tw"><table id="tbl">{head}<tbody>{table}</tbody></table></div>
-<div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. First analysis of a manager takes about half a minute; afterwards it opens instantly. Past performance is not indicative of future results; nothing here is investment advice.</div>
-</main>{js}""", is_home=True)
+<div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. Past performance is not indicative of future results; nothing here is investment advice.</div>
+{js}"""
+    return area_html(page, "external", extra_body=screener, extra_head=extra_css)
 
 
 def ticker_status_html(ticker: str, job: dict, label: str | None = None, ready_href: str | None = None) -> str:
@@ -1077,8 +1081,16 @@ class Handler(SimpleHTTPRequestHandler):
         if not self._authorized():
             return self._deny()
         u = urlparse(self.path)
-        if u.path in ("/", "/managers", "/leaderboard", "/index.html"):
+        if u.path in ("/", "/index.html"):
+            from .areas import home_html
+            fi = fund_index(); n_ok = sum(1 for r in fi if r.get("status") == "ok")
+            n_listed = len([d for d in (ROOT / "data" / "tickers").glob("*/meta.json")]) if (ROOT / "data" / "tickers").exists() else 0
+            return self._html(home_html(page, len(fi) + n_listed, n_ok + n_listed))
+        if u.path in ("/external", "/managers", "/leaderboard"):
             return self._html(directory_html())
+        if u.path in ("/active", "/passive"):
+            from .areas import area_html
+            return self._html(area_html(page, u.path.strip("/")))
         if u.path == "/account":
             cur = self._uid()
             if cur and not AC.is_guest(cur):

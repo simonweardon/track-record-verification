@@ -96,7 +96,8 @@ def build_model(log=print) -> dict:
 
 
 def factor_cov(fr: pd.DataFrame, asof: pd.Timestamp, window: int = WINDOW, half_life: int = HALF_LIFE) -> pd.DataFrame:
-    h = fr[fr.index <= asof].tail(window).fillna(0.0)
+    """Row m of fr explains the return m → m+1, which is not known at m: use rows strictly before asof."""
+    h = fr[fr.index < asof].tail(window).fillna(0.0)
     w = _ewma_weights(len(h), half_life)
     mu = (h.values * w[:, None]).sum(axis=0)
     X = h.values - mu
@@ -105,7 +106,7 @@ def factor_cov(fr: pd.DataFrame, asof: pd.Timestamp, window: int = WINDOW, half_
 
 
 def specific_var(U: pd.DataFrame, asof: pd.Timestamp, window: int = WINDOW, half_life: int = HALF_LIFE) -> pd.Series:
-    h = U[U.index <= asof].tail(window)
+    h = U[U.index < asof].tail(window)
     w = _ewma_weights(len(h), half_life)
     sq = h ** 2
     num = (sq.fillna(0.0).values * w[:, None]).sum(axis=0); den = (sq.notna().values * w[:, None]).sum(axis=0)
@@ -157,7 +158,7 @@ def bias_test(model: dict, n_port: int = 100, names_per: int = 50, seed: int = 0
     monthly volatility.  Bias statistic = std of that ratio (≈ 1 when calibrated)."""
     panel, fr, U, styles, secs = model["panel"], model["factor_returns"], model["residuals"], model["styles"], model["sectors"]
     rng = np.random.default_rng(seed)
-    months = [m for m in sorted(panel.month.unique()) if (fr.index <= m).sum() >= 24]
+    months = [m for m in sorted(panel.month.unique()) if (fr.index < m).sum() >= 24]
     rows = []
     for m in months:
         X = exposures(panel, styles, secs, m); F = factor_cov(fr, m); D = specific_var(U, m)

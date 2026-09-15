@@ -67,6 +67,8 @@ def pack(log=print) -> dict:
     shutil.copy(EDGAR / "cusip_map.json", COMPACT / "cusip_map.json")
     prices = pd.read_csv(EDGAR / "prices_monthly.csv", index_col=0)
     prices.round(4).to_csv(COMPACT / "prices_monthly.csv.gz", compression="gzip")
+    if (EDGAR / "prices_close_monthly.csv").exists():
+        pd.read_csv(EDGAR / "prices_close_monthly.csv", index_col=0).round(4).to_csv(COMPACT / "prices_close_monthly.csv.gz", compression="gzip")
     kf = COMPACT / "kenfrench"; kf.mkdir(exist_ok=True)
     for zip_name, _ in KF_FILES.values():
         if (REF / zip_name).exists():
@@ -92,6 +94,8 @@ def unpack(log=print, force: bool = False) -> bool:
     shutil.copy(COMPACT / "funds.json", EDGAR / "funds.json")
     shutil.copy(COMPACT / "cusip_map.json", EDGAR / "cusip_map.json")
     pd.read_csv(COMPACT / "prices_monthly.csv.gz", index_col=0).to_csv(EDGAR / "prices_monthly.csv")
+    if (COMPACT / "prices_close_monthly.csv.gz").exists():
+        pd.read_csv(COMPACT / "prices_close_monthly.csv.gz", index_col=0).to_csv(EDGAR / "prices_close_monthly.csv")
     df = pd.read_csv(COMPACT / "holdings13f.csv.gz", dtype={"cusip": str, "cik": str, "putcall": str, "cls": str}, keep_default_na=False)
     n = 0
     for (cik, acc), g in df.groupby(["cik", "accession"], sort=False):

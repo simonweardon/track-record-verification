@@ -324,6 +324,8 @@ def main(argv=None):
     al.set_defaults(fn=lambda a: (__import__("trackrecord.alphalab", fromlist=["build"]).build(), 0)[1])
     rm = sub.add_parser("risk-model", help="fundamental factor risk model: factor returns, covariance, specific risk, decompositions, bias test -> data/research/risk-model")
     rm.set_defaults(fn=lambda a: (__import__("trackrecord.riskmodel", fromlist=["build"]).build(), 0)[1])
+    it = sub.add_parser("index-tracker", help="passive: cap-weighted universe index, optimised-sampling replication under the risk model, DPSW, trade list -> data/research/index-tracker")
+    it.set_defaults(fn=lambda a: (__import__("trackrecord.tracker", fromlist=["build"]).build(), 0)[1])
     cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
     cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
     cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")

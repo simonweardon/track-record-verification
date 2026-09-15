@@ -846,3 +846,144 @@ def riskmodel_html(out_dir: Path | None = None) -> str | None:
 <div id="tip" class="tip" hidden></div>
 <script>{JS}</script>
 """
+
+
+# ---------------------------------------------------------------- passive: index tracker + DPSW
+
+def tracker_html(out_dir: Path | None = None) -> str | None:
+    from .tracker import OUT_DIR as TR_DIR, SAMPLES
+    from .alphalab import SIGNALS
+    d = out_dir or TR_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    S = pd.read_csv(d / "summary.csv").set_index("key")
+    R = pd.read_csv(d / "backtest_monthly.csv", index_col=0, parse_dates=True)
+    lg = pd.read_csv(d / "rebalances.csv")
+    ws = json.loads((d / "dpsw.json").read_text())
+    hold = pd.read_csv(d / "dpsw_holdings.csv")
+    tl = pd.read_csv(d / "rebalance_trades.csv") if (d / "rebalance_trades.csv").exists() else pd.DataFrame()
+    slc = pd.read_csv(d / "dpsw_cashflow_slice.csv")
+    idx_name = man["benchmark"]
+
+    # replication table
+    rows = ""
+    for k in ["index", "full"] + [f"sampled_{n}" for n in SAMPLES]:
+        r = S.loc[k]
+        rows += (f"<tr><td><b>{esc(r.label)}</b></td><td class='n'>{r.avg_names:.0f}</td><td class='n'>{pct(r.ann_return, 1, False)}</td><td class='n'>{r.tracking_error:.2%}</td>"
+                 f"<td class='n'>{'' if pd.isna(r.pred_te_avg) else f'{r.pred_te_avg:.2%}'}</td><td class='n'>{r.tracking_difference * 1e4:+.0f} bps</td><td class='n'>{r.worst_month_active * 1e4:+.0f} bps</td><td class='n'>{r.turnover_yr:.0%}</td></tr>")
+    # active return chart: cumulative active of sampled books
+    Ra = R.dropna(subset=["index"])
+    cells = [x.strftime("%Y-%m") for x in Ra.index]
+    series = [dict(name=f"{n} names", values=[float(v) for v in ((1 + Ra[f'sampled_{n}']).cumprod() / (1 + Ra['index']).cumprod() - 1)], cls=c)
+              for n, c in zip(SAMPLES, ["s4", "s1", "s2"])]
+    chart = line_chart(cells, series, height=260, width=860, y_fmt=lambda v: f"{v * 100:+.1f}%", end_labels=False, uid="track")
+    legend = "".join(f'<span><span class="k {s["cls"]}"></span>{esc(s["name"])}</span>' for s in series)
+    # predicted vs realized TE per rebalance (realized over the following quarter) for 80 names
+    a80 = (R["sampled_80"] - R["index"]).dropna()
+    te_rows = ""
+    for _, r in lg.tail(8).iloc[::-1].iterrows():
+        F = pd.Timestamp(r.formation); nxt = a80[(a80.index > F)].head(3)
+        real = float(nxt.std() * np.sqrt(12)) if len(nxt) >= 2 else np.nan
+        te_rows += (f"<tr><td>{esc(str(r.formation))}</td><td class='n'>{int(r.constituents)}</td><td class='n'>{r.top10_weight:.0%}</td><td class='n'>{r.turnover_index:.1%}</td>"
+                    f"<td class='n'>{int(r.names_80)}</td><td class='n'>{r.turnover_sampled_80:.1%}</td><td class='n'>{r.pred_te_80:.2%}</td><td class='n'>{'' if pd.isna(real) else f'{real:.2%}'}</td></tr>")
+    # DPSW
+    mtd, qtd, ytd = ws["mtd"], ws["qtd"], ws["ytd"]
+    sec_rows = "".join(f"<tr><td>{esc(k)}</td><td class='n'>{v * 1e4:+.0f} bps</td></tr>" for k, v in sorted(ws["sector_active"].items(), key=lambda kv: kv[1]))
+    act_rows = "".join(f"<tr><td><b>{esc(k)}</b></td><td class='n'>{v * 1e4:+.0f} bps</td></tr>" for k, v in ws["largest_active"].items())
+    risk_rows = "".join(f"<tr><td>{esc(SIGNALS.get(t['factor'], t['factor']).split(' (')[0] if not t['factor'].startswith('ind:') else t['factor'][4:])}</td><td class='n'>{t['exposure']:+.2f}</td><td class='n'>{t['var_share']:.0%}</td></tr>" for t in ws["top_risk"])
+    hold_rows = "".join(f"<tr><td><b>{esc(r.ticker)}</b> <span class='muted'>{esc(r.sector)}</span></td><td class='n'>{r.weight:.2%}</td><td class='n'>{r.index_weight:.2%}</td><td class='n'>{r.active * 1e4:+.0f}</td><td class='n'>{r.shares:,.0f}</td><td class='n'>${r.market_value / 1e6:,.1f}m</td></tr>"
+                        for _, r in hold.head(15).iterrows())
+    events = ws.get("dead") or []
+    ev_html = ("".join(f"<li><b>{esc(t)}</b> — no price today: treat as a corporate event (delisting, acquisition close, or halt); confirm with the custodian, sell or receive proceeds, and re-slice the weight pro rata.</li>" for t in events)
+               if events else "<li>No holding has stopped pricing. No index announcements are pending: the next reconstitution is the quarter's 13F formation date, when additions and deletions become known and the rebalance list below is regenerated.</li>")
+    slc_rows = "".join(f"<tr><td><b>{esc(r.ticker)}</b></td><td class='n'>{r.weight:.2%}</td><td class='n'>${r.usd / 1e3:,.0f}k</td><td class='n'>{r.shares:,.0f}</td></tr>" for _, r in slc.sort_values("usd", ascending=False).head(10).iterrows())
+    tl_rows = "".join(f"<tr><td><b>{esc(r.ticker)}</b> <span class='muted'>{esc(r.sector)}</span></td><td>{esc(r.reason)}</td><td class='n'>{r.current_wt:.2%}</td><td class='n'>{r.target_wt:.2%}</td><td class='n'>{r.index_wt:.2%}</td><td class='n'>{r.shares:+,}</td><td class='n'>${r.trade_usd / 1e6:+,.2f}m</td></tr>"
+                      for _, r in tl.head(16).iterrows()) if len(tl) else ""
+    s80 = S.loc["sampled_80"]
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Index tracking</title>
+<style>{CSS}{EXTRA_CSS}
+.dpsw h3 {{ margin-top: 0 }} .dpsw .kv {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px }} .dpsw .kv .tile .tv {{ font-size: 22px }}
+</style>
+<div class="banner" role="note"><span class="bl">Research note</span> A cap-weighted index built to a stated rulebook from public data, replicated the way a passive desk replicates a vendor index. A demonstration of method.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Passive portfolios · index tracking</div></div>
+  <div class="gold-rule"></div>
+  <h1>Replicate the index with fewer names —<br>and run the book every day</h1>
+  <p class="sub">The {esc(idx_name)}: ~{man['names_index']} US names, cap-weighted, reconstituted quarterly. Held in full, and with 40, 80 and 150 names chosen by optimised sampling under the risk model. Then the desk's daily sheet: NAV, cash, actives, predicted tracking error, events, and the trades.</p>
+  <dl class="meta">
+    <div><dt>Rebalances</dt><dd>{man['rebalances']} · {man['first'][:7]} → {man['last'][:7]}</dd></div>
+    <div><dt>Index names</dt><dd>~{man['names_index']}</dd></div>
+    <div><dt>Book</dt><dd>${man['nav'] / 1e6:,.0f}m · {man['names_held']} names</dd></div>
+    <div><dt>Realized TE, 80 names</dt><dd>{man['te_realized']:.2%}</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+<section class="verdict">
+  <div class="sh"><h2>Replication: full versus sampled</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>portfolio</th><th class="n">names</th><th class="n">return /yr</th><th class="n">tracking error</th><th class="n">predicted TE</th><th class="n">tracking difference /yr</th><th class="n">worst month</th><th class="n">turnover /yr</th></tr></thead><tbody>{rows}</tbody></table>
+  <p class="cap">Tracking error = standard deviation of monthly active return, annualized; predicted TE = the risk model's forecast at each rebalance, averaged. Tracking difference = mean active return (costs of {man['cost_bps']:.0f} bps per dollar traded are charged; the index pays none). Sampled books hold the largest names per industry, with weights set by a quadratic program that minimises predicted tracking error; no name is forced below its index weight, none above {man['max_weight']:.0%}.</p></div>
+  <div class="card" style="margin-top:14px"><div class="legend">{legend}</div>{chart}<p class="cap">Cumulative active return of each sampled book against the index. Flat and close to zero is the goal of a passive mandate; the drift is tracking difference, the wiggle is tracking error.</p></div>
+</section>
+
+<section class="dpsw">
+  <div class="sh"><h2>Daily Portfolio Status Worksheet — {esc(ws['date'])}</h2></div>
+  <p class="note">The sheet a passive PM completes each morning for the 80-name book, generated from the portfolio's own state: what we hold, how far from the index we are and why, what the model expects that to cost, and what needs doing today.</p>
+  <div class="card"><div class="kv">
+    <div class="tile"><div class="tl">NAV</div><div class="tv">${ws['nav'] / 1e6:,.1f}m</div><div class="td muted">cash ${ws['cash'] / 1e6:,.2f}m ({ws['cash_pct']:.1%} target)</div></div>
+    <div class="tile"><div class="tl">Holdings</div><div class="tv">{ws['n_holdings']}</div><div class="td muted">of {ws['n_index']} index names</div></div>
+    <div class="tile"><div class="tl">MTD</div><div class="tv">{mtd[0]:+.2%}</div><div class="td muted">index {mtd[1]:+.2%} · active {(mtd[0] - mtd[1]) * 1e4:+.0f} bps</div></div>
+    <div class="tile"><div class="tl">QTD</div><div class="tv">{qtd[0]:+.2%}</div><div class="td muted">index {qtd[1]:+.2%} · active {(qtd[0] - qtd[1]) * 1e4:+.0f} bps</div></div>
+    <div class="tile"><div class="tl">YTD</div><div class="tv">{ytd[0]:+.2%}</div><div class="td muted">index {ytd[1]:+.2%} · active {(ytd[0] - ytd[1]) * 1e4:+.0f} bps</div></div>
+    <div class="tile"><div class="tl">Predicted TE</div><div class="tv">{ws['pred_te']:.2%}</div><div class="td muted">factor {ws['pred_te_factor']:.2%} · specific {ws['pred_te_specific']:.2%}</div></div>
+    <div class="tile"><div class="tl">Largest active</div><div class="tv">{ws['max_active'] * 1e4:+.0f} bps</div><div class="td muted">{esc(ws['max_active_name'])}</div></div>
+    <div class="tile"><div class="tl">Drift from target</div><div class="tv">{ws['drift_max'] * 1e4:.0f} bps</div><div class="td muted">largest, {esc(ws['drift_max_name'])}</div></div>
+  </div>
+  <div class="grid2" style="margin-top:14px">
+    <div class="tscroll"><h3>Sector active weights</h3><table><thead><tr><th>sector</th><th class="n">active</th></tr></thead><tbody>{sec_rows}</tbody></table></div>
+    <div><h3>Largest active positions</h3><div class="tscroll"><table><thead><tr><th>stock</th><th class="n">active</th></tr></thead><tbody>{act_rows}</tbody></table></div>
+      <h3 style="margin-top:14px">Where the tracking risk comes from</h3><div class="tscroll"><table><thead><tr><th>factor</th><th class="n">active exposure</th><th class="n">share of TE²</th></tr></thead><tbody>{risk_rows}</tbody></table></div></div>
+  </div>
+  <h3 style="margin-top:18px">Events and actions today</h3><ul>{ev_html}</ul>
+  <div class="grid2" style="margin-top:14px">
+    <div class="tscroll"><h3>Largest holdings</h3><table><thead><tr><th>stock</th><th class="n">weight</th><th class="n">index</th><th class="n">active bps</th><th class="n">shares</th><th class="n">value</th></tr></thead><tbody>{hold_rows}</tbody></table>
+      <p class="cap">Full list: <a href="/research/data/index-tracker/dpsw_holdings.csv">dpsw_holdings.csv</a>.</p></div>
+    <div class="tscroll"><h3>Cash-flow slice: invest ${ws['inflow'] / 1e6:,.1f}m</h3><table><thead><tr><th>stock</th><th class="n">target</th><th class="n">buy</th><th class="n">shares</th></tr></thead><tbody>{slc_rows}</tbody></table>
+      <p class="cap">A client inflow is invested pro rata to target weights so tracking error does not move; whole shares, residual to cash. Full list: <a href="/research/data/index-tracker/dpsw_cashflow_slice.csv">dpsw_cashflow_slice.csv</a>.</p></div>
+  </div></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Reconstitution trade list — {esc(man['last'])}</h2></div>
+  <p class="note">{man['latest_trades']} tickets, ${man['latest_traded_usd'] / 1e6:,.1f}m traded: names entering and leaving the sample as the index reconstitutes, and reweights where the optimiser moved weight. Largest first.</p>
+  <div class="card tscroll"><table><thead><tr><th>stock</th><th>reason</th><th class="n">now</th><th class="n">target</th><th class="n">index</th><th class="n">shares</th><th class="n">$</th></tr></thead><tbody>{tl_rows}</tbody></table>
+  <p class="cap">Full list: <a href="/research/data/index-tracker/rebalance_trades.csv">rebalance_trades.csv</a>.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Rebalance log</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>date</th><th class="n">index names</th><th class="n">top-10 weight</th><th class="n">index turnover</th><th class="n">80-name book</th><th class="n">book turnover</th><th class="n">predicted TE</th><th class="n">realized next qtr</th></tr></thead><tbody>{te_rows}</tbody></table>
+  <p class="cap">Realized TE over the following three months (annualized from three observations — noisy, which is why the average over all rebalances is the number to trust). Full log: <a href="/research/data/index-tracker/rebalances.csv">rebalances.csv</a>.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Method and limits</h2></div>
+  <div class="card">
+    <p><b>The index.</b> US-domestic filers (10-K / 10-Q) held by at least five of the managers in the system at each 13F formation date, weighted by shares outstanding × split-adjusted close. Shares come from the companies' own XBRL filings, point in time; unit errors are removed and the series is split-adjusted to today's basis so it matches Yahoo's split-adjusted prices. Foreign filers report ordinary shares while the price is per ADR, so they are excluded — the same reason a US index vendor uses a different methodology for ADRs. The result is a real, reproducible rulebook; it is not a licensed index.</p>
+    <p><b>Sampling.</b> Seats are allocated to industries in proportion to index weight, filled by the largest names; a quadratic program (SLSQP with analytic gradients) then minimises (w−b)ᵀ(XFXᵀ+Δ)(w−b) under the risk model with w ≥ 0, Σw = 1 and the name cap. The model's own decomposition reports factor versus specific tracking risk, which is how a desk decides whether to add names or fix a sector.</p>
+    <p><b>Running it.</b> Rebalanced only at reconstitution and held with drift in between; a client inflow is sliced pro rata; a name that stops pricing is an event to resolve, not a data point to interpolate. Costs of {man['cost_bps']:.0f} bps per dollar traded. Cash target {man['cash_target']:.1%} of NAV.</p>
+    <p><b>What is missing.</b> Corporate-action notices (dividends, splits, spin-offs, tender offers) come from the custodian and the index provider in production; here they are visible only as prices that stop or jump. Index-provider announcements (adds, deletes, share updates) are known days in advance in production and let the desk trade at the close of the effective date; here they are known only at reconstitution.</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
+  <h4>Important information</h4>
+  <p>Built from public SEC EDGAR filings and Yahoo Finance prices. A demonstration of passive portfolio management on a self-defined index; not investment advice. Rebuild: <code>python -m trackrecord index-tracker</code>.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""

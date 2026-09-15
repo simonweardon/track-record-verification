@@ -67,7 +67,58 @@ def pit_table(fund: pd.DataFrame, fact: str, kind: str) -> pd.DataFrame:
     else:
         f = f[f.start.isna()]
     f = f.dropna(subset=["value", "filed", "end"]).sort_values(["ticker", "filed", "end"])
-    return f[["ticker", "filed", "end", "value"]]
+    return f[["ticker", "filed", "end", "value", "form"]]
+
+
+SPLIT_RATIOS = [1.5, 2, 3, 4, 5, 6, 7, 8, 10, 15, 20, 25, 30, 50]
+DOMESTIC = ("10-K", "10-Q", "10-K/A", "10-Q/A")     # foreign filers (20-F/40-F) report ordinary shares; the price is per ADR — not comparable
+
+
+def clean_shares(tbl: pd.DataFrame, tol: float = 0.04) -> pd.DataFrame:
+    """Shares outstanding as filed, made usable with split-adjusted prices.
+
+    Two problems in raw XBRL 'shares outstanding': (1) unit errors — a filing 100× or 1000× its
+    neighbours that reverts next filing; (2) splits — the series jumps by 2, 4, 10… and stays
+    there, while Yahoo prices are already split-adjusted to today's basis.  Fix: drop one-off
+    outliers (≥ 5× against both neighbours), then walk backwards and multiply everything before
+    a persistent jump matching a known split ratio (±4%) so the whole series is on today's basis."""
+    out = []
+    tbl = tbl[(tbl.value > 0) & (tbl.form.isin(DOMESTIC) if "form" in tbl else True)]
+    for t, g in tbl.sort_values(["ticker", "end", "filed"]).groupby("ticker"):
+        g = g.drop_duplicates("end", keep="last").reset_index(drop=True)
+        v = g.value.values.astype(float)
+        if len(v) >= 3:
+            # unit errors: ≥ 5× off the median of the 8 surrounding filings, in a run of at most 3 filings
+            lv = np.log(np.where(v > 0, v, np.nan))
+            bad = np.zeros(len(v), bool)
+            for i in range(len(v)):
+                nb = np.concatenate([lv[max(0, i - 4):i], lv[i + 1:i + 5]]); nb = nb[~np.isnan(nb)]
+                if len(nb) >= 2 and not np.isnan(lv[i]) and abs(lv[i] - np.median(nb)) >= np.log(5):
+                    bad[i] = True
+            i = 0
+            while i < len(v):
+                if bad[i]:
+                    j = i
+                    while j < len(v) and bad[j]: j += 1
+                    if j - i > 3: bad[i:j] = False           # a long run is a level shift (split or issuance), not an error
+                    i = j
+                else:
+                    i += 1
+            g = g[~bad].reset_index(drop=True); v = g.value.values.astype(float)
+        factor = 1.0; adj = v.copy()
+        for i in range(len(v) - 1, 0, -1):
+            r = v[i] / v[i - 1] if v[i - 1] > 0 else 1.0
+            for k in SPLIT_RATIOS:
+                if abs(r / k - 1) <= tol:
+                    factor *= k; break
+                if abs(r * k - 1) <= tol:
+                    factor /= k; break
+            adj[i - 1] = v[i - 1] * factor
+        g = g.copy(); g["value"] = adj
+        med = np.median(adj)
+        g = g[(adj <= 20 * med) & (adj >= med / 20)]          # anything still 20× off the series median is not shares outstanding
+        out.append(g)
+    return pd.concat(out, ignore_index=True) if out else tbl
 
 
 def as_of(tbl: pd.DataFrame, tickers: pd.Index, t: pd.Timestamp, max_age_days: int = 456) -> pd.Series:
@@ -77,6 +128,19 @@ def as_of(tbl: pd.DataFrame, tickers: pd.Index, t: pd.Timestamp, max_age_days: i
         return pd.Series(np.nan, index=tickers)
     last = f.groupby("ticker").tail(1).set_index("ticker").value
     return last.reindex(tickers)
+
+
+def load_close(prices: pd.DataFrame) -> pd.DataFrame:
+    """Split-adjusted but NOT dividend-adjusted closes (Yahoo 'Close'), for market caps with
+    back-adjusted shares.  Falls back to the total-return panel if the file is missing."""
+    from .compact import EDGAR
+    f = EDGAR / "prices_close_monthly.csv"
+    if not f.exists():
+        return prices
+    c = pd.read_csv(f, index_col=0, parse_dates=True)
+    c.index = pd.DatetimeIndex(c.index).to_period("M").to_timestamp("M")
+    c = c.reindex(index=prices.index)
+    return c.where(c > 0).combine_first(prices[[t for t in prices.columns if t in c.columns]]).reindex(columns=prices.columns)
 
 
 # ---------------------------------------------------------------- panel
@@ -90,12 +154,12 @@ def _z(x: pd.Series) -> pd.Series:
 
 
 def build_panel(log=print) -> tuple[pd.DataFrame, dict]:
-    books = load_books(log=log); prices = load_prices(); rets = clean_returns(prices)
+    books = load_books(log=log); prices = load_prices(); rets = clean_returns(prices); close = load_close(prices)
     fund = load_fundamentals()
     have_fund = not fund.empty
     if have_fund:
         fund["filed"] = pd.to_datetime(fund.filed); fund["end"] = pd.to_datetime(fund["end"])
-        T = {"equity": pit_table(fund, "equity", "instant"), "assets": pit_table(fund, "assets", "instant"), "shares": pit_table(fund, "shares", "instant"),
+        T = {"equity": pit_table(fund, "equity", "instant"), "assets": pit_table(fund, "assets", "instant"), "shares": clean_shares(pit_table(fund, "shares", "instant")),
              "net_income": pit_table(fund, "net_income", "annual"), "op_cf": pit_table(fund, "op_cf", "annual")}
     b = books[books.ticker.notna() & books.ticker.isin(prices.columns)]
     forms = sorted(f for f in b.formation.unique() if f in prices.index)
@@ -121,7 +185,7 @@ def build_panel(log=print) -> tuple[pd.DataFrame, dict]:
         if have_fund:
             sh = as_of(T["shares"], d.index, m); eq = as_of(T["equity"], d.index, m); at = as_of(T["assets"], d.index, m)
             ni = as_of(T["net_income"], d.index, m); cf = as_of(T["op_cf"], d.index, m)
-            mcap = sh * p0
+            mcap = sh * close.loc[m].reindex(d.index)
             d["size"] = -np.log(mcap.where(mcap > 0))
             d["value"] = (eq / mcap).where((eq > 0) & (mcap > 0))
             d["profitability"] = (ni / at).where(at > 0)

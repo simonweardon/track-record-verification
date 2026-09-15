@@ -15,12 +15,12 @@
   "earnings_yield"
  ],
  "industries": 12,
- "r2_avg": 0.21842179899557962,
+ "r2_avg": 0.22161420468240245,
  "half_life": 24,
  "window": 60,
  "bias": {
-  "random": 1.0408642551457596,
-  "universe": 1.0336328953532221
+  "random": 1.0915184280981909,
+  "universe": 1.0936428030328755
  },
  "universe_avg": 352,
  "latest_month": "2026-08-31"

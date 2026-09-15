@@ -107,34 +107,18 @@ def tool_cards() -> dict[str, list[dict]]:
                    (f"{_num(idx.get('turnover'), 0):.0%}", "turnover /yr")]))
 
     # ---- external
-    lb = ROOT / "data" / "funds" / "leaderboard.csv"
-    if lb.exists():
-        with lb.open() as fh:
-            rows = list(csv.DictReader(fh))
-        ok = [r for r in rows if r.get("status") == "ok"]
-        sig = sum(1 for r in ok if _num(r.get("ff3_t"), -99) >= 2)
-        cards["external"].append(dict(href="/external#all", eyebrow="Manager Verification",
-            title="Every manager, through one pipeline",
-            what="108 prominent managers reconstructed from their SEC 13F filings plus listed funds: time-weighted returns, factor regressions, bootstrap and "
-                 "zero-skill cohort, rolling stability, two fixed scores. Screen by evidence of alpha, style and track length; download the rows.",
-            stats=[(f"{len(rows)}", "managers"), (f"{len(ok)}", "scorable"), (f"{sig}", "with FF3 t ≥ 2")]))
-    cards["external"].append(dict(href="/external#all", eyebrow="Due Diligence Memo",
-        title="A memo on any manager — one click from its row or its dashboard",
-        what="Verdict, alpha with its confidence interval, factor loadings and rolling drift, the replication test, risks, and the questions to put to the "
-             "manager at the next quarterly meeting — every sentence generated from that manager's numbers.",
-        stats=[("91", "managers covered"), ("1", "click from any row"), ("0", "hand-written prose")]))
     sig, sigman = _rows("13f-signals/summary.csv", "key"), _man("13f-signals/manifest.json")
     if sig and sigman:
         t = _num(sig.get("BEST1", {}).get("carhart_t"))
         cards["external"].append(dict(href="/research/13f-signals", eyebrow="13F Signal Research",
-            title="Do the disclosed books carry a signal?",
+            title="Trading on 13F disclosures",
             what=f"Best ideas, crowding and fresh buys from every filing, formed into quarterly portfolios and tested as Carhart spreads. "
                  f"Finding: {'no edge survives the 45-day lag' if t is None or abs(t) < 2 else 'a spread that survives the lag'}.",
             stats=[(f"{sigman.get('managers', '')}", "managers"), (f"{sigman.get('quarters', '')}", "quarters"), (f"{_num(sigman.get('positions'), 0):,.0f}", "positions")]))
     fof = _man("fund-of-funds/manifest.json")
     if fof.get("managers"):
         cards["external"].append(dict(href="/research/fund-of-funds", eyebrow="Fund of Funds",
-            title="Combine the managers that pass",
+            title="Allocating across managers",
             what="Shrink each manager's alpha toward zero in proportion to its noise, estimate the correlation of their active returns, and allocate: "
                  "how many managers diversification actually rewards, and what the blend's expected information ratio is.",
             stats=[(f"{fof.get('managers')}", "candidates"), (f"{fof.get('selected')}", "selected"), (f"{_num(fof.get('ir_blend'), 0):.2f}", "blend IR, shrunk")]))
@@ -165,7 +149,7 @@ def cards_html(cards: list[dict]) -> str:
     for c in cards:
         st = "".join(f"<div><span class='v'>{html.escape(str(v))}</span><span class='l'>{html.escape(l)}</span></div>" for v, l in c["stats"])
         out += (f"<a class='rcard' href=\"{c['href']}\"><div class='eyeb'>{html.escape(c['eyebrow'])}</div><div class='rt'>{html.escape(c['title'])}</div>"
-                f"<div class='rw'>{c['what']}</div><div class='rs'>{st}</div><div class='go'>Open &rarr;</div></a>")
+                f"<div class='rw'>{c['what']}</div><div class='rs'>{st}</div></a>")
     return out
 
 

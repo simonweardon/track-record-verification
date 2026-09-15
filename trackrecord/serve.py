@@ -309,7 +309,8 @@ NAV_CSS = """<style>
 .tr-nav a.home,.tr-nav a.on{background:var(--navy,#1b2a41);color:var(--cover-ink,#e8e4da)}
 @media(max-width:640px){.tr-nav{padding:8px 16px}.tr-nav a,.tr-nav button{padding:7px 10px;letter-spacing:.12em}}
 .tr-sub{display:flex;gap:14px;align-items:center;padding:6px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif}
-.tr-sub a{font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--cover-ink,#e8e4da);background:var(--navy,#1b2a41);padding:7px 14px;text-decoration:none}
+.tr-sub a{font:600 13px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--cover-ink,#e8e4da);background:var(--navy,#1b2a41);padding:14px 26px;text-decoration:none;border-left:4px solid var(--gold-l,#c9b48a)}
+.tr-sub{padding:10px 32px}
 .tr-sub .crumb,.tr-nav .crumb{margin-left:auto;font:600 9px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--muted,#a09883)}
 @media(prefers-color-scheme:dark){.tr-sub a{background:var(--gold-l,#c9b48a);color:#1b2a40}}
 @media(prefers-color-scheme:dark){.tr-nav a,.tr-nav button{border-color:var(--gold-l,#c9b48a);color:var(--gold-l,#c9b48a)}.tr-nav a.home,.tr-nav a.on{background:var(--gold-l,#c9b48a);color:#1b2a40}}

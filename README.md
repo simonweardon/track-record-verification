@@ -3,6 +3,26 @@
 Reconstruct and independently verify a ~30-year investment record from
 custodian statements, then decompose and statistically test it.
 
+**Live site:** https://dashboard-production-1086.up.railway.app
+
+## What this is
+An external-manager due-diligence engine, applied the same way to every record it is given: reconcile
+the statements, compute time-weighted returns, remove what the market and known factors explain, simulate
+how often luck alone does as well, test stability, score, and write the memo. It runs today on public
+data — 108 prominent managers reconstructed from their SEC 13F filings, listed funds, and a synthetic
+dataset with a known injected alpha that the pipeline must recover — so that every method is exercised
+before a real record is loaded. Alongside it sit three research notes that use the same universe:
+whether the disclosed books carry a tradable signal, an LP portfolio constructor that turns a signal into
+a trade list under a mandate's constraints (solved in Python and in R with Rglpk), and an R reproduction of
+every headline statistic. The findings are reported whichever way they come out; most of them are negative,
+and the page says so.
+
+**How it was built.** Designed and directed by Simon Weardon, with Claude Code (Anthropic) as pair
+programmer: the methodology, the evidence tiers, the data-quality rules (what counts as verified, when a
+month is dropped rather than bridged, why a 13F clone is not the fund) and the checks in the test suite
+are the author's decisions; much of the code was written with the model and reviewed line by line. The
+R reproduction exists so that no headline number rests on a single implementation.
+
 ## Status
 | phase | state |
 |---|---|

@@ -39,7 +39,8 @@ filtered rows and a Memo link on every row; new `/research` index listing all th
 them, served read-only at `/research/data/<note>/<file>.csv`. 95 tests pass (5 new in test_research_surfaces.py).
 Checked in Chromium at 390/768/1280 px: no horizontal overflow (the table now scrolls inside `.tw`, not the page).
 Live filter counts sanity-check the honest finding: 5 of 112 rows clear FF3 t ≥ 2.
-NEXT (5b): cover note, the AI-disclosure line in README, interview-prep quiz.
+DONE (5b, laptop): README "What this is" + live link + "How it was built" disclosure (dddb1e6); cover-note drafts given to
+Simon outside the repo. NEXT: interview-prep quiz (interactive with Simon), then submit by Sept 28–30.
 
 ## Feature plan (agreed Sept 15, 2026), in priority order
 1. **13F signals backtest** — `trackrecord/signals13f.py` (DONE): best-ideas (each manager's largest

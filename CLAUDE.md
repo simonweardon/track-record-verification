@@ -32,7 +32,14 @@ alpha-maxing score from `output/<fund>/phase4/aligned_data.csv` and compares wit
 **91 managers, 4,641 numbers, max |R − Python| 8.9e-13, zero disagreements.** 90 tests pass (3 new; they skip
 without Rscript). Note for cloud sessions: R *can* be installed here — `apt-get install -y --no-install-recommends
 r-base-core r-cran-data.table r-cran-rglpk` (~2 min) — which also un-skips the Rglpk construct twin test.
-NEXT (5): research-notes/landing polish, cover note, the AI-disclosure line in README, interview-prep quiz.
+DONE (5a): **home page as a research tool**. Research section with a card per tool (numbers read from the
+committed CSVs, so nothing goes stale); the manager table is now a screener — filter by FF3 t (≥ 2 / ≥ 1 / ≥ 0 /
+negative), style, track length and scorable-only, combined with the search box, plus **Download CSV** of the
+filtered rows and a Memo link on every row; new `/research` index listing all three notes and the 12 CSVs behind
+them, served read-only at `/research/data/<note>/<file>.csv`. 95 tests pass (5 new in test_research_surfaces.py).
+Checked in Chromium at 390/768/1280 px: no horizontal overflow (the table now scrolls inside `.tw`, not the page).
+Live filter counts sanity-check the honest finding: 5 of 112 rows clear FF3 t ≥ 2.
+NEXT (5b): cover note, the AI-disclosure line in README, interview-prep quiz.
 
 ## Feature plan (agreed Sept 15, 2026), in priority order
 1. **13F signals backtest** — `trackrecord/signals13f.py` (DONE): best-ideas (each manager's largest

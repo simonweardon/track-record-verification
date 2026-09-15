@@ -488,3 +488,104 @@ tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
 <div id="tip" class="tip" hidden></div>
 <script>{JS}</script>
 """
+
+
+# ---------------------------------------------------------------- research index
+
+def research_index_html() -> str:
+    """One page listing the research notes and every dataset behind them.
+
+    The point of the page is that a reader can take the data away: each note is paired
+    with the CSVs it was built from, and each row says plainly what is in the file."""
+    from .rverify import OUT_DIR as RV_DIR
+    from .construct import OUT_DIR as CON_DIR
+    R = Path(__file__).resolve().parents[1] / "data" / "research"
+
+    def man(p):
+        try:
+            return json.loads(p.read_text()) if p.exists() else {}
+        except Exception:
+            return {}
+
+    sig, con, rv = man(SIG_DIR / "manifest.json"), man(CON_DIR / "manifest.json"), man(RV_DIR / "manifest.json")
+
+    notes = []
+    if sig:
+        notes.append(("/research/13f-signals", "Do the disclosed books carry a signal?",
+                      f"Best-ideas, crowding and conviction-change portfolios from {sig.get('managers', '')} managers over "
+                      f"{sig.get('quarters', '')} quarters ({sig.get('positions', 0):,} positions), formed 45 days after each "
+                      "quarter-end and tested as Carhart spreads with HAC t-statistics.",
+                      [("13f-signals/summary.csv", "one row per portfolio: return, vol, Sharpe, max DD, CAPM and Carhart alpha with t, turnover"),
+                       ("13f-signals/spreads.csv", "long-short spreads between portfolios, with alphas and t-statistics"),
+                       ("13f-signals/portfolios_monthly.csv", "the monthly return series of every portfolio"),
+                       ("13f-signals/ic.csv", "rank information coefficient at each formation date"),
+                       ("13f-signals/latest_crowding.csv", "how many managers hold each name in the latest filings")]))
+    if con:
+        notes.append(("/research/construction", "From a signal to a trade list",
+                      f"A demonstration mandate rebalanced {con.get('rebalances', '')} times on a "
+                      f"${con.get('nav', 0) / 1e6:,.0f}m book: an LP maximising alpha net of cost under name, sector, "
+                      "active-share and turnover constraints, solved in Python (HiGHS) and R (Rglpk).",
+                      [("construction/summary.csv", "constrained, unconstrained and benchmark portfolios side by side"),
+                       ("construction/trade_list.csv", "the latest trade list: every ticket with shares, dollars and active weight"),
+                       ("construction/rebalances.csv", "every rebalance with turnover, active share and ex-ante tracking error"),
+                       ("construction/backtest_monthly.csv", "monthly returns of all three portfolios"),
+                       ("construction/sectors_latest.csv", "sector exposure against the benchmark at the latest rebalance")]))
+    if rv.get("managers"):
+        notes.append(("/research/r-verify", "The same alphas, recomputed in R",
+                      f"{rv.get('checks', 0):,} numbers across {rv.get('managers')} managers recomputed by an independent "
+                      f"R implementation and compared with Python; largest difference {rv.get('max_abs_diff', 0):.0e}, "
+                      f"{rv.get('disagreements', 0)} disagreements.",
+                      [("r-verify/summary.csv", "one row per manager: FF3 alpha and t from both implementations, worst difference"),
+                       ("r-verify/by_quantity.csv", "worst disagreement per quantity across every manager")]))
+
+    blocks = ""
+    for href, title, what, files in notes:
+        rows = "".join(
+            f"<tr><td><a href='/research/data/{esc(f)}'><code>{esc(f)}</code></a></td><td>{esc(d)}</td>"
+            f"<td class='n'>{_kb(R / f)}</td></tr>" for f, d in files)
+        blocks += (f"<section><div class='sh'><h2><a href='{href}'>{esc(title)}</a></h2></div>"
+                   f"<div class='card'><p>{esc(what)}</p>"
+                   f"<div class='tscroll'><table><thead><tr><th>file</th><th>what is in it</th><th class='n'>size</th></tr></thead>"
+                   f"<tbody>{rows}</tbody></table></div>"
+                   f"<p class='cap'>Read the note: <a href='{href}'>{esc(title)}</a></p></div></section>")
+
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Research and datasets</title>
+<style>{CSS}{EXTRA_CSS}
+.sh h2 a {{ color: inherit; text-decoration: none; border-bottom: 1px solid var(--gold); }}
+.sh h2 a:hover {{ color: var(--gold); }}
+.cover .sub a {{ color: var(--gold); text-decoration: none; border-bottom: 1px solid rgba(197,167,106,.5); }}
+.card td a code {{ font-size: 12.5px; }}
+</style>
+<div class="banner" role="note"><span class="bl">Research</span> Every note on this site is generated from the files listed here. Take the data and check the numbers yourself.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Research \u00b7 notes and data</div></div>
+  <div class="gold-rule"></div>
+  <h1>The research,<br>and the data under it</h1>
+  <p class="sub">Three research notes built on public SEC 13F filings and public prices, and the {sum(len(f) for _, _, _, f in notes)} CSVs they are generated from. Nothing on those pages is hand-written prose: change the data and the sentences change with it. Per-manager due-diligence memos are one click from any row on the <a href="/">home page</a>.</p>
+</div></header>
+<main class="wrap">
+{blocks}
+<section>
+  <div class="sh"><h2>Screening the managers</h2></div>
+  <div class="card">
+    <p>The manager table on the <a href="/#all">home page</a> is the fourth tool. Filter the {rv.get('managers', 91)} managers by evidence of alpha (the Newey-West t-statistic on the FF3 intercept), by style, and by how long the record is, then take the filtered set away with <b>Download CSV</b>. The export carries the slug, manager, fund, style, months, excess return over the market, FF3 t, and both scores.</p>
+    <p class="cap">A note on what the t-statistic means here: it is the t on the intercept of a three-factor regression of the clone's monthly excess returns, with Newey-West standard errors. |t| \u2265 2 is the conventional bar for "unlikely to be luck". Very few managers clear it \u2014 that is the honest finding, not a bug in the screen.</p>
+  </div>
+</section>
+<footer class="foot">
+  <div class="running"><span>Track record verification \u00b7 research</span><span>{len(notes)} notes</span></div>
+  <h4>Important information</h4>
+  <p>Built from public SEC EDGAR 13F-HR filings and Yahoo Finance prices; factor and benchmark data from the Kenneth R. French Data Library. 13F clones are reconstructions of disclosed US long positions, not the funds themselves. Nothing here is a strategy, a recommendation or investment advice. Past performance is not indicative of future results.</p>
+</footer>
+</main>
+<script>{JS}</script>
+"""
+
+
+def _kb(p: Path) -> str:
+    try:
+        n = p.stat().st_size
+    except OSError:
+        return "\u2014"
+    return f"{n / 1024:.0f} KB" if n >= 1024 else f"{n} B"

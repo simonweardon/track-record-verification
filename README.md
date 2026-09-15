@@ -95,6 +95,17 @@ replication test), whether it is believable (parametric, bootstrap, zero-skill c
 stability (rolling loadings, drift, alpha by half, timing test), risk and concentration, an auto-generated list of
 **questions for the manager**, and a fixed-rule recommendation. Every sentence is generated from the numbers.
 
+## Using the site as a research tool
+The home page is not only a lookup. Below the featured managers a **Research** section carries one card per
+tool — 13F signals, portfolio construction, the R reproduction, and the per-manager memo — each showing the
+headline numbers read back from its own CSVs, so a rebuild cannot leave a stale claim on the page. The
+manager table underneath is a **screener**: filter the universe by evidence of alpha (the Newey-West
+t-statistic on the FF3 intercept: t ≥ 2, ≥ 1, ≥ 0, or negative), by style, and by track length, combine that
+with the search box, and take the filtered set away with **Download CSV** (slug, manager, fund, style, months,
+excess return, FF3 t and both scores). Every row also links straight to that manager's due-diligence memo.
+`/research` indexes all three notes and every CSV they are generated from, each row saying what is in the
+file; the files are served read-only from `data/research/` under `/research/data/<note>/<file>.csv`.
+
 ## R reproduction of the headline numbers
 `Rscript r/verify.R output/funds/<slug>/phase4` recomputes, in data.table and base R and from the aligned returns
 alone, what Python reported for that manager: CAPM/FF3/Carhart4/FF5 alpha with Newey-West standard errors and

@@ -193,6 +193,7 @@ def fund_index() -> list[dict]:
                 for x in _csv.DictReader(fh):
                     if x["score"] == "Alpha-maxing score": r["alpha_maxing"] = x["value"]; r["excess"] = x["input"]
                     if x["score"] == "Wealth-management score" and x["component"] == "TOTAL": r["wealth"] = x["value"]
+                    if x["score"] == "Wealth-management score" and x["component"] == "skill evidence": r["ff3_t"] = x["input"]
         r["built"] = (OUT / "funds" / slug / "dashboard.html").exists()
     return list(rows.values())
 
@@ -543,13 +544,14 @@ def directory_html() -> str:
         return f'<span class="sc {"g" if v >= 70 else "m" if v >= 45 else "b"}">{v:.0f}</span>'
     def scores_of(out):
         f = out / "phase4" / "scores.csv"
-        if not f.exists(): return (None, None, None)
-        am = wm = ex = None
+        if not f.exists(): return (None, None, None, None)
+        am = wm = ex = t = None
         with f.open() as fh:
             for r in csv.DictReader(fh):
                 if r["score"] == "Alpha-maxing score": am = r["value"]; ex = r["input"]
                 if r["score"] == "Wealth-management score" and r["component"] == "TOTAL": wm = r["value"]
-        return am, wm, ex
+                if r["score"] == "Wealth-management score" and r["component"] == "skill evidence": t = r["input"]
+        return am, wm, ex, t
     # ---- listed vehicles: BRK stock + any committed ticker dataset
     listed = []
     tdir = ROOT / "data" / "tickers"
@@ -558,9 +560,10 @@ def directory_html() -> str:
             m = d / "meta.json"
             if not m.exists(): continue
             meta = json.loads(m.read_text())
-            am, wm, ex = scores_of(OUT / "t" / d.name)
+            am, wm, ex, t = scores_of(OUT / "t" / d.name)
             listed.append(dict(key=d.name, href=f"/analyze?ticker={d.name}", mgr=meta.get("name", d.name), fund=f"{d.name} — listed, distributions reinvested",
-                               tag=f"{(meta.get('first') or '')[:4]}–{(meta.get('last') or '')[:4]}", alpha=am, wealth=wm, excess=ex, ok=True))
+                               tag=f"{(meta.get('first') or '')[:4]}–{(meta.get('last') or '')[:4]}", alpha=am, wealth=wm, excess=ex, t=t,
+                               months=meta.get("months") or meta.get("rows"), memo=f"/t/{d.name}/memo", ok=True))
     # ---- funds
     funds = fund_index()
     NOT_MEANINGFUL = {"multi", "macro", "mm"}
@@ -571,22 +574,36 @@ def directory_html() -> str:
         frows.append(dict(key=r["slug"], href=f"/f/{r['slug']}/", mgr=r.get("manager") or r["name"], fund=r["name"], style=r.get("style_name") or "", nm=nm,
                           tag=(f"13F clone · {(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} priced" if ok
                                else f"not scorable yet — {r.get('months') or 0} months of usable filings (36 needed)"),
-                          alpha=r.get("alpha_maxing"), wealth=r.get("wealth"), excess=r.get("excess"), ok=ok))
+                          alpha=r.get("alpha_maxing"), wealth=r.get("wealth"), excess=r.get("excess"), t=r.get("ff3_t"),
+                          months=r.get("months"), memo=f"/f/{r['slug']}/memo", ok=ok))
     n_ok = sum(1 for r in frows if r["ok"])
     def row(r, kind):
-        a, w, e = num(r["alpha"]), num(r["wealth"]), num(r["excess"])
+        a, w, e, t = num(r["alpha"]), num(r["wealth"]), num(r["excess"]), num(r.get("t"))
+        mo = num(r.get("months")) or 0
         nm = r.get("nm", False)
         btn = f"<a class='btn' href='{r['href']}'>Analyze</a>" if r["ok"] else "<span class='btn off'>Analyze</span>"
+        # the memo is the research entry point: it only exists for a scorable, meaningful clone
+        memo = (f"<a class='memo' href='{r['memo']}'>Memo</a>" if r["ok"] and not nm and r.get("memo") else "")
         search = html.escape(f"{r['mgr']} {r['fund']} {r.get('style', '')} {kind}".lower(), quote=True)
+        style_key = html.escape((r.get("style") or ("Listed vehicle" if kind == "listed" else "")).lower(), quote=True)
         if nm and r["ok"]:
             cells = "<td colspan='3' class='n'><span class='sub2' style='color:var(--muted)'>clone not meaningful for this strategy — actual returns are private</span></td>"
             w = a = -2; e = -99
+            t = None
         else:
-            cells = f"<td class='n'>{_f(r['excess'], '{:+.1%}')}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td>"
-        return (f"<tr data-s='{search}' data-n='{html.escape(r['mgr'].lower(), quote=True)}' data-w='{w if w is not None else -1}' data-a='{a if a is not None else -1}' data-e='{e if e is not None else -99}'>"
+            cells = (f"<td class='n'>{_f(r['excess'], '{:+.1%}')}</td><td class='n'>{_f(r.get('t'), '{:+.1f}')}</td>"
+                     f"<td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td>")
+        tv = t if t is not None else -99
+        return (f"<tr data-s='{search}' data-n='{html.escape(r['mgr'].lower(), quote=True)}' data-w='{w if w is not None else -1}' "
+                f"data-a='{a if a is not None else -1}' data-e='{e if e is not None else -99}' data-t='{tv}' data-m='{mo:.0f}' "
+                f"data-y='{style_key}' data-mgr='{html.escape(r['mgr'], quote=True)}' data-fund='{html.escape(r['fund'], quote=True)}' "
+                f"data-slug='{html.escape(r['key'], quote=True)}'>"
                 f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}<br>"
                 f"<span class='fund'>{html.escape(r['fund'])} · {html.escape(r['tag'])}</span></td>"
-                f"{cells}<td class='n'>{btn}</td></tr>")
+                f"{cells}<td class='n'>{memo}{btn}</td></tr>")
+    rcards, _have = _research_cards()
+    styles = sorted({r["style"] for r in frows if r.get("style")} | ({"Listed vehicle"} if listed else set()))
+    style_opts = "".join(f"<option value='{html.escape(x.lower(), quote=True)}'>{html.escape(x)}</option>" for x in styles)
     ordered = sorted(frows, key=lambda r: (1 if r.get("nm") else 0, -(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
     table = "".join(row(r, "listed") for r in listed) + "".join(row(r, "hedge fund") for r in ordered)
     # ---- featured
@@ -601,6 +618,7 @@ def directory_html() -> str:
                   f"<div class='nums'><div><span class='lbl'>excess /yr</span>{_f(r['excess'], '{:+.1%}') or '—'}</div><div><span class='lbl'>alpha-max</span>{sc(r['alpha']) or '—'}</div><div><span class='lbl'>wealth</span>{sc(r['wealth']) or '—'}</div></div>"
                   f"<div class='go'>Analyze &rarr;</div></a>")
     head = ("<thead><tr><th class='sort' data-k='n' data-dir='asc'>manager</th><th class='n sort' data-k='e' data-dir='desc'>excess vs market /yr</th>"
+            "<th class='n sort' data-k='t' data-dir='desc' title='t-statistic on the FF3 alpha, Newey-West'>FF3 t</th>"
             "<th class='n sort' data-k='a' data-dir='desc'>alpha-maxing</th><th class='n sort on' data-k='w' data-dir='desc'>wealth-mgmt</th><th></th></tr></thead>")
     extra_css = """<style>
 th.sort{cursor:pointer;user-select:none;white-space:nowrap}th.sort::after{content:"";display:inline-block;width:0;height:0;margin-left:7px;vertical-align:middle;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--line)}
@@ -610,7 +628,7 @@ th.sort.on::after{border-top-color:var(--gold)}th.sort.on.asc::after{border-top:
 .cta .big.gold{background:var(--goldl);color:#1b2a40;border-color:var(--goldl)}
 .cta .big .t{font:400 22px/1.15 var(--serif)}.cta .big .s{font:600 9.5px/1.3 var(--sans);letter-spacing:.18em;text-transform:uppercase;opacity:.75}
 .cta .big:hover{filter:brightness(1.08)}@media(max-width:640px){.cta{grid-template-columns:1fr}}
-.stats{display:flex;gap:40px;margin-top:30px;padding-top:18px;border-top:1px solid rgba(232,228,218,.18)}.stats div{display:grid;gap:4px}.stats dt{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--covermuted)}.stats dd{margin:0;font:400 30px/1 var(--serif);color:var(--coverink)}
+.stats{display:flex;flex-wrap:wrap;gap:22px 40px;margin-top:30px;padding-top:18px;border-top:1px solid rgba(232,228,218,.18)}.stats div{display:grid;gap:4px}.stats dt{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--covermuted)}.stats dd{margin:0;font:400 30px/1 var(--serif);color:var(--coverink)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:6px 0 10px}
 .card{display:block;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:16px 18px;text-decoration:none;color:var(--ink)}
 .card .who{font:400 20px/1.15 var(--serif);color:var(--navy)}.card .what{color:var(--ink2);font-size:13px;margin:2px 0 12px}
@@ -618,11 +636,52 @@ th.sort.on::after{border-top-color:var(--gold)}th.sort.on.asc::after{border-top:
 .card .go{margin-top:12px;font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
 .tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 10px}.tools input{font:15px var(--serif);padding:8px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);flex:1;min-width:220px}
 .count{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-left:auto}
+.rcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:14px;margin:6px 0 10px}
+.rcard{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:18px 20px;text-decoration:none;color:var(--ink)}
+.rcard .eyeb{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.rcard .rt{font:400 21px/1.2 var(--serif);color:var(--navy);margin:8px 0 6px}
+.rcard .rw{font-size:13.5px;color:var(--ink2);line-height:1.5;flex:1}
+.rcard .rs{display:flex;gap:18px;margin:14px 0 0;flex-wrap:wrap}.rcard .rs div{display:grid;gap:3px}
+.rcard .rs .v{font:600 16px/1 var(--sans);color:var(--navy)}
+.rcard .rs .l{font:600 8.5px/1.2 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.rcard .go{margin-top:14px;font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.rcard:hover{border-color:var(--gold)}
+.filters{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:0 0 12px;padding:12px 14px;background:var(--surface);border:1px solid var(--line)}
+.filters label{font:600 9px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:grid;gap:5px}
+.filters select{font:14px var(--serif);padding:6px 8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.filters .chk{flex-direction:row;align-items:center;gap:7px;display:flex;cursor:pointer}.filters .chk input{margin:0}
+.filters .lnk{background:none;border:0;color:var(--gold);font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;cursor:pointer;padding:6px 0}
+.filters .dlbtn{margin-left:auto;font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;padding:9px 14px;border:1px solid var(--navy);background:var(--navy);color:var(--surface);cursor:pointer}
+.filters .dlbtn:hover{filter:brightness(1.15)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+#tbl td:last-child{white-space:nowrap}
+a.memo{font:600 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);text-decoration:none;margin-right:14px;vertical-align:middle}
+a.memo:hover{text-decoration:underline}
+@media(max-width:640px){.filters{gap:10px}.filters .dlbtn{margin-left:0;width:100%}}
 </style>"""
     js = """<script>
 (function(){const q=document.getElementById('q'),rows=[...document.querySelectorAll('#tbl tbody tr')],cnt=document.getElementById('cnt'),tb=document.querySelector('#tbl tbody');
-function apply(){const s=q.value.trim().toLowerCase();let n=0;rows.forEach(r=>{const ok=!s||r.dataset.s.includes(s);r.hidden=!ok;if(ok)n++;});cnt.textContent=n+' of '+rows.length;}
-q.addEventListener('input',apply);
+const fT=document.getElementById('f-t'),fY=document.getElementById('f-y'),fM=document.getElementById('f-m'),fOk=document.getElementById('f-ok');
+function visible(){return rows.filter(r=>!r.hidden);}
+function apply(){const s=q.value.trim().toLowerCase(),ft=fT.value,fy=fY.value,fm=parseFloat(fM.value)||0,ok=fOk.checked;let n=0;
+rows.forEach(r=>{const d=r.dataset,t=parseFloat(d.t),scorable=t>-90;
+let pass=!s||d.s.includes(s);
+if(pass&&ft!=='any'){pass=scorable&&(ft==='neg'?t<0:t>=parseFloat(ft));}
+if(pass&&fy!=='any')pass=d.y===fy;
+if(pass&&fm)pass=(parseFloat(d.m)||0)>=fm;
+if(pass&&ok)pass=scorable;
+r.hidden=!pass;if(pass)n++;});
+cnt.textContent=n+' of '+rows.length;}
+[q,fT,fY,fM,fOk].forEach(el=>el.addEventListener(el===q?'input':'change',apply));
+document.getElementById('f-reset').addEventListener('click',()=>{q.value='';fT.value='any';fY.value='any';fM.value='0';fOk.checked=false;apply();});
+document.getElementById('dl').addEventListener('click',()=>{
+const esc=v=>{v=(v==null?'':String(v));return /[",\\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+const head=['slug','manager','fund','style','months','excess_vs_market','ff3_t','alpha_maxing','wealth_management'];
+const out=[head.join(',')];
+visible().forEach(r=>{const d=r.dataset,g=x=>{const v=parseFloat(d[x]);return (v===undefined||isNaN(v)||v<=-90||v===-1||v===-2)?'':v;};
+out.push([d.slug,d.mgr,d.fund,d.y,d.m,g('e'),g('t'),g('a'),g('w')].map(esc).join(','));});
+const b=new Blob([out.join('\\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');
+a.href=u;a.download='managers-'+visible().length+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);});
 const gs=document.getElementById('go-search');if(gs)gs.addEventListener('click',e=>{e.preventDefault();document.getElementById('all').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>q.focus(),400);});
 function sortBy(k,dir){const num=k!=='n';[...tb.querySelectorAll('tr')].sort((x,y)=>{let a=x.dataset[k],b=y.dataset[k];if(num){a=parseFloat(a);b=parseFloat(b);return dir==='asc'?a-b:b-a;}return dir==='asc'?a.localeCompare(b):b.localeCompare(a);}).forEach(r=>tb.appendChild(r));}
 document.querySelectorAll('th.sort').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;let dir=th.dataset.dir;if(th.classList.contains('on')){dir=dir==='asc'?'desc':'asc';th.dataset.dir=dir;}
@@ -639,11 +698,26 @@ apply();})();
 <main class="wrap">
 <h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
 <div class="cards">{cards}</div>
-<p class="note" style="margin-top:14px"><b>Research:</b> <a href="/research/13f-signals">Do managers' disclosed books carry a signal?</a> — best ideas, crowding and fresh buys from every filing, tested as portfolios. &nbsp;·&nbsp; <a href="/research/construction">From signal to trade list</a> — an LP portfolio constructor under a mandate's constraints, in Python and R. &nbsp;·&nbsp; <a href="/research/r-verify">The same alphas, recomputed in R</a> — every headline number checked against an independent implementation.</p>
-<h2 data-n="All managers" id="all">Every manager in the system</h2>
+<h2 data-n="Research" id="research">Use it as a research tool</h2>
+<p class="note">Four things you can do with the system beyond looking up one manager. Every number on these pages is generated from the data underneath it, and the data comes down as CSV. Full index: <a href="/research">all research and datasets</a>.</p>
+<div class="rcards">{rcards}</div>
+<h2 data-n="All managers" id="all">Screen every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
-<table id="tbl">{head}<tbody>{table}</tbody></table>
+<div class="filters">
+  <label>Evidence of alpha <select id="f-t">
+    <option value="any">any</option><option value="2">FF3 t ≥ 2 — statistically significant</option>
+    <option value="1">FF3 t ≥ 1 — suggestive</option><option value="0">FF3 t ≥ 0 — positive alpha</option>
+    <option value="neg">FF3 t &lt; 0 — negative alpha</option></select></label>
+  <label>Style <select id="f-y"><option value="any">any</option>{style_opts}</select></label>
+  <label>Track length <select id="f-m">
+    <option value="0">any</option><option value="36">3 years or more</option>
+    <option value="60">5 years or more</option><option value="120">10 years or more</option></select></label>
+  <label class="chk"><input type="checkbox" id="f-ok"> scorable only</label>
+  <button type="button" id="f-reset" class="lnk">Reset</button>
+  <button type="button" id="dl" class="dlbtn">Download CSV</button>
+</div>
+<div class="tw"><table id="tbl">{head}<tbody>{table}</tbody></table></div>
 <div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. First analysis of a manager takes about half a minute; afterwards it opens instantly. Past performance is not indicative of future results; nothing here is investment advice.</div>
 </main>{js}""", is_home=True)
 
@@ -698,6 +772,88 @@ def not_found_html(path: str) -> str:
     return page("Not found", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Nothing here</h1>
 <p class="sub">There is no page at <code style="color:var(--goldl)">{html.escape(path)}</code>. Every manager in the system is one click from the home page.</p></div></header>
 <main class="wrap"><p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="javascript:history.back()" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">&larr; Back</a></p></main>""")
+
+
+def _research_cards() -> tuple[str, dict]:
+    """Cards for the research tools, with their headline numbers read from the committed CSVs.
+
+    Every number shown is read back from data/research/, so a rebuild cannot leave stale
+    claims on the home page; a tool whose data is missing is simply left out."""
+    import csv as _csv
+    R = ROOT / "data" / "research"
+
+    def rows(path, key=None):
+        f = R / path
+        if not f.exists():
+            return {}
+        with f.open() as fh:
+            rs = list(_csv.DictReader(fh))
+        return {r[key]: r for r in rs} if key else rs
+
+    def man(path):
+        f = R / path
+        try:
+            return json.loads(f.read_text()) if f.exists() else {}
+        except Exception:
+            return {}
+
+    def fnum(x, default=None):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return default
+
+    cards, have = [], {}
+
+    sig, sigman = rows("13f-signals/summary.csv", "key"), man("13f-signals/manifest.json")
+    if sig and sigman:
+        best = sig.get("BEST1", {})
+        t = fnum(best.get("carhart_t"))
+        verdict = ("no edge survives the 45-day lag" if t is None or abs(t) < 2
+                   else "a spread that survives the lag")
+        cards.append(dict(href="/research/13f-signals", eyebrow="Signal research",
+                          title="Do the disclosed books carry a signal?",
+                          what=f"Best ideas, crowding and fresh buys from every filing, formed into quarterly portfolios and tested as Carhart spreads. Finding: {verdict}.",
+                          stats=[(f"{sigman.get('managers', '')}", "managers"),
+                                 (f"{sigman.get('quarters', '')}", "quarters"),
+                                 (f"{fnum(sigman.get('positions'), 0):,.0f}", "positions")]))
+        have["signals"] = True
+
+    con, conman = rows("construction/summary.csv", "key"), man("construction/manifest.json")
+    if con and conman:
+        P = con.get("portfolio", {})
+        cards.append(dict(href="/research/construction", eyebrow="Portfolio construction",
+                          title="From a signal to a trade list",
+                          what="A linear program turns alpha scores into target weights under name caps, sector and active bands and a turnover budget, then into the tickets a trader would receive. Solved in Python and again in R.",
+                          stats=[(f"{fnum(P.get('active_return'), 0) * 100:+.1f}%", "active return /yr"),
+                                 (f"{fnum(P.get('information_ratio'), 0):.2f}", "information ratio"),
+                                 (f"{conman.get('rebalances', '')}", "rebalances")]))
+        have["construction"] = True
+
+    rv = man("r-verify/manifest.json")
+    if rv.get("managers"):
+        cards.append(dict(href="/research/r-verify", eyebrow="Verification",
+                          title="The same alphas, recomputed in R",
+                          what="Every headline number is recomputed from the aligned returns by an independent R implementation \u2014 the Newey-West sandwich written out by hand \u2014 and compared with what Python reported.",
+                          stats=[(f"{rv.get('managers')}", "managers"),
+                                 (f"{rv.get('checks', 0):,}", "numbers checked"),
+                                 (f"{rv.get('max_abs_diff', 0):.0e}", "largest difference")]))
+        have["rverify"] = True
+
+    cards.append(dict(href="/f/appaloosa/memo", eyebrow="Due diligence",
+                      title="A memo on any manager",
+                      what="Verdict, alpha with its confidence interval, factor loadings and rolling drift, the replication test, risks, and the questions to put to the manager at the next quarterly meeting \u2014 every sentence generated from that manager's numbers.",
+                      stats=[("91", "managers covered"), ("1", "click from any row"), ("0", "hand-written prose")]))
+    have["memo"] = True
+
+    out = ""
+    for c in cards:
+        st = "".join(f"<div><span class='v'>{html.escape(str(v))}</span><span class='l'>{html.escape(l)}</span></div>"
+                     for v, l in c["stats"])
+        out += (f"<a class='rcard' href=\"{c['href']}\"><div class='eyeb'>{html.escape(c['eyebrow'])}</div>"
+                f"<div class='rt'>{html.escape(c['title'])}</div><div class='rw'>{c['what']}</div>"
+                f"<div class='rs'>{st}</div><div class='go'>Open &rarr;</div></a>")
+    return out, have
 
 
 def leaderboard_html() -> str:
@@ -953,6 +1109,19 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._redirect(f"/me/{slug}/dashboard.html")
             label = json.loads((rec / "meta.json").read_text()).get("label", slug)
             return self._html(ticker_status_html(slug, job, label=label, ready_href=f"/me/{slug}/dashboard.html"))
+        if u.path in ("/research", "/research/"):
+            from .research_pages import research_index_html
+            return self._html(research_index_html().replace('<main class="wrap">', nav_html("Research") + '<main class="wrap">', 1))
+        if u.path.startswith("/research/data/"):
+            # any CSV under data/research, addressed as <note>/<file>.csv — no traversal
+            rel = u.path[len("/research/data/"):]
+            if re.match(r"^[a-z0-9-]+/[a-z0-9_]+\.csv$", rel):
+                f = ROOT / "data" / "research" / rel
+                if f.exists():
+                    b = f.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/csv; charset=utf-8")
+                    self.send_header("Content-Disposition", f"attachment; filename={f.name}")
+                    self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+            return self._html(not_found_html(u.path), 404)
         if u.path == "/research/13f-signals":
             from .research_pages import signals13f_html
             doc = signals13f_html()

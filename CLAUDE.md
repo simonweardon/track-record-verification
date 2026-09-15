@@ -17,8 +17,21 @@ the context that is not in the code.
 - Disclose AI assistance plainly (README/cover note): built with Claude Code as pair programmer;
   methodology, data-quality rules and verification are Simon's.
 
-## Feature plan (agreed Sept 15, 2026), in priority order — 1, 2, 3 DONE Sept 15
-1. **13F signals backtest** — `trackrecord/signals13f.py` (to write): best-ideas (each manager's largest
+## Status (Sept 15, 2026 evening) — pick up here
+DONE and deployed: (1) 13F signals research `/research/13f-signals`; (2) LP constructor + trade list
+`/research/construction` with the Rglpk twin `r/construct.R` (agreement ~1e-8 on the live inputs);
+(3) due-diligence memo `/f/<slug>/memo` (+ `/t/<ticker>/memo`), linked from every manager dashboard;
+server pre-builds all managers after start. 87 tests pass. Railway deploy of the last push was in
+progress when the laptop session paused — verify `/research/construction` and `/f/appaloosa/memo` return 200.
+NEXT (4): `r/verify.R` — reproduce FF3/CAPM/Carhart alpha + HAC t (statsmodels HAC: Bartlett weights,
+lag = floor(0.75·n^(1/3)), NO small-sample correction), annualized return/vol/Sharpe/max-DD and the
+alpha-maxing score from `output/<fund>/phase4/aligned_data.csv`, compare with regressions.csv/metrics.csv/
+scores.csv; pytest (skip without Rscript); summary over all managers to `data/research/r-verify/` and a
+small page. Then (5) research-notes/landing polish, cover note, disclosure line in README, interview quiz.
+Cloud sessions have no R — run R locally or just keep the script + test.
+
+## Feature plan (agreed Sept 15, 2026), in priority order
+1. **13F signals backtest** — `trackrecord/signals13f.py` (DONE): best-ideas (each manager's largest
    position, Cohen–Polk–Silli), crowding (# managers holding), conviction changes (new / added / trimmed /
    sold, from shares). Equal-weight quarterly portfolios formed at end of Feb/May/Aug/Nov (45-day 13F lag),
    long-short spreads, Carhart alpha with HAC t-stats (reuse `validation._fit` / `MODELS`), IC per formation

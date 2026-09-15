@@ -305,6 +305,8 @@ def main(argv=None):
     fsc.add_argument("--force", action="store_true")
     fsc.set_defaults(fn=cmd_funds_score)
 
+    sg = sub.add_parser("signals13f", help="13F research: best-ideas / crowding / conviction portfolios, spreads, ICs -> data/research/13f-signals")
+    sg.set_defaults(fn=lambda a: (__import__("trackrecord.signals13f", fromlist=["build"]).build(), 0)[1])
     cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
     cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
     cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")

@@ -42,6 +42,9 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                placeholder_brk.py  Berkshire BRK-A monthly placeholder in the statement format
                placeholder_ticker.py  any listed vehicle as a placeholder (yfinance, distributions reinvested)
                hedge13f.py   13F clone engine: EDGAR filings → holdings → CUSIP map → prices → monthly clone → statement format
+               signals13f.py 13F research: best-ideas / crowding / conviction portfolios, spreads, ICs → data/research/13f-signals
+               research_pages.py  research notes rendered from those CSVs (served at /research/13f-signals)
+               compact.py    the committed ~15 MB bundle of every cache a fresh clone needs (compact-pack / compact-unpack)
                fund_universe.py  the ~108 managers, search names and style tags
                serve.py      HTTP server: dashboards, /managers, /f/<slug>/, /analyze?ticker=, /leaderboard, /status
                reference.py  Ken French factor/market data, monthly + annual (real, cached in data/reference/)
@@ -61,6 +64,15 @@ datasets in the background (needs network for Ken French factors and yfinance), 
 `/` redirects to the Berkshire dashboard (override with `LANDING=synthetic/dashboard.html`); `/status` lists all outputs.
 Set `DASHBOARD_PASSWORD` on the service to require HTTP Basic Auth — **mandatory before any real statements
 are deployed**. Set `REBUILD=0` to skip rebuilding on restart.
+
+## Research: do the disclosed books carry a signal?
+`python -m trackrecord signals13f` turns every filing in the universe into quarterly long-only portfolios — each
+manager's **best idea** (largest position), **crowding** quintiles (how many managers hold a name), and **conviction
+changes** (new / added / trimmed / sold, from shares) — formed at the end of the month the filings become public,
+held with drift, and tested against the Carhart four factors with HAC errors, as spreads and as rank ICs. Served at
+`/research/13f-signals`. Result on 90 managers, 2013–2026: no exploitable signal after the 45-day lag; fresh buys
+lag the names just sold; the one apparent anomaly (least-crowded names) sits exactly where the price panel's
+survivorship bias lives and is reported as unreliable.
 
 ## Hedge funds: 13F clones
 Private funds publish no returns. `python -m trackrecord funds-build --contact "Name email"` (SEC requires a

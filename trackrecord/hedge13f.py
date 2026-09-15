@@ -208,10 +208,20 @@ def sec_ticker_table() -> pd.DataFrame:
     return df.drop_duplicates("norm")
 
 
+# names the SEC table misses (foreign-domiciled issuers with G/N/H CUSIPs, or SEC-name quirks) — by dollar value held
+MANUAL_CUSIPS = {
+    "30231G102": "XOM", "G3643J108": "FLUT", "G1151C101": "ACN", "N20944109": "CNH", "G51502105": "JCI", "G4474Y214": "JHG",
+    "00507V109": "ATVI", "G89479102": "TRMD", "13645T100": "CP", "530307305": "LBRDK", "530307107": "LBRDA", "42809H107": "HES",
+    "G25508105": "CRH", "G7997R103": "STX", "021369103": "ALTR", "92556H206": "PARA", "05946K101": "BBVA", "G3421J106": "FERG",
+    "20717M103": "CFLT", "G46188101": "HZNP", "460690100": "IPG", "68634K106": "ORLA",
+}
+
+
 def map_cusips(holdings: pd.DataFrame, log=print, figi: bool = True) -> dict[str, str | None]:
     """cusip -> Yahoo ticker (or None).  Cached; OpenFIGI used only for names the SEC table can't match."""
     cache = EDGAR / "cusip_map.json"
     m: dict = json.loads(cache.read_text()) if cache.exists() else {}
+    m.update(MANUAL_CUSIPS)
     need = holdings.drop_duplicates("cusip")
     need = need[~need.cusip.isin(m) | need.cusip.map(lambda c: m.get(c) is None)]   # retry unmapped with the SEC table
     if len(need):

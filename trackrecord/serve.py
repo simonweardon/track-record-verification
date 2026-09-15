@@ -617,6 +617,7 @@ apply();})();
 <main class="wrap">
 <h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
 <div class="cards">{cards}</div>
+<p class="note" style="margin-top:14px"><b>Research:</b> <a href="/research/13f-signals">Do managers' disclosed books carry a signal?</a> — best ideas, crowding and fresh buys from every filing in the system, tested as portfolios.</p>
 <h2 data-n="All managers" id="all">Every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
@@ -930,6 +931,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._redirect(f"/me/{slug}/dashboard.html")
             label = json.loads((rec / "meta.json").read_text()).get("label", slug)
             return self._html(ticker_status_html(slug, job, label=label, ready_href=f"/me/{slug}/dashboard.html"))
+        if u.path == "/research/13f-signals":
+            from .research_pages import signals13f_html
+            doc = signals13f_html()
+            if doc is None:
+                return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
+            return self._html(doc.replace('<main class="wrap">', nav_html("Research · 13F signals") + '<main class="wrap">', 1))
         if u.path == "/analyze":
             t = (parse_qs(u.query).get("ticker", [""])[0] or "").strip().upper()
             if not valid_ticker(t):

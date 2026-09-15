@@ -304,18 +304,35 @@ def leaderboard_rows() -> list[dict]:
 
 
 NAV_CSS = """<style>
-.tr-nav{position:sticky;top:0;z-index:6;display:flex;gap:10px;align-items:center;padding:8px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
+.tr-nav{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
 .tr-nav a,.tr-nav button{display:inline-flex;align-items:center;gap:6px;font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--navy,#1b2a41);background:transparent;color:var(--navy,#1b2a41);text-decoration:none;cursor:pointer}
-.tr-nav a.home{background:var(--navy,#1b2a41);color:var(--cover-ink,#e8e4da)}
-.tr-nav .crumb{margin-left:auto;font:600 9px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--muted,#a09883)}
-@media(prefers-color-scheme:dark){.tr-nav a,.tr-nav button{border-color:var(--gold-l,#c9b48a);color:var(--gold-l,#c9b48a)}.tr-nav a.home{background:var(--gold-l,#c9b48a);color:#1b2a40}}
+.tr-nav a.home,.tr-nav a.on{background:var(--navy,#1b2a41);color:var(--cover-ink,#e8e4da)}
+@media(max-width:640px){.tr-nav{padding:8px 16px}.tr-nav a,.tr-nav button{padding:7px 10px;letter-spacing:.12em}}
+.tr-sub{display:flex;gap:14px;align-items:center;padding:6px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif}
+.tr-sub a{font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--navy,#1b2a41);text-decoration:none}
+.tr-sub .crumb,.tr-nav .crumb{margin-left:auto;font:600 9px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--muted,#a09883)}
+@media(prefers-color-scheme:dark){.tr-sub a{color:var(--gold-l,#c9b48a)}}
+@media(prefers-color-scheme:dark){.tr-nav a,.tr-nav button{border-color:var(--gold-l,#c9b48a);color:var(--gold-l,#c9b48a)}.tr-nav a.home,.tr-nav a.on{background:var(--gold-l,#c9b48a);color:#1b2a40}}
 </style>"""
 
 
-def nav_html(crumb: str = "", me: bool = False, extra: tuple[str, str] | None = None) -> str:
-    return (NAV_CSS + '<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>'
-            '<a class="home" href="/">Home</a><a href="/me">My records</a>' + (f'<a href="{html.escape(extra[1], quote=True)}">{html.escape(extra[0])}</a>' if extra else '')
-            + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
+TOOLS = [("Home", "/"), ("Screener", "/#all"), ("13F signals", "/research/13f-signals"), ("Construction", "/research/construction"),
+         ("R check", "/research/r-verify"), ("Research data", "/research"), ("My records", "/me")]
+
+
+def toolbar(current: str = "", extra: tuple[str, str] | None = None, crumb: str = "") -> str:
+    """The same bar on every page: Back, then every tool (the current one filled). Page-specific
+    links (a manager's memo, back to its dashboard) go on a thin line underneath, never in the bar."""
+    links = "".join(f'<a class="{"home" if href == "/" else "on" if href == current else ""}" href="{href}">{label}</a>' for label, href in TOOLS)
+    bar = ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>' + links + '</div>')
+    if extra or crumb:
+        bar += ('<div class="tr-sub">' + (f'<a href="{html.escape(extra[1], quote=True)}">{html.escape(extra[0])} &rarr;</a>' if extra else '')
+                + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
+    return bar
+
+
+def nav_html(crumb: str = "", me: bool = False, extra: tuple[str, str] | None = None, current: str = "") -> str:
+    return NAV_CSS + toolbar(current, extra, crumb)
 
 
 # ---------------------------------------------------------------- private records
@@ -475,7 +492,7 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
                  f"<td><span class='st'>{st}</span></td>"
                  f"<td class='n' style='white-space:nowrap'><a class='btn' href='/me/{r['slug']}/'>Analyze</a> "
                  f"<form method='post' action='/me/{r['slug']}/delete' style='display:inline' onsubmit='return confirm(\"Delete this record and its results?\")'><button class='btn' style='background:transparent;color:var(--crit);border:1px solid var(--crit)'>Delete</button></form></td></tr>")
-    return page("My records", ACCOUNT_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records · {'guest session' if guest else html.escape(AC.user_email(uid))}</div><div class="rule"></div><h1>My records</h1>
+    return page("My records", current="/me", body=ACCOUNT_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records · {'guest session' if guest else html.escape(AC.user_email(uid))}</div><div class="rule"></div><h1>My records</h1>
 <p class="sub">Upload a return series, a value-and-flow history, or the pipeline's own statement templates, and run the same verification the public managers get. Only you can see these.</p></div></header>
 <main class="wrap">{f'<p class="msg{" err" if err else ""}">{html.escape(msg)}</p>' if msg else ''}
 {'<p class="msg"><b>You are a guest.</b> These records disappear when you close the browser, or after 24 hours. <a href="/account?mode=signup">Create an account</a> and they come with you.</p>' if guest else ''}
@@ -501,13 +518,12 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
 <p style="display:flex;gap:10px"><a class="btn" href="/">Home</a>{'<a class="btn" href="/account?mode=signup" style="background:var(--goldl);color:#1b2a40">Create an account to keep these</a>' if guest else ''}<a class="btn" href="/logout" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">{'Leave' if guest else 'Sign out'}</a></p></main>""")
 
 
-def topbar(is_home: bool = False) -> str:
-    return ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>'
-            + ('' if is_home else '<a class="home" href="/">Home</a>') + '<a href="/me">My records</a></div>')
+def topbar(is_home: bool = False, current: str = "") -> str:
+    return toolbar(current or ("/" if is_home else ""))
 
 
-def page(title: str, body: str, refresh: int | None = None, is_home: bool = False) -> str:
-    body = NAV_CSS + topbar(is_home) + body
+def page(title: str, body: str, refresh: int | None = None, is_home: bool = False, current: str = "") -> str:
+    body = NAV_CSS + topbar(is_home, current) + body
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title>{f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ''}
 <style>
@@ -1102,7 +1118,7 @@ class Handler(SimpleHTTPRequestHandler):
                     return self._redirect(f"/me/{slug}/")
                 doc = dash.read_text(encoding="utf-8")
                 label = json.loads((rec / "meta.json").read_text()).get("label", slug)
-                doc = doc.replace('<main class="wrap">', nav_html(label + " — private", me=True) + '<main class="wrap">', 1)
+                doc = doc.replace('<main class="wrap">', nav_html(label + " — private", me=True, current="/me") + '<main class="wrap">', 1)
                 return self._html(doc)
             job = start_user_record(uid, slug)
             if job["done"] and not job.get("error") and dash.exists():
@@ -1111,7 +1127,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._html(ticker_status_html(slug, job, label=label, ready_href=f"/me/{slug}/dashboard.html"))
         if u.path in ("/research", "/research/"):
             from .research_pages import research_index_html
-            return self._html(research_index_html().replace('<main class="wrap">', nav_html("Research") + '<main class="wrap">', 1))
+            return self._html(research_index_html().replace('<main class="wrap">', nav_html("Research", current="/research") + '<main class="wrap">', 1))
         if u.path.startswith("/research/data/"):
             # any CSV under data/research, addressed as <note>/<file>.csv — no traversal
             rel = u.path[len("/research/data/"):]
@@ -1127,19 +1143,19 @@ class Handler(SimpleHTTPRequestHandler):
             doc = signals13f_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
-            return self._html(doc.replace('<main class="wrap">', nav_html("Research · 13F signals") + '<main class="wrap">', 1))
+            return self._html(doc.replace('<main class="wrap">', nav_html("Research · 13F signals", current="/research/13f-signals") + '<main class="wrap">', 1))
         if u.path == "/research/construction":
             from .research_pages import construction_html
             doc = construction_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord construct</code>.</p></main>"), 404)
-            return self._html(doc.replace('<main class="wrap">', nav_html("Research · portfolio construction") + '<main class="wrap">', 1))
+            return self._html(doc.replace('<main class="wrap">', nav_html("Research · portfolio construction", current="/research/construction") + '<main class="wrap">', 1))
         if u.path == "/research/r-verify":
             from .research_pages import rverify_html
             doc = rverify_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord r-verify</code> where R and data.table are installed.</p></main>"), 404)
-            return self._html(doc.replace('<main class="wrap">', nav_html("Research \u00b7 R reproduction") + '<main class="wrap">', 1))
+            return self._html(doc.replace('<main class="wrap">', nav_html("Research \u00b7 R reproduction", current="/research/r-verify") + '<main class="wrap">', 1))
         if u.path.startswith("/research/r-verify/") and u.path.endswith(".csv"):
             from .rverify import OUT_DIR as RV_DIR
             f = RV_DIR / u.path.rsplit("/", 1)[1]

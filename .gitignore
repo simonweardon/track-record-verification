@@ -5,6 +5,7 @@ __pycache__/
 output/
 data/raw/
 data/entered/
-data/reference/
+data/reference/*
+!data/reference/compact/
 data/brk/
 userdata/

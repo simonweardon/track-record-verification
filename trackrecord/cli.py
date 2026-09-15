@@ -305,6 +305,12 @@ def main(argv=None):
     fsc.add_argument("--force", action="store_true")
     fsc.set_defaults(fn=cmd_funds_score)
 
+    cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
+    cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
+    cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")
+    cu.add_argument("--force", action="store_true")
+    cu.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["unpack"]).unpack(force=a.force), 0)[1])
+
     sv = sub.add_parser("serve", help="serve output/ over HTTP; builds placeholder outputs in the background")
     sv.add_argument("--port", type=int, default=None)
     sv.add_argument("--no-build", action="store_true", help="serve existing outputs only")

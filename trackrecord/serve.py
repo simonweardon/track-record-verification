@@ -85,6 +85,9 @@ def _ticker_datasets() -> list:
 
 def build_all() -> None:
     try:
+        from .compact import unpack               # fresh container: restore the EDGAR/price caches from the committed bundle
+        if unpack(log=_log):
+            STATE["phase"] = "unpacked reference caches"
         for label, sub, steps in DATASETS + _ticker_datasets():
             if (OUT / sub / "dashboard.html").exists() and os.environ.get("REBUILD", "1") != "1":
                 continue

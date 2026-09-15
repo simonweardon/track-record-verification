@@ -1,0 +1,14 @@
+{
+ "filings": 4322,
+ "rows": 576495,
+ "managers": 90,
+ "prices": [
+  777,
+  3231
+ ],
+ "skipped_styles": [
+  "macro",
+  "mm",
+  "multi"
+ ]
+}

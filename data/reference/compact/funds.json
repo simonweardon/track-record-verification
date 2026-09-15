@@ -1,0 +1,1743 @@
+[
+ {
+  "slug": "tiger-global",
+  "name": "Tiger Global Management",
+  "manager": "Chase Coleman",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001167483",
+    "name": "TIGER GLOBAL MANAGEMENT LLC",
+    "n": 100,
+    "first": "2002-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "lone-pine",
+  "name": "Lone Pine Capital",
+  "manager": "Stephen Mandel",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001061165",
+    "name": "LONE PINE CAPITAL LLC",
+    "n": 87,
+    "first": "2005-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "viking",
+  "name": "Viking Global Investors",
+  "manager": "Andreas Halvorsen",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001103804",
+    "name": "VIKING GLOBAL INVESTORS LP",
+    "n": 101,
+    "first": "2000-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "coatue",
+  "name": "Coatue Management",
+  "manager": "Philippe Laffont",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001135730",
+    "name": "COATUE MANAGEMENT LLC",
+    "n": 93,
+    "first": "2001-03-02",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "maverick",
+  "name": "Maverick Capital",
+  "manager": "Lee Ainslie",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0000934639",
+    "name": "MAVERICK CAPITAL LTD",
+    "n": 104,
+    "first": "1999-05-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "d1",
+  "name": "D1 Capital Partners",
+  "manager": "Daniel Sundheim",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001747057",
+    "name": "D1 CAPITAL PARTNERS L.P.",
+    "n": 31,
+    "first": "2019-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "altimeter",
+  "name": "Altimeter Capital",
+  "manager": "Brad Gerstner",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001541617",
+    "name": "ALTIMETER CAPITAL MANAGEMENT, LLC",
+    "n": 59,
+    "first": "2012-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "whale-rock",
+  "name": "Whale Rock Capital",
+  "manager": "Alex Sacerdote",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001387322",
+    "name": "WHALE ROCK CAPITAL MANAGEMENT LLC",
+    "n": 79,
+    "first": "2007-02-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "dragoneer",
+  "name": "Dragoneer Investment Group",
+  "manager": "Marc Stad",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001602189",
+    "name": "DRAGONEER INVESTMENT GROUP, LLC",
+    "n": 47,
+    "first": "2015-02-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "light-street",
+  "name": "Light Street Capital",
+  "manager": "Glen Kacher",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001569049",
+    "name": "LIGHT STREET CAPITAL MANAGEMENT, LLC",
+    "n": 55,
+    "first": "2013-02-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "glenview",
+  "name": "Glenview Capital",
+  "manager": "Larry Robbins",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001138995",
+    "name": "GLENVIEW CAPITAL MANAGEMENT LLC",
+    "n": 99,
+    "first": "2002-02-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "third-point",
+  "name": "Third Point",
+  "manager": "Daniel Loeb",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001040273",
+    "name": "THIRD POINT LLC",
+    "n": 109,
+    "first": "1999-11-26",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "greenlight",
+  "name": "Greenlight Capital",
+  "manager": "David Einhorn",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001079114",
+    "name": "GREENLIGHT CAPITAL INC",
+    "n": 100,
+    "first": "1999-05-12",
+    "last": "2024-02-14"
+   }
+  ]
+ },
+ {
+  "slug": "pershing-square",
+  "name": "Pershing Square",
+  "manager": "Bill Ackman",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001336528",
+    "name": "PERSHING SQUARE CAPITAL MANAGEMENT, L.P.",
+    "n": 82,
+    "first": "2006-02-14",
+    "last": "2026-05-15"
+   }
+  ]
+ },
+ {
+  "slug": "appaloosa",
+  "name": "Appaloosa",
+  "manager": "David Tepper",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0001006438",
+    "name": "APPALOOSA MANAGEMENT LP",
+    "n": 68,
+    "first": "1999-05-07",
+    "last": "2016-02-12"
+   },
+   {
+    "cik": "0001656456",
+    "name": "APPALOOSA LP",
+    "n": 42,
+    "first": "2016-05-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "atreides",
+  "name": "Atreides Management",
+  "manager": "Gavin Baker",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001777813",
+    "name": "ATREIDES MANAGEMENT, LP",
+    "n": 27,
+    "first": "2020-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "situational-awareness",
+  "name": "Situational Awareness",
+  "manager": "Leopold Aschenbrenner",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0002045724",
+    "name": "SITUATIONAL AWARENESS LP",
+    "n": 7,
+    "first": "2025-02-12",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "scion",
+  "name": "Scion Asset Management",
+  "manager": "Michael Burry",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001649339",
+    "name": "SCION ASSET MANAGEMENT, LLC",
+    "n": 32,
+    "first": "2016-02-16",
+    "last": "2025-11-03"
+   }
+  ]
+ },
+ {
+  "slug": "baupost",
+  "name": "Baupost Group",
+  "manager": "Seth Klarman",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001061768",
+    "name": "BAUPOST GROUP LLC/MA",
+    "n": 105,
+    "first": "1999-05-14",
+    "last": "2026-08-13"
+   }
+  ]
+ },
+ {
+  "slug": "elliott",
+  "name": "Elliott Investment Management",
+  "manager": "Paul Singer",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001048445",
+    "name": "ELLIOTT MANAGEMENT CORP",
+    "n": 82,
+    "first": "1999-11-15",
+    "last": "2020-11-16"
+   },
+   {
+    "cik": "0001791786",
+    "name": "ELLIOTT INVESTMENT MANAGEMENT L.P.",
+    "n": 26,
+    "first": "2020-05-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "starboard",
+  "name": "Starboard Value",
+  "manager": "Jeffrey Smith",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001517137",
+    "name": "STARBOARD VALUE LP",
+    "n": 61,
+    "first": "2011-08-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "jana",
+  "name": "JANA Partners",
+  "manager": "Barry Rosenstein",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001159159",
+    "name": "JANA PARTNERS LLC",
+    "n": 83,
+    "first": "2003-02-11",
+    "last": "2023-08-14"
+   },
+   {
+    "cik": "0001998597",
+    "name": "JANA PARTNERS MANAGEMENT, LP",
+    "n": 12,
+    "first": "2023-11-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "trian",
+  "name": "Trian Fund Management",
+  "manager": "Nelson Peltz",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001345471",
+    "name": "TRIAN FUND MANAGEMENT, L.P.",
+    "n": 62,
+    "first": "2011-05-16",
+    "last": "2026-08-12"
+   }
+  ]
+ },
+ {
+  "slug": "valueact",
+  "name": "ValueAct Capital",
+  "manager": "Mason Morfit",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001418814",
+    "name": "VALUEACT HOLDINGS, L.P.",
+    "n": 73,
+    "first": "2008-08-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "icahn",
+  "name": "Icahn Enterprises / Icahn Capital",
+  "manager": "Carl Icahn",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0000921669",
+    "name": "ICAHN CARL C",
+    "n": 47,
+    "first": "2015-02-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "paulson",
+  "name": "Paulson & Co",
+  "manager": "John Paulson",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0001035674",
+    "name": "PAULSON & CO INC",
+    "n": 99,
+    "first": "2002-02-07",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "soros",
+  "name": "Soros Fund Management",
+  "manager": "Soros family office",
+  "style": "fo",
+  "filers": [
+   {
+    "cik": "0001029160",
+    "name": "SOROS FUND MANAGEMENT LLC",
+    "n": 111,
+    "first": "1999-05-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "duquesne",
+  "name": "Duquesne Family Office",
+  "manager": "Stanley Druckenmiller",
+  "style": "fo",
+  "filers": [
+   {
+    "cik": "0001536411",
+    "name": "DUQUESNE FAMILY OFFICE LLC",
+    "n": 59,
+    "first": "2012-02-09",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "renaissance",
+  "name": "Renaissance Technologies",
+  "manager": "Jim Simons (quant)",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001037389",
+    "name": "RENAISSANCE TECHNOLOGIES CORP",
+    "n": 27,
+    "first": "2020-02-13",
+    "last": "2026-08-13"
+   }
+  ]
+ },
+ {
+  "slug": "bridgewater",
+  "name": "Bridgewater Associates",
+  "manager": "Ray Dalio (macro)",
+  "style": "macro",
+  "filers": [
+   {
+    "cik": "0001350694",
+    "name": "BRIDGEWATER ASSOCIATES, INC.",
+    "n": 83,
+    "first": "2006-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "millennium",
+  "name": "Millennium Management",
+  "manager": "Israel Englander",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001273087",
+    "name": "MILLENNIUM MANAGEMENT LLC",
+    "n": 80,
+    "first": "2004-02-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "citadel",
+  "name": "Citadel Advisors",
+  "manager": "Ken Griffin",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001423053",
+    "name": "CITADEL ADVISORS LLC",
+    "n": 42,
+    "first": "2016-05-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "de-shaw",
+  "name": "D. E. Shaw & Co",
+  "manager": "David Shaw (quant)",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001009207",
+    "name": "D. E. SHAW & CO., INC.",
+    "n": 109,
+    "first": "1999-05-25",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "two-sigma",
+  "name": "Two Sigma Investments",
+  "manager": "Overdeck / Siegel (quant)",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001179392",
+    "name": "TWO SIGMA INVESTMENTS LLC",
+    "n": 95,
+    "first": "2003-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "aqr",
+  "name": "AQR Capital Management",
+  "manager": "Cliff Asness (quant)",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001167557",
+    "name": "AQR CAPITAL MANAGEMENT LLC",
+    "n": 55,
+    "first": "2013-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "point72",
+  "name": "Point72 Asset Management",
+  "manager": "Steve Cohen",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001603466",
+    "name": "POINT72 ASSET MANAGEMENT, L.P.",
+    "n": 47,
+    "first": "2015-02-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "balyasny",
+  "name": "Balyasny Asset Management",
+  "manager": "Dmitry Balyasny",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001218710",
+    "name": "BALYASNY ASSET MANAGEMENT L.P.",
+    "n": 95,
+    "first": "2003-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "exoduspoint",
+  "name": "ExodusPoint Capital",
+  "manager": "Michael Gelband",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001736225",
+    "name": "EXODUSPOINT CAPITAL MANAGEMENT, LP",
+    "n": 31,
+    "first": "2019-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "farallon",
+  "name": "Farallon Capital",
+  "manager": "Andrew Spokes",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0000909661",
+    "name": "FARALLON CAPITAL MANAGEMENT LLC",
+    "n": 110,
+    "first": "1999-05-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "davidson-kempner",
+  "name": "Davidson Kempner",
+  "manager": "Anthony Yoseloff",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0000937617",
+    "name": "DAVIDSON KEMPNER CAPITAL MANAGEMENT LLC",
+    "n": 63,
+    "first": "1999-05-13",
+    "last": "2014-11-14"
+   },
+   {
+    "cik": "0001595082",
+    "name": "DAVIDSON KEMPNER CAPITAL MANAGEMENT LP",
+    "n": 50,
+    "first": "2014-05-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "king-street",
+  "name": "King Street Capital",
+  "manager": "Brian Higgins",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0001218199",
+    "name": "KING STREET CAPITAL MANAGEMENT, L.P.",
+    "n": 90,
+    "first": "2003-05-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "sculptor",
+  "name": "Sculptor (Och-Ziff)",
+  "manager": "Jimmy Levin",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001054587",
+    "name": "SCULPTOR CAPITAL LP",
+    "n": 101,
+    "first": "2001-08-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "marshall-wace",
+  "name": "Marshall Wace",
+  "manager": "Paul Marshall / Ian Wace",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001519964",
+    "name": "MARSHALL WACE ASIA LTD",
+    "n": 29,
+    "first": "2011-05-13",
+    "last": "2021-11-15"
+   },
+   {
+    "cik": "0001318757",
+    "name": "MARSHALL WACE, LLP",
+    "n": null,
+    "first": null,
+    "last": null
+   },
+   {
+    "cik": "0001350701",
+    "name": "MARSHALL WACE LLP",
+    "n": null,
+    "first": null,
+    "last": null
+   },
+   {
+    "cik": "0001325091",
+    "name": "MARSHALL WACE NORTH AMERICA, L.P.",
+    "n": null,
+    "first": null,
+    "last": null
+   }
+  ]
+ },
+ {
+  "slug": "adage",
+  "name": "Adage Capital",
+  "manager": "Phill Gross / Robert Atchinson",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001165408",
+    "name": "ADAGE CAPITAL PARTNERS GP LLC",
+    "n": 54,
+    "first": "2013-05-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "tci",
+  "name": "TCI Fund Management",
+  "manager": "Chris Hohn",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001647251",
+    "name": "TCI FUND MANAGEMENT LTD",
+    "n": 45,
+    "first": "2015-08-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "egerton",
+  "name": "Egerton Capital",
+  "manager": "John Armitage",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001083657",
+    "name": "EGERTON CAPITAL LTD",
+    "n": 55,
+    "first": "1999-07-09",
+    "last": "2013-08-12"
+   },
+   {
+    "cik": "0001581811",
+    "name": "EGERTON CAPITAL (UK) LLP",
+    "n": 52,
+    "first": "2013-11-12",
+    "last": "2026-07-21"
+   }
+  ]
+ },
+ {
+  "slug": "lansdowne",
+  "name": "Lansdowne Partners",
+  "manager": "Peter Davies",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001315309",
+    "name": "LANSDOWNE PARTNERS LIMITED PARTNERSHIP",
+    "n": 38,
+    "first": "2005-02-10",
+    "last": "2014-05-14"
+   },
+   {
+    "cik": "0001536071",
+    "name": "LANSDOWNE PARTNERS AUSTRIA GMBH",
+    "n": 13,
+    "first": "2013-02-14",
+    "last": "2016-02-12"
+   },
+   {
+    "cik": "0001608485",
+    "name": "LANSDOWNE PARTNERS (UK) LLP",
+    "n": 49,
+    "first": "2014-08-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "eminence",
+  "name": "Eminence Capital",
+  "manager": "Ricky Sandler",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001107310",
+    "name": "EMINENCE CAPITAL LLC",
+    "n": 107,
+    "first": "2000-02-25",
+    "last": "2026-07-06"
+   }
+  ]
+ },
+ {
+  "slug": "sachem-head",
+  "name": "Sachem Head Capital",
+  "manager": "Scott Ferguson",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001582090",
+    "name": "SACHEM HEAD CAPITAL MANAGEMENT LP",
+    "n": 51,
+    "first": "2014-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "corvex",
+  "name": "Corvex Management",
+  "manager": "Keith Meister",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001535472",
+    "name": "CORVEX MANAGEMENT LP",
+    "n": 59,
+    "first": "2012-02-08",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "abrams",
+  "name": "Abrams Capital",
+  "manager": "David Abrams",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001358706",
+    "name": "ABRAMS CAPITAL MANAGEMENT, L.P.",
+    "n": 82,
+    "first": "2006-05-12",
+    "last": "2026-08-13"
+   }
+  ]
+ },
+ {
+  "slug": "cantillon",
+  "name": "Cantillon Capital",
+  "manager": "William von Mueffling",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001279936",
+    "name": "CANTILLON CAPITAL MANAGEMENT LLC",
+    "n": 91,
+    "first": "2004-02-17",
+    "last": "2026-07-29"
+   }
+  ]
+ },
+ {
+  "slug": "himalaya",
+  "name": "Himalaya Capital",
+  "manager": "Li Lu",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001709323",
+    "name": "HIMALAYA CAPITAL MANAGEMENT LLC",
+    "n": 35,
+    "first": "2017-06-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "akre",
+  "name": "Akre Capital",
+  "manager": "Chuck Akre",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001112520",
+    "name": "AKRE CAPITAL MANAGEMENT LLC",
+    "n": 103,
+    "first": "2001-08-09",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "gotham",
+  "name": "Gotham Asset Management",
+  "manager": "Joel Greenblatt",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001510387",
+    "name": "GOTHAM ASSET MANAGEMENT, LLC",
+    "n": 63,
+    "first": "2011-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "ruane-cunniff",
+  "name": "Ruane, Cunniff & Goldfarb (Sequoia)",
+  "manager": "Sequoia Fund",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0000728014",
+    "name": "RUANE, CUNNIFF & GOLDFARB INC",
+    "n": 77,
+    "first": "1999-05-12",
+    "last": "2018-05-15"
+   },
+   {
+    "cik": "0001720792",
+    "name": "RUANE, CUNNIFF & GOLDFARB L.P.",
+    "n": 34,
+    "first": "2018-05-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "southeastern",
+  "name": "Southeastern Asset Management (Longleaf)",
+  "manager": "Mason Hawkins",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0000807985",
+    "name": "SOUTHEASTERN ASSET MANAGEMENT INC/TN/",
+    "n": 100,
+    "first": "2001-11-09",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "harris",
+  "name": "Harris Associates (Oakmark)",
+  "manager": "Bill Nygren",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0000813917",
+    "name": "HARRIS ASSOCIATES L P",
+    "n": 111,
+    "first": "1999-05-12",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "tweedy-browne",
+  "name": "Tweedy, Browne",
+  "manager": "Tweedy, Browne partners",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0000732905",
+    "name": "TWEEDY BROWNE CO LLC//",
+    "n": 110,
+    "first": "1999-05-12",
+    "last": "2026-08-07"
+   }
+  ]
+ },
+ {
+  "slug": "yacktman",
+  "name": "Yacktman Asset Management",
+  "manager": "Stephen Yacktman",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0000905567",
+    "name": "YACKTMAN ASSET MANAGEMENT CO/IL",
+    "n": 110,
+    "first": "1999-06-23",
+    "last": "2026-08-11"
+   }
+  ]
+ },
+ {
+  "slug": "pzena",
+  "name": "Pzena Investment Management",
+  "manager": "Rich Pzena",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001027796",
+    "name": "PZENA INVESTMENT MANAGEMENT LLC",
+    "n": 109,
+    "first": "1999-04-28",
+    "last": "2026-08-07"
+   }
+  ]
+ },
+ {
+  "slug": "polen",
+  "name": "Polen Capital",
+  "manager": "Dan Davidowitz",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001034524",
+    "name": "POLEN CAPITAL MANAGEMENT INC",
+    "n": 91,
+    "first": "1999-04-23",
+    "last": "2026-08-04"
+   }
+  ]
+ },
+ {
+  "slug": "sands",
+  "name": "Sands Capital",
+  "manager": "Frank Sands",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001020066",
+    "name": "SANDS CAPITAL MANAGEMENT INC",
+    "n": 110,
+    "first": "1999-05-06",
+    "last": "2026-08-13"
+   }
+  ]
+ },
+ {
+  "slug": "fundsmith",
+  "name": "Fundsmith",
+  "manager": "Terry Smith",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001569205",
+    "name": "FUNDSMITH LLP",
+    "n": 55,
+    "first": "2013-02-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "pabrai",
+  "name": "Pabrai Investment Funds",
+  "manager": "Mohnish Pabrai",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001549575",
+    "name": "DALAL STREET, LLC",
+    "n": null,
+    "first": null,
+    "last": null
+   }
+  ]
+ },
+ {
+  "slug": "srs",
+  "name": "SRS Investment Management",
+  "manager": "Karthik Sarma",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001503174",
+    "name": "SRS INVESTMENT MANAGEMENT, LLC",
+    "n": 63,
+    "first": "2011-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "hound",
+  "name": "Hound Partners",
+  "manager": "Jonathan Auerbach",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001353316",
+    "name": "HOUND PARTNERS, LLC",
+    "n": null,
+    "first": null,
+    "last": null
+   }
+  ]
+ },
+ {
+  "slug": "melvin",
+  "name": "Melvin Capital (closed 2022)",
+  "manager": "Gabe Plotkin",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001628110",
+    "name": "MELVIN CAPITAL MANAGEMENT LP",
+    "n": 36,
+    "first": "2015-02-17",
+    "last": "2023-10-05"
+   }
+  ]
+ },
+ {
+  "slug": "steadfast",
+  "name": "Steadfast Capital",
+  "manager": "Robert Pitts",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001214822",
+    "name": "STEADFAST CAPITAL MANAGEMENT LLC",
+    "n": 95,
+    "first": "2003-02-12",
+    "last": "2026-08-14"
+   },
+   {
+    "cik": "0001872297",
+    "name": "STEADFAST CAPITAL MANAGEMENT (UK) LTD.",
+    "n": 4,
+    "first": "2021-11-15",
+    "last": "2022-08-15"
+   }
+  ]
+ },
+ {
+  "slug": "senator",
+  "name": "Senator Investment Group",
+  "manager": "Doug Silverman",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0001443689",
+    "name": "SENATOR INVESTMENT GROUP LP",
+    "n": 65,
+    "first": "2009-02-13",
+    "last": "2026-08-12"
+   }
+  ]
+ },
+ {
+  "slug": "soroban",
+  "name": "Soroban Capital",
+  "manager": "Eric Mandelblatt",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001517857",
+    "name": "SOROBAN CAPITAL PARTNERS LLC",
+    "n": 59,
+    "first": "2012-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "suvretta",
+  "name": "Suvretta Capital",
+  "manager": "Aaron Cowen",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001569064",
+    "name": "SUVRETTA CAPITAL MANAGEMENT, LLC",
+    "n": 51,
+    "first": "2014-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "matrix",
+  "name": "Matrix Capital",
+  "manager": "David Goel",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001410830",
+    "name": "MATRIX CAPITAL MANAGEMENT COMPANY, LLC",
+    "n": 76,
+    "first": "2007-11-05",
+    "last": "2026-08-13"
+   }
+  ]
+ },
+ {
+  "slug": "darsana",
+  "name": "Darsana Capital",
+  "manager": "Anand Desai",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001609098",
+    "name": "DARSANA CAPITAL PARTNERS LP",
+    "n": 47,
+    "first": "2015-02-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "impactive",
+  "name": "Impactive Capital",
+  "manager": "Lauren Taylor Wolfe",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001786767",
+    "name": "IMPACTIVE CAPITAL LP",
+    "n": 27,
+    "first": "2020-02-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "engaged",
+  "name": "Engaged Capital",
+  "manager": "Glenn Welling",
+  "style": "act",
+  "filers": [
+   {
+    "cik": "0001559771",
+    "name": "ENGAGED CAPITAL LLC",
+    "n": null,
+    "first": null,
+    "last": null
+   }
+  ]
+ },
+ {
+  "slug": "tiger-management",
+  "name": "Tiger Management (Robertson)",
+  "manager": "Julian Robertson (family office)",
+  "style": "fo",
+  "filers": [
+   {
+    "cik": "0001027451",
+    "name": "TIGER MANAGEMENT LLC/NY",
+    "n": 72,
+    "first": "1999-05-17",
+    "last": "2024-11-13"
+   }
+  ]
+ },
+ {
+  "slug": "blue-ridge",
+  "name": "Blue Ridge Capital (closed 2017)",
+  "manager": "John Griffin",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001232960",
+    "name": "BLUE RIDGE CAPITAL MANAGEMENT LLC",
+    "n": 55,
+    "first": "2003-05-15",
+    "last": "2022-11-14"
+   }
+  ]
+ },
+ {
+  "slug": "berkshire-13f",
+  "name": "Berkshire Hathaway (13F holdings)",
+  "manager": "Warren Buffett",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001067983",
+    "name": "BERKSHIRE HATHAWAY INC",
+    "n": 39,
+    "first": "2017-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "markel-13f",
+  "name": "Markel (13F holdings)",
+  "manager": "Tom Gayner",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001096343",
+    "name": "MARKEL CORP",
+    "n": 41,
+    "first": "2016-08-05",
+    "last": "2026-07-31"
+   }
+  ]
+ },
+ {
+  "slug": "fairfax-13f",
+  "name": "Fairfax Financial (13F holdings)",
+  "manager": "Prem Watsa",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0000915191",
+    "name": "FAIRFAX FINANCIAL HOLDINGS INC",
+    "n": 67,
+    "first": "2010-02-12",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "gardner-russo",
+  "name": "Gardner Russo & Quinn",
+  "manager": "Tom Russo",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0000860643",
+    "name": "GARDNER RUSSO & QUINN LLC",
+    "n": 110,
+    "first": "1999-06-08",
+    "last": "2026-08-13"
+   }
+  ]
+ },
+ {
+  "slug": "semper-augustus",
+  "name": "Semper Augustus",
+  "manager": "Chris Bloomstran",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001115373",
+    "name": "SEMPER AUGUSTUS INVESTMENTS GROUP LLC",
+    "n": 75,
+    "first": "2008-02-07",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "giverny",
+  "name": "Giverny Capital",
+  "manager": "Fran\u00e7ois Rochon",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001641864",
+    "name": "GIVERNY CAPITAL INC.",
+    "n": 46,
+    "first": "2015-05-12",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "greenhaven-road",
+  "name": "Greenhaven Road",
+  "manager": "Scott Miller",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001741129",
+    "name": "GREENHAVEN ROAD INVESTMENT MANAGEMENT, L.P.",
+    "n": 27,
+    "first": "2020-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "punch-card",
+  "name": "Punch Card Management",
+  "manager": "Norbert Lou",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001631664",
+    "name": "PUNCH CARD MANAGEMENT L.P.",
+    "n": 47,
+    "first": "2015-02-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "hitchwood",
+  "name": "Hitchwood Capital",
+  "manager": "James Crichton",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001611613",
+    "name": "HITCHWOOD CAPITAL MANAGEMENT LP",
+    "n": 34,
+    "first": "2015-02-17",
+    "last": "2023-05-12"
+   }
+  ]
+ },
+ {
+  "slug": "tudor",
+  "name": "Tudor Investment Corp",
+  "manager": "Paul Tudor Jones",
+  "style": "macro",
+  "filers": [
+   {
+    "cik": "0000923093",
+    "name": "TUDOR INVESTMENT CORP ET AL",
+    "n": 110,
+    "first": "1999-05-13",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "moore",
+  "name": "Moore Capital",
+  "manager": "Louis Bacon",
+  "style": "macro",
+  "filers": [
+   {
+    "cik": "0001448574",
+    "name": "MOORE CAPITAL MANAGEMENT, LP",
+    "n": 72,
+    "first": "2008-11-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "caxton",
+  "name": "Caxton Associates",
+  "manager": "Andrew Law",
+  "style": "macro",
+  "filers": [
+   {
+    "cik": "0000872573",
+    "name": "CAXTON ASSOCIATES LLC",
+    "n": 105,
+    "first": "1999-05-14",
+    "last": "2025-02-14"
+   },
+   {
+    "cik": "0002051323",
+    "name": "CAXTON ASSOCIATES LLP",
+    "n": 6,
+    "first": "2025-05-16",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "brevan-howard",
+  "name": "Brevan Howard",
+  "manager": "Alan Howard",
+  "style": "macro",
+  "filers": [
+   {
+    "cik": "0001512857",
+    "name": "BREVAN HOWARD CAPITAL MANAGEMENT LP",
+    "n": 51,
+    "first": "2011-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "man-group",
+  "name": "Man Group",
+  "manager": "Man AHL / Numeric (quant)",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001637460",
+    "name": "MAN GROUP PLC",
+    "n": 34,
+    "first": "2018-05-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "winton",
+  "name": "Winton Group",
+  "manager": "David Harding (quant)",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001612063",
+    "name": "WINTON GROUP LTD",
+    "n": 49,
+    "first": "2014-08-05",
+    "last": "2026-08-07"
+   }
+  ]
+ },
+ {
+  "slug": "arrowstreet",
+  "name": "Arrowstreet Capital",
+  "manager": "quant",
+  "style": "multi",
+  "filers": [
+   {
+    "cik": "0001164508",
+    "name": "ARROWSTREET CAPITAL, LIMITED PARTNERSHIP",
+    "n": null,
+    "first": null,
+    "last": null
+   }
+  ]
+ },
+ {
+  "slug": "jane-street",
+  "name": "Jane Street",
+  "manager": "market maker",
+  "style": "mm",
+  "filers": [
+   {
+    "cik": "0001595888",
+    "name": "JANE STREET GROUP, LLC",
+    "n": 50,
+    "first": "2014-05-15",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "kingdon",
+  "name": "Kingdon Capital",
+  "manager": "Mark Kingdon",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001000097",
+    "name": "KINGDON CAPITAL MANAGEMENT CORP",
+    "n": 110,
+    "first": "1999-05-17",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "omega",
+  "name": "Omega Advisors (closed 2018)",
+  "manager": "Leon Cooperman",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0000898202",
+    "name": "OMEGA ADVISORS INC.",
+    "n": 18,
+    "first": "2014-11-14",
+    "last": "2019-02-14"
+   }
+  ]
+ },
+ {
+  "slug": "passport",
+  "name": "Passport Capital (closed 2019)",
+  "manager": "John Burbank",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001352428",
+    "name": "PASSPORT CAPITAL, LLC",
+    "n": 42,
+    "first": "2006-02-14",
+    "last": "2020-02-14"
+   }
+  ]
+ },
+ {
+  "slug": "tourbillon",
+  "name": "Tourbillon Capital (closed 2018)",
+  "manager": "Jason Karp",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001592476",
+    "name": "TOURBILLON CAPITAL PARTNERS LP",
+    "n": 21,
+    "first": "2014-02-14",
+    "last": "2019-02-14"
+   }
+  ]
+ },
+ {
+  "slug": "valinor",
+  "name": "Valinor Management",
+  "manager": "David Gallo",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001401388",
+    "name": "VALINOR MANAGEMENT, L.P.",
+    "n": 71,
+    "first": "2008-02-12",
+    "last": "2026-07-27"
+   }
+  ]
+ },
+ {
+  "slug": "glenhill",
+  "name": "Glenhill Advisors",
+  "manager": "Glenn Krevlin",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001137521",
+    "name": "GLENHILL ADVISORS LLC",
+    "n": 63,
+    "first": "2003-05-15",
+    "last": "2018-11-14"
+   }
+  ]
+ },
+ {
+  "slug": "third-avenue",
+  "name": "Third Avenue Management",
+  "manager": "Marty Whitman legacy",
+  "style": "conc",
+  "filers": [
+   {
+    "cik": "0001099281",
+    "name": "THIRD AVENUE MANAGEMENT LLC",
+    "n": 87,
+    "first": "2005-02-16",
+    "last": "2026-08-12"
+   }
+  ]
+ },
+ {
+  "slug": "oaktree",
+  "name": "Oaktree Capital",
+  "manager": "Howard Marks",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0000949509",
+    "name": "OAKTREE CAPITAL MANAGEMENT L L C",
+    "n": 109,
+    "first": "1999-05-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "canyon",
+  "name": "Canyon Capital",
+  "manager": "Josh Friedman",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0001074034",
+    "name": "CANYON CAPITAL ADVISORS LLC",
+    "n": 105,
+    "first": "1999-05-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "anchorage",
+  "name": "Anchorage Capital",
+  "manager": "Kevin Ulrich",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0001300714",
+    "name": "ANCHORAGE CAPITAL GROUP, L.L.C.",
+    "n": 83,
+    "first": "2006-02-14",
+    "last": "2026-08-14"
+   }
+  ]
+ },
+ {
+  "slug": "york",
+  "name": "York Capital",
+  "manager": "Jamie Dinan",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0001480532",
+    "name": "YORK CAPITAL MANAGEMENT GLOBAL ADVISORS, LLC",
+    "n": 60,
+    "first": "2011-02-14",
+    "last": "2025-11-14"
+   }
+  ]
+ },
+ {
+  "slug": "highfields",
+  "name": "Highfields Capital (closed 2018)",
+  "manager": "Jonathon Jacobson",
+  "style": "ls",
+  "filers": [
+   {
+    "cik": "0001079563",
+    "name": "HIGHFIELDS CAPITAL MANAGEMENT LP",
+    "n": 86,
+    "first": "1999-08-16",
+    "last": "2020-11-16"
+   }
+  ]
+ },
+ {
+  "slug": "perry",
+  "name": "Perry Capital (closed 2016)",
+  "manager": "Richard Perry",
+  "style": "event",
+  "filers": [
+   {
+    "cik": "0000919085",
+    "name": "PERRY CORP",
+    "n": 75,
+    "first": "1999-05-07",
+    "last": "2017-11-03"
+   }
+  ]
+ },
+ {
+  "slug": "belvedere",
+  "name": "Belvedere Trading",
+  "manager": "market maker (options)",
+  "style": "mm",
+  "filers": [
+   {
+    "cik": "0001632341",
+    "name": "BELVEDERE TRADING LLC",
+    "n": 41,
+    "first": "2015-02",
+    "last": "2026-08"
+   }
+  ]
+ },
+ {
+  "slug": "fisher",
+  "name": "Fisher Investments",
+  "manager": "Ken Fisher",
+  "style": "lo",
+  "filers": [
+   {
+    "cik": "0000850529",
+    "name": "FISHER ASSET MANAGEMENT, LLC",
+    "n": 110,
+    "first": "1999-05",
+    "last": "2026-08"
+   }
+  ]
+ }
+]

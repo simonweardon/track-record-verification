@@ -1,0 +1,11 @@
+{
+  "built": "2026-09-15 17:55",
+  "r": "R with data.table 1.14.10",
+  "available": true,
+  "managers": 91,
+  "quantities_per_manager": 51,
+  "checks": 4641,
+  "tol": 1e-06,
+  "max_abs_diff": 8.87734330490275e-13,
+  "disagreements": 0
+}

@@ -639,7 +639,7 @@ apply();})();
 <main class="wrap">
 <h2 data-n="Featured">Start here</h2><p class="note">Three managers seen through their disclosed holdings (13F clones), and a listed fund with a 35-year real record.</p>
 <div class="cards">{cards}</div>
-<p class="note" style="margin-top:14px"><b>Research:</b> <a href="/research/13f-signals">Do managers' disclosed books carry a signal?</a> — best ideas, crowding and fresh buys from every filing, tested as portfolios. &nbsp;·&nbsp; <a href="/research/construction">From signal to trade list</a> — an LP portfolio constructor under a mandate's constraints, in Python and R.</p>
+<p class="note" style="margin-top:14px"><b>Research:</b> <a href="/research/13f-signals">Do managers' disclosed books carry a signal?</a> — best ideas, crowding and fresh buys from every filing, tested as portfolios. &nbsp;·&nbsp; <a href="/research/construction">From signal to trade list</a> — an LP portfolio constructor under a mandate's constraints, in Python and R. &nbsp;·&nbsp; <a href="/research/r-verify">The same alphas, recomputed in R</a> — every headline number checked against an independent implementation.</p>
 <h2 data-n="All managers" id="all">Every manager in the system</h2>
 <p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms — Citadel, Millennium, Renaissance, Bridgewater, Jane Street, Belvedere — a 13F is trading inventory, not a portfolio, so no score is shown; their actual returns are private.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
@@ -965,6 +965,19 @@ class Handler(SimpleHTTPRequestHandler):
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord construct</code>.</p></main>"), 404)
             return self._html(doc.replace('<main class="wrap">', nav_html("Research · portfolio construction") + '<main class="wrap">', 1))
+        if u.path == "/research/r-verify":
+            from .research_pages import rverify_html
+            doc = rverify_html()
+            if doc is None:
+                return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord r-verify</code> where R and data.table are installed.</p></main>"), 404)
+            return self._html(doc.replace('<main class="wrap">', nav_html("Research \u00b7 R reproduction") + '<main class="wrap">', 1))
+        if u.path.startswith("/research/r-verify/") and u.path.endswith(".csv"):
+            from .rverify import OUT_DIR as RV_DIR
+            f = RV_DIR / u.path.rsplit("/", 1)[1]
+            if f.exists() and re.match(r"^[a-z_]+\.csv$", f.name):
+                b = f.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", f"attachment; filename={f.name}"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+            return self._html(not_found_html(u.path), 404)
         if u.path.startswith("/research/construction/") and u.path.endswith(".csv"):
             from .construct import OUT_DIR as CON_DIR
             f = CON_DIR / u.path.rsplit("/", 1)[1]

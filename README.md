@@ -45,8 +45,10 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                signals13f.py 13F research: best-ideas / crowding / conviction portfolios, spreads, ICs → data/research/13f-signals
                construct.py  LP portfolio construction (HiGHS) with trade list, active-share/sector/turnover constraints, ex-ante TE; backtest of a demo mandate
                memo.py       due-diligence memo per manager, assembled from phases 2–4 (/f/<slug>/memo)
-               research_pages.py  research notes rendered from those CSVs (/research/13f-signals, /research/construction)
+               rverify.py    runs the R reproduction over every manager and writes the agreement → data/research/r-verify
+               research_pages.py  research notes rendered from those CSVs (/research/13f-signals, /research/construction, /research/r-verify)
 r/             construct.R   the same LP in R (data.table + Rglpk); checked against the Python solve in tests and on every build
+               verify.R      the headline statistics recomputed in R (data.table, HAC by hand); checked against Python in tests and over all 91 managers
                compact.py    the committed ~15 MB bundle of every cache a fresh clone needs (compact-pack / compact-unpack)
                fund_universe.py  the ~108 managers, search names and style tags
                serve.py      HTTP server: dashboards, /managers, /f/<slug>/, /analyze?ticker=, /leaderboard, /status
@@ -92,6 +94,17 @@ outputs: what is claimed vs verified, skill vs exposure (all factor models, plai
 replication test), whether it is believable (parametric, bootstrap, zero-skill cohort, years needed at t = 2),
 stability (rolling loadings, drift, alpha by half, timing test), risk and concentration, an auto-generated list of
 **questions for the manager**, and a fixed-rule recommendation. Every sentence is generated from the numbers.
+
+## R reproduction of the headline numbers
+`Rscript r/verify.R output/funds/<slug>/phase4` recomputes, in data.table and base R and from the aligned returns
+alone, what Python reported for that manager: CAPM/FF3/Carhart4/FF5 alpha with Newey-West standard errors and
+t-statistics, annualized return, volatility, Sharpe, max drawdown and the alpha-maxing score. The HAC sandwich is
+written out by hand on the R side — Bartlett weights, lag ⌊0.75·n^(1/3)⌋, no small-sample correction, normal
+p-values, matching `statsmodels`' `cov_type="HAC"` — so agreement is a genuine second opinion, not a second call to
+the same library. `python -m trackrecord r-verify` runs it over every manager and writes
+`data/research/r-verify/`; **91 managers, 4,641 numbers, largest difference 8.9e-13, no disagreements**. Served at
+`/research/r-verify`. R is not installed on Railway, so the CSVs are committed and the page renders from them; the
+pytest skips where Rscript is absent.
 
 ## Hedge funds: 13F clones
 Private funds publish no returns. `python -m trackrecord funds-build --contact "Name email"` (SEC requires a

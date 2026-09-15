@@ -381,3 +381,110 @@ def construction_html(out_dir: Path | None = None) -> str | None:
 <div id="tip" class="tip" hidden></div>
 <script>{JS}</script>
 """
+
+
+# ---------------------------------------------------------------- R reproduction note
+
+def _sci(x) -> str:
+    return "n/a" if x is None or pd.isna(x) else f"{x:.1e}"
+
+
+def rverify_html(out_dir: Path | None = None) -> str | None:
+    from .rverify import OUT_DIR as RV_DIR, TOL
+    d = out_dir or RV_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    s = pd.read_csv(d / "summary.csv")
+    byq = pd.read_csv(d / "by_quantity.csv")
+    if s.empty:
+        return None
+
+    agreed = int(s.agree.sum()); bad = int((~s.agree).sum())
+    worst_mgr = s.loc[s.max_abs_diff.idxmax()]
+    # the quantities table: worst disagreement per quantity, largest first
+    qrows = ""
+    for _, r in byq.iterrows():
+        label = f"{esc(r.quantity)}" + (f" <span class='muted'>{esc(r.model)}</span>" if r.model != "-" else "")
+        cls = "" if r.max_abs_diff < TOL else " class='bad'"
+        qrows += (f"<tr{cls}><td>{label}</td><td class='n'>{int(r.managers)}</td>"
+                  f"<td class='n'>{_sci(r.max_abs_diff)}</td><td class='n'>{_sci(r.max_rel_diff)}</td></tr>")
+    # per-manager table, largest difference first — the ones worth looking at are at the top
+    mrows = ""
+    for _, r in s.sort_values("max_abs_diff", ascending=False).head(20).iterrows():
+        v, vt = ("yes", "agree") if r.agree else ("no", "differs")
+        mrows += (f"<tr><td><a href='/f/{esc(r.slug)}/memo'>{esc(r['name'])}</a></td><td class='n'>{int(r.cells)}</td>"
+                  f"<td class='n'>{pct(r.ff3_alpha_r, 1)}</td><td class='n'>{pct(r.ff3_alpha_python, 1)}</td>"
+                  f"<td class='n'>{_tv(r.ff3_t_r)}</td><td class='n'>{_tv(r.ff3_t_python)}</td>"
+                  f"<td class='n'>{num(r.score_r, 1)}</td><td class='n'>{num(r.score_python, 1)}</td>"
+                  f"<td class='n'>{_sci(r.max_abs_diff)}</td><td><span class='v {v}'>{vt}</span></td></tr>")
+    verdict = (f"All {man['checks']:,} numbers agree" if not bad else
+               f"{bad} of {man['managers']} managers disagree")
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R reproduction — do the headline numbers hold up?</title>
+<style>{CSS}{EXTRA_CSS}
+tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
+.v {{ display: inline-block; font: 600 9.5px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; }}
+.v.yes {{ background: var(--good); }} .v.no {{ background: var(--crit); }}
+</style>
+<div class="banner" role="note"><span class="bl">Verification</span> A second implementation of the same statistics, written in R against the same aligned data. It tests the code, not the conclusion.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Due diligence on the due-diligence engine</div></div>
+  <div class="gold-rule"></div>
+  <h1>The same alphas,<br>recomputed in R</h1>
+  <p class="sub">Every headline number on a manager's dashboard — factor alphas, their Newey-West t-statistics, annualized return, volatility, Sharpe, max drawdown and the alpha-maxing score — is recomputed by <code>r/verify.R</code> in data.table and base R, from the aligned returns alone, and compared with what Python reported. No shared code: the HAC sandwich is written out by hand on the R side.</p>
+  <dl class="meta">
+    <div><dt>Managers</dt><dd>{man['managers']}</dd></div>
+    <div><dt>Numbers checked</dt><dd>{man['checks']:,}</dd></div>
+    <div><dt>Largest difference</dt><dd>{_sci(man['max_abs_diff'])}</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])} · {esc(man['r'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+<section class="verdict">
+  <div class="sh"><h2>{verdict}</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Managers agreeing</div><div class="tv">{agreed} / {man['managers']}</div><div class="td muted">agreement at better than {_sci(TOL)} on every number</div></div>
+    <div class="tile"><div class="tl">Numbers compared</div><div class="tv">{man['checks']:,}</div><div class="td muted">{man['quantities_per_manager']} per manager — four factor models plus risk metrics and the score</div></div>
+    <div class="tile"><div class="tl">Largest difference</div><div class="tv">{_sci(man['max_abs_diff'])}</div><div class="td muted">{esc(worst_mgr['name'])}, {esc(worst_mgr.worst_quantity)} — double precision noise, not a discrepancy</div></div>
+    <div class="tile"><div class="tl">Disagreements</div><div class="tv">{bad}</div><div class="td muted">above the {_sci(TOL)} threshold, which is where a real bug would show</div></div>
+  </div>
+  <p class="cap" style="margin-top:14px">Agreement at 1e-13 means the two implementations do the same arithmetic. It does not mean the model is the right one, that the clones track the funds, or that an alpha with t = 0.4 is real — the memos say what the numbers are worth. What it rules out is the quiet kind of error: a wrong lag in the HAC weights, an off-by-one in the annualization, a drop-NA that silently changes the sample.</p>
+</section>
+
+<section>
+  <div class="sh"><h2>Agreement by quantity</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>quantity</th><th class="n">managers</th><th class="n">max |R − Python|</th><th class="n">max relative</th></tr></thead><tbody>{qrows}</tbody></table>
+  <p class="cap">Worst case across every manager, largest first. Full detail: <a href="/research/r-verify/by_quantity.csv">by_quantity.csv</a>, <a href="/research/r-verify/summary.csv">summary.csv</a>.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Manager by manager</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>manager</th><th class="n">months</th><th class="n">FF3 α R</th><th class="n">FF3 α Python</th><th class="n">t R</th><th class="n">t Python</th><th class="n">score R</th><th class="n">score Python</th><th class="n">max diff</th><th></th></tr></thead><tbody>{mrows}</tbody></table>
+  <p class="cap">The twenty managers with the largest difference — that is, the hardest cases for the comparison, not the best managers. Alphas are annualized; t is the Newey-West t on the FF3 intercept.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>What R recomputes</h2></div>
+  <div class="grid2">
+    <div class="card"><h3>The regression</h3>
+      <p>For each of CAPM, FF3, Carhart 4 and FF5, R fits R<sub>p</sub> − RF = α + Σ b<sub>k</sub>f<sub>k</sub> + ε by ordinary least squares and builds the Newey-West covariance from scratch:</p>
+      <p class="note">V = (X'X)<sup>−1</sup> S (X'X)<sup>−1</sup>, &nbsp; S = S<sub>0</sub> + Σ<sub>l=1..L</sub> w<sub>l</sub>(S<sub>l</sub> + S<sub>l</sub>'), &nbsp; w<sub>l</sub> = 1 − l/(L+1), &nbsp; L = ⌊0.75·n<sup>1/3</sup>⌋</p>
+      <p>with no small-sample correction and normal — not t — p-values and confidence intervals, which is what <code>statsmodels</code> does under <code>cov_type="HAC"</code>. Those three choices are exactly where two implementations usually drift apart, so they are the point of the exercise.</p>
+    </div>
+    <div class="card"><h3>The rest</h3>
+      <p>Annualized return as (Π(1+r))<sup>1/years</sup> − 1; volatility as the sample standard deviation times √12; Sharpe as the mean excess return over its standard deviation, times √12; max drawdown from the compounded index of monthly cells. The alpha-maxing score is rebuilt from its fixed map, 50 + 10 × excess return over the market in points, clipped to 0–100.</p>
+      <p>R reads only <code>aligned_data.csv</code> — the returns and factors after alignment — and then the Python outputs purely to compare against. Any disagreement in the alignment itself would be invisible to this test; it checks the statistics, not the data assembly, which is what the coverage and reconciliation phases are for.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · verification</span><span>{man['managers']} managers · {man['checks']:,} numbers</span></div>
+  <h4>Important information</h4>
+  <p>An internal consistency check between two implementations of the same statistics, run on clone portfolios reconstructed from public SEC EDGAR 13F-HR filings; factor data from the Kenneth R. French Data Library. Agreement between implementations is not evidence that a manager has skill. Not a recommendation or investment advice. Rebuild: <code>python -m trackrecord r-verify</code>; one manager: <code>Rscript r/verify.R output/funds/&lt;slug&gt;/phase4</code>. R is not installed on the server, so these tables are built locally and committed.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""

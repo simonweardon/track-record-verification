@@ -17,18 +17,22 @@ the context that is not in the code.
 - Disclose AI assistance plainly (README/cover note): built with Claude Code as pair programmer;
   methodology, data-quality rules and verification are Simon's.
 
-## Status (Sept 15, 2026 evening) — pick up here
+## Status (Sept 15, 2026, late evening) — pick up here
 DONE and deployed: (1) 13F signals research `/research/13f-signals`; (2) LP constructor + trade list
-`/research/construction` with the Rglpk twin `r/construct.R` (agreement ~1e-8 on the live inputs);
-(3) due-diligence memo `/f/<slug>/memo` (+ `/t/<ticker>/memo`), linked from every manager dashboard;
-server pre-builds all managers after start. 87 tests pass. Railway deploy of the last push was in
-progress when the laptop session paused — verify `/research/construction` and `/f/appaloosa/memo` return 200.
-NEXT (4): `r/verify.R` — reproduce FF3/CAPM/Carhart alpha + HAC t (statsmodels HAC: Bartlett weights,
-lag = floor(0.75·n^(1/3)), NO small-sample correction), annualized return/vol/Sharpe/max-DD and the
-alpha-maxing score from `output/<fund>/phase4/aligned_data.csv`, compare with regressions.csv/metrics.csv/
-scores.csv; pytest (skip without Rscript); summary over all managers to `data/research/r-verify/` and a
-small page. Then (5) research-notes/landing polish, cover note, disclosure line in README, interview quiz.
-Cloud sessions have no R — run R locally or just keep the script + test.
+`/research/construction` with the Rglpk twin `r/construct.R`; (3) due-diligence memo `/f/<slug>/memo`
+(+ `/t/<ticker>/memo`), linked from every manager dashboard; server pre-builds all managers after start.
+Verified this session on the deployed commit (f62f60e): `/research/construction`, `/f/appaloosa/memo`,
+`/research/13f-signals` and `/leaderboard` all 200. The Railway egress is blocked from cloud sessions, so
+the check was run against the same commit served locally; the Railway deploy itself is SUCCESS.
+DONE (4): **R reproduction**. `r/verify.R` (data.table + base R, HAC sandwich written out by hand) recomputes
+CAPM/FF3/Carhart4/FF5 alpha, SE, t, p, CI, R², loadings, annualized return/vol/Sharpe/max-DD and the
+alpha-maxing score from `output/<fund>/phase4/aligned_data.csv` and compares with regressions/metrics/scores.csv.
+`trackrecord/rverify.py` drives it over every manager (`python -m trackrecord r-verify`) → `data/research/r-verify/`
+(committed; Railway has no R), page `/research/r-verify` linked from the landing research line.
+**91 managers, 4,641 numbers, max |R − Python| 8.9e-13, zero disagreements.** 90 tests pass (3 new; they skip
+without Rscript). Note for cloud sessions: R *can* be installed here — `apt-get install -y --no-install-recommends
+r-base-core r-cran-data.table r-cran-rglpk` (~2 min) — which also un-skips the Rglpk construct twin test.
+NEXT (5): research-notes/landing polish, cover note, the AI-disclosure line in README, interview-prep quiz.
 
 ## Feature plan (agreed Sept 15, 2026), in priority order
 1. **13F signals backtest** — `trackrecord/signals13f.py` (DONE): best-ideas (each manager's largest

@@ -65,16 +65,16 @@ def tool_cards() -> dict[str, list[dict]]:
     if lab and labman:
         best = max(lab.values(), key=lambda r: _num(r.get("ic_t"), -99))
         xg = lab.get("xgboost", {}); lin = lab.get("linear", {})
-        cards["active"].append(dict(href="/research/alpha-lab", eyebrow="Alpha Model Lab",
-            title="Which signals predict returns, and does a tree model beat a line?",
+        cards["active"].append(dict(href="/research/alpha-lab", eyebrow="Which signals predict returns — and does a tree model beat a line?",
+            title="Alpha Model Lab",
             what=f"Value, momentum, quality, low-volatility and size signals from prices and SEC filings, ranked every quarter across {labman.get('universe_avg', '')} names; "
                  f"information coefficients, decile spreads, and a walk-forward gradient-boosted model (xgboost) against a linear composite.",
             stats=[(f"{_num(best.get('ic_mean'), 0):+.3f}", f"best IC · {best.get('label', best.get('signal', ''))}"),
                    (f"{_num(xg.get('ic_mean'), 0):+.3f}", "xgboost IC, walk-forward"), (f"{_num(lin.get('ic_mean'), 0):+.3f}", "linear composite IC")]))
     risk, riskman = _man("risk-model/manifest.json"), None
     if risk.get("factors"):
-        cards["active"].append(dict(href="/research/risk-model", eyebrow="Factor Risk Model",
-            title="A fundamental factor risk model, Barra-style",
+        cards["active"].append(dict(href="/research/risk-model", eyebrow="A fundamental factor risk model, Barra-style",
+            title="Factor Risk Model",
             what="Monthly cross-sectional regressions of stock returns on style exposures and industries give a factor covariance and specific risk; "
                  "any portfolio decomposes into factor and stock-specific risk, with a predicted tracking error to check against what happened.",
             stats=[(f"{risk.get('factors')}", "factors"), (f"{risk.get('industries')}", "industries"),
@@ -82,16 +82,16 @@ def tool_cards() -> dict[str, list[dict]]:
     con, conman = _rows("construction/summary.csv", "key"), _man("construction/manifest.json")
     if con and conman:
         P = con.get("portfolio", {})
-        cards["active"].append(dict(href="/research/construction", eyebrow="Portfolio Construction",
-            title="From a signal to a trade list",
+        cards["active"].append(dict(href="/research/construction", eyebrow="From a signal to a trade list",
+            title="Portfolio Construction",
             what="A linear program turns alpha scores into target weights under name caps, sector and active bands, an active-share cap and a turnover budget, "
                  "then into the tickets a trader would receive. Solved in Python (HiGHS) and again in R (Rglpk).",
             stats=[(f"{_num(P.get('active_return'), 0) * 100:+.1f}%", "active return /yr"), (f"{_num(P.get('information_ratio'), 0):.2f}", "information ratio"),
                    (f"{conman.get('rebalances', '')}", "rebalances")]))
     rv = _man("r-verify/manifest.json")
     if rv.get("managers"):
-        cards["active"].append(dict(href="/research/r-verify", eyebrow="R Verification",
-            title="The same statistics, recomputed in R",
+        cards["active"].append(dict(href="/research/r-verify", eyebrow="The same statistics, recomputed in R",
+            title="R Verification",
             what="Every headline number — alphas, Newey–West t-statistics, loadings, Sharpe, drawdown, scores — is recomputed from the aligned returns by an "
                  "independent R implementation with data.table and compared with what Python reported.",
             stats=[(f"{rv.get('managers')}", "managers"), (f"{rv.get('checks', 0):,}", "numbers checked"), (f"{rv.get('max_abs_diff', 0):.0e}", "largest difference")]))
@@ -99,8 +99,8 @@ def tool_cards() -> dict[str, list[dict]]:
     # ---- passive
     idx = _man("index-tracker/manifest.json")
     if idx.get("benchmark"):
-        cards["passive"].append(dict(href="/research/index-tracker", eyebrow="Index Tracking — live book",
-            title=f"Replicate {idx['benchmark']} with fewer names, and run it daily",
+        cards["passive"].append(dict(href="/research/index-tracker", eyebrow=f"Replicate {idx['benchmark']} with fewer names, and run it daily",
+            title="Index Tracking — live book",
             what="Optimised sampling: hold a subset of the index that minimises predicted tracking error under the risk model, rebalance on the benchmark's "
                  "reconstitution, and keep cash within the mandate. Daily Portfolio Status Worksheet and rebalance trade list included.",
             stats=[(f"{idx.get('names_held')}", f"of {idx.get('names_index')} names"), (f"{_num(idx.get('te_realized'), 0):.2%}", "realized tracking error"),

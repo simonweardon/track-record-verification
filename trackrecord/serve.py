@@ -335,6 +335,15 @@ def nav_html(crumb: str = "", me: bool = False, extra: tuple[str, str] | None = 
     return NAV_CSS + toolbar(current, extra, crumb)
 
 
+def with_nav(doc: str, nav: str) -> str:
+    """Put the toolbar at the very top of a generated page (above its banner and cover), like the home page."""
+    for marker in ('<div class="banner"', '<header class="cover">', '<main class="wrap'):
+        i = doc.find(marker)
+        if i >= 0:
+            return doc[:i] + nav + doc[i:]
+    return nav + doc
+
+
 # ---------------------------------------------------------------- private records
 
 def build_user_record(uid: str, slug: str) -> None:
@@ -1118,7 +1127,7 @@ class Handler(SimpleHTTPRequestHandler):
                     return self._redirect(f"/me/{slug}/")
                 doc = dash.read_text(encoding="utf-8")
                 label = json.loads((rec / "meta.json").read_text()).get("label", slug)
-                doc = doc.replace('<main class="wrap">', nav_html(label + " — private", me=True, current="/me") + '<main class="wrap">', 1)
+                doc = with_nav(doc, nav_html(label + " — private", me=True, current="/me"))
                 return self._html(doc)
             job = start_user_record(uid, slug)
             if job["done"] and not job.get("error") and dash.exists():
@@ -1127,7 +1136,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._html(ticker_status_html(slug, job, label=label, ready_href=f"/me/{slug}/dashboard.html"))
         if u.path in ("/research", "/research/"):
             from .research_pages import research_index_html
-            return self._html(research_index_html().replace('<main class="wrap">', nav_html("Research", current="/research") + '<main class="wrap">', 1))
+            return self._html(with_nav(research_index_html(), nav_html("Research", current="/research")))
         if u.path.startswith("/research/data/"):
             # any CSV under data/research, addressed as <note>/<file>.csv — no traversal
             rel = u.path[len("/research/data/"):]
@@ -1143,19 +1152,19 @@ class Handler(SimpleHTTPRequestHandler):
             doc = signals13f_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
-            return self._html(doc.replace('<main class="wrap">', nav_html("Research · 13F signals", current="/research/13f-signals") + '<main class="wrap">', 1))
+            return self._html(with_nav(doc, nav_html("Research · 13F signals", current="/research/13f-signals")))
         if u.path == "/research/construction":
             from .research_pages import construction_html
             doc = construction_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord construct</code>.</p></main>"), 404)
-            return self._html(doc.replace('<main class="wrap">', nav_html("Research · portfolio construction", current="/research/construction") + '<main class="wrap">', 1))
+            return self._html(with_nav(doc, nav_html("Research · portfolio construction", current="/research/construction")))
         if u.path == "/research/r-verify":
             from .research_pages import rverify_html
             doc = rverify_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord r-verify</code> where R and data.table are installed.</p></main>"), 404)
-            return self._html(doc.replace('<main class="wrap">', nav_html("Research \u00b7 R reproduction", current="/research/r-verify") + '<main class="wrap">', 1))
+            return self._html(with_nav(doc, nav_html("Research \u00b7 R reproduction", current="/research/r-verify")))
         if u.path.startswith("/research/r-verify/") and u.path.endswith(".csv"):
             from .rverify import OUT_DIR as RV_DIR
             f = RV_DIR / u.path.rsplit("/", 1)[1]
@@ -1212,7 +1221,7 @@ class Handler(SimpleHTTPRequestHandler):
             if doc is None:
                 return self._html(not_found_html(u.path), 404)
             back = f"/funds/{key}/dashboard.html" if kind == "f" else f"/t/{key}/dashboard.html"
-            return self._html(doc.replace('<main class="wrap memo">', nav_html("Due-diligence memo", extra=("Dashboard", back)) + '<main class="wrap memo">', 1))
+            return self._html(with_nav(doc, nav_html("Due-diligence memo", extra=("Dashboard", back))))
         if u.path.endswith("dashboard.html"):
             f = OUT / u.path.lstrip("/")
             if f.exists():
@@ -1228,7 +1237,7 @@ class Handler(SimpleHTTPRequestHandler):
                     extra = ("Due-diligence memo", f"/f/{parts[1]}/memo")
                 elif parts[0] == "t":
                     crumb = parts[1] + " — listed"; extra = ("Due-diligence memo", f"/t/{parts[1]}/memo")
-                doc = doc.replace('<main class="wrap">', nav_html(crumb, extra=extra) + '<main class="wrap">', 1)
+                doc = with_nav(doc, nav_html(crumb, extra=extra))
                 return self._html(doc)
             parts = u.path.strip("/").split("/")          # not built (fresh container?) -> build it
             if parts[0] == "funds" and len(parts) == 3 and (FUNDS_ROOT / parts[1] / "meta.json").exists():

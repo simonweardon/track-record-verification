@@ -97,11 +97,32 @@ def build_all() -> None:
                 _run(step)
         STATE["phase"] = "ready"
         _log(f"== ready ({time.time() - STATE['started']:.0f}s after start)")
+        warm_funds()                         # then every manager, featured first, so no click ever waits
     except Exception as e:                   # keep serving whatever exists; show the error
         STATE["error"] = str(e)
         STATE["phase"] = "failed"
         _log(f"== FAILED: {e}")
     STATE["done"] = True
+
+
+FEATURED = ["berkshire-13f", "appaloosa", "atreides", "scion", "pershing-square", "baupost", "duquesne", "tiger-global"]
+
+
+def warm_funds() -> None:
+    """Pre-build every scorable manager's dashboard in the background (~30 s each), featured ones first.
+    Uses the same job machinery as a click, so a visitor who arrives mid-build just joins the queue."""
+    if os.environ.get("WARM_FUNDS", "1") != "1":
+        return
+    slugs = [r["slug"] for r in fund_index() if r.get("status") == "ok"]
+    order = [s for s in FEATURED if s in slugs] + sorted(s for s in slugs if s not in FEATURED)
+    for i, slug in enumerate(order):
+        if (OUT / "funds" / slug / "dashboard.html").exists():
+            continue
+        job = start_fund(slug)
+        while not job["done"]:
+            time.sleep(1)
+        _log(f"warm {i + 1}/{len(order)}: {slug} {'ok' if not job.get('error') else 'FAILED ' + str(job['error'])[:80]}")
+    _log("== all managers pre-built")
 
 
 def _run_job(job: dict, args: list[str]) -> None:

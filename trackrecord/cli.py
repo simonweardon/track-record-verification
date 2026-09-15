@@ -326,6 +326,8 @@ def main(argv=None):
     rm.set_defaults(fn=lambda a: (__import__("trackrecord.riskmodel", fromlist=["build"]).build(), 0)[1])
     it = sub.add_parser("index-tracker", help="passive: cap-weighted universe index, optimised-sampling replication under the risk model, DPSW, trade list -> data/research/index-tracker")
     it.set_defaults(fn=lambda a: (__import__("trackrecord.tracker", fromlist=["build"]).build(), 0)[1])
+    ff = sub.add_parser("fund-of-funds", help="external managers: alpha shrinkage, residual correlations, max-IR allocation, diversification curve, out-of-sample test -> data/research/fund-of-funds")
+    ff.set_defaults(fn=lambda a: (__import__("trackrecord.fof", fromlist=["build"]).build(), 0)[1])
     cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
     cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
     cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")

@@ -90,3 +90,18 @@ def test_r_twin_matches_python(tmp_path):
     assert out["available"], out
     assert abs(out["expected_alpha_r"] - out["expected_alpha_python"]) < 1e-6    # same optimum (weights may tie)
     assert out["max_abs_diff"] < 1e-6
+
+
+def test_fund_of_funds_shrinkage_and_allocation():
+    from trackrecord import fof as F
+    M = pd.DataFrame({"alpha": [0.06, 0.02, -0.01, 0.00], "se": [0.05, 0.008, 0.02, 0.01], "resid_vol": [0.15, 0.04, 0.08, 0.05]}, index=list("ABCD"))
+    Meb = F.shrink_alphas(M)
+    assert (Meb.shrink_factor <= 1).all() and Meb.loc["B", "shrink_factor"] > Meb.loc["A", "shrink_factor"]   # precise estimate keeps more
+    M2 = F.shrink_alphas(M, tau=0.02)
+    assert abs(M2.loc["A", "alpha_shrunk"]) < abs(M.loc["A", "alpha"]) and M2.loc["B", "alpha_shrunk"] > 0.015
+    idx = pd.date_range("2018-01-31", periods=60, freq="ME")
+    rng = np.random.default_rng(0)
+    U = pd.DataFrame(rng.normal(size=(60, 4)) * M.resid_vol.values / np.sqrt(12), index=idx, columns=list("ABCD"))
+    S = F.residual_cov(U, list("ABCD"))
+    w = F.allocate(M2.alpha_shrunk[M2.alpha_shrunk > 0], S, max_weight=0.6)
+    assert abs(w.sum() - 1) < 1e-9 and (w <= 0.6 + 1e-9).all() and w.get("B", 0) > w.get("A", 0)               # the precise low-vol alpha dominates

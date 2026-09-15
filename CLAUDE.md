@@ -17,7 +17,16 @@ the context that is not in the code.
 - Disclose AI assistance plainly (README/cover note): built with Claude Code as pair programmer;
   methodology, data-quality rules and verification are Simon's.
 
-## Status (Sept 15, 2026, late evening) — pick up here
+## Status (Sept 16, 2026) — pick up here
+Site reorganised by job area (Simon's brief: tools that do the job's work; redundant tabs removed). Toolbar:
+Home · Passive · Active · External managers · My records (identical on every page; areas with no built tool are hidden).
+New tools, all built, tested (102 tests) and pushed: alpha lab (xgboost native API), risk model, index tracker + DPSW,
+fund-of-funds. Data: SEC XBRL fundamentals (1,207 names) and split-only closes in the bundle; shares cleaned
+(unit errors, split back-adjustment, 10-K/10-Q only). Rebuild order after data changes: alpha-lab → risk-model →
+index-tracker; construct and fund-of-funds are independent. Remaining: interview-prep quiz; consider a factor /
+index-provider / currency note under External managers if time allows.
+
+## Earlier status (Sept 15, 2026, late evening)
 DONE and deployed: (1) 13F signals research `/research/13f-signals`; (2) LP constructor + trade list
 `/research/construction` with the Rglpk twin `r/construct.R`; (3) due-diligence memo `/f/<slug>/memo`
 (+ `/t/<ticker>/memo`), linked from every manager dashboard; server pre-builds all managers after start.

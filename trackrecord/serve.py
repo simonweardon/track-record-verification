@@ -1165,6 +1165,12 @@ class Handler(SimpleHTTPRequestHandler):
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Research · 13F signals", current="/research/13f-signals")))
+        if u.path == "/research/fund-of-funds":
+            from .research_pages import fof_html
+            doc = fof_html()
+            if doc is None:
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord fund-of-funds</code>.</p></main>"), 404)
+            return self._html(with_nav(doc, nav_html("External managers · fund of funds", current="/external")))
         if u.path == "/research/index-tracker":
             from .research_pages import tracker_html
             doc = tracker_html()

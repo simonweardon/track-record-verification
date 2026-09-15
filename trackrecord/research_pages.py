@@ -987,3 +987,119 @@ def tracker_html(out_dir: Path | None = None) -> str | None:
 <div id="tip" class="tip" hidden></div>
 <script>{JS}</script>
 """
+
+
+# ---------------------------------------------------------------- fund of funds
+
+def fof_html(out_dir: Path | None = None) -> str | None:
+    from .fof import OUT_DIR as FOF_DIR
+    d = out_dir or FOF_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    M = pd.read_csv(d / "managers.csv")
+    curve = pd.read_csv(d / "diversification_curve.csv")
+    blends = json.loads((d / "blends.json").read_text())
+    alloc = json.loads((d / "allocations_by_prior.json").read_text())
+    oos = man.get("oos", {})
+    tau_eb = man["tau_eb"]
+
+    # shrinkage table (top 20 by raw alpha) and allocation table
+    Ms = M.sort_values("alpha", ascending=False)
+    srow = "".join(f"<tr><td><b>{esc(r['name'])}</b> <span class='muted'>{esc(r.style)}</span></td><td class='n'>{int(r.months)}</td><td class='n'>{pct(r.alpha, 1)}</td><td class='n'>{pct(r.se, 1, False)}</td><td class='n'>{r.t:+.1f}</td>"
+                   f"<td class='n'>{r.shrink_factor:.2f}</td><td class='n'>{pct(r.alpha_shrunk, 1)}</td><td class='n'>{pct(r.alpha_eb, 2)}</td></tr>" for _, r in Ms.head(20).iterrows())
+    W = M[M.weight_optimised > 0].sort_values("weight_optimised", ascending=False)
+    wrow = "".join(f"<tr><td><b>{esc(r['name'])}</b> <span class='muted'>{esc(r.style)}</span></td><td class='n'>{pct(r.alpha_shrunk, 1)}</td><td class='n'>{r.resid_vol:.1%}</td><td class='n'>{r.ir_shrunk:.2f}</td><td class='n'>{r.weight_optimised:.1%}</td></tr>" for _, r in W.iterrows())
+    prior_rows = "".join(f"<tr><td>{esc(k)}</td><td class='n'>{v['tau']:.1%}</td><td class='n'>{v['names']}</td><td class='n'>{pct(v['alpha'], 1)}</td><td class='n'>{num(v['ir'])}</td></tr>" for k, v in man["alloc_summary"].items())
+    blend_rows = "".join(f"<tr><td>{esc(k)}</td><td class='n'>{v['names']}</td><td class='n'>{pct(v['alpha'], 1)}</td><td class='n'>{v['vol']:.1%}</td><td class='n'>{num(v['ir'])}</td></tr>" for k, v in blends.items())
+    cells = [str(int(n)) for n in curve.n]
+    cchart = line_chart(cells, [dict(name="expected IR", values=[float(v) for v in curve.ir], cls="s1", emph=True)], height=220, width=860, y_fmt=lambda v: f"{v:.2f}", end_labels=False, uid="divc")
+    oos_html = ""
+    if oos.get("available"):
+        t_, b_, a_, s_ = oos["top"], oos["bottom"], oos["all"], oos["top_minus_bottom"]
+        oos_html = (f"<div class='tiles'><div class='tile'><div class='tl'>Past top {oos['n_top']}</div><div class='tv'>{pct(t_['alpha'], 1)}</div><div class='td muted'>alpha after {esc(oos['split'][:7])} · t {t_['t']:+.1f} · were {pct(t_['first_half_alpha'], 1)} before</div></div>"
+                    f"<div class='tile'><div class='tl'>Past bottom {oos['n_top']}</div><div class='tv'>{pct(b_['alpha'], 1)}</div><div class='td muted'>alpha after · t {b_['t']:+.1f} · were {pct(b_['first_half_alpha'], 1)} before</div></div>"
+                    f"<div class='tile'><div class='tl'>Top − bottom</div><div class='tv'>{pct(s_['alpha'], 1)}</div><div class='td muted'>t {s_['t']:+.1f} over {s_['months']} months</div></div>"
+                    f"<div class='tile'><div class='tl'>Rank persistence</div><div class='tv'>{oos['rank_corr']:+.2f}</div><div class='td muted'>Spearman, first-half vs second-half alpha, {oos['candidates']} managers</div></div></div>"
+                    f"<p class='cap' style='margin-top:12px'>Managers ranked by FF3 alpha t-statistic fitted on data before {esc(oos['split'][:7])}; the second-period alpha uses the first period's betas, so it is a genuine out-of-sample residual. "
+                    f"{'Past alpha carried some information here' if s_['t'] >= 2 else 'Past alpha did not predict future alpha here'}: the spread between the ten best and ten worst past performers is {pct(s_['alpha'], 1)}/yr with t = {s_['t']:+.1f}, and the rank correlation is {oos['rank_corr']:+.2f}. "
+                    f"{oos['share_positive_second']:.0%} of managers had positive alpha in the second period. {s_['months']} months of evaluation is short; the result is indicative, and it is the result.</p>")
+    else:
+        oos_html = f"<p class='cap'>Out-of-sample test not available: {esc(str(oos.get('reason', '')))}.</p>"
+    eb_txt = (f"The empirical-Bayes prior variance is <b>zero</b>: the dispersion of the {man['managers']} estimated alphas ({M.alpha.std():.1%} standard deviation) is no larger than estimation noise alone would produce (root-mean-square standard error {np.sqrt((M.se ** 2).mean()):.1%}). "
+              f"On this evidence the best estimate of every manager's alpha is the common mean, {pct(man['prior_mean'], 2)}/yr, and the right fund of funds is the index. "
+              f"{man['n_t2']} managers show t ≥ 2 against about {man['expected_t2_by_chance']:.1f} expected by chance among {man['managers']}."
+              if tau_eb == 0 else
+              f"The empirical-Bayes prior standard deviation is {tau_eb:.1%}/yr: the estimated alphas disperse more than noise alone would produce, so some of it is real.")
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fund of funds</title>
+<style>{CSS}{EXTRA_CSS}</style>
+<div class="banner" role="note"><span class="bl">Research note</span> Manager alphas from 13F clones and listed funds — public proxies for the audited, net-of-fee series a real allocation would use. A demonstration of method.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">External managers · fund of funds</div></div>
+  <div class="gold-rule"></div>
+  <h1>Combine the managers that pass —<br>after shrinking what they claim</h1>
+  <p class="sub">{man['managers']} managers with five years or more of history. Each alpha is shrunk toward the cross-section in proportion to its noise, residual returns are correlated, and a long-only blend is chosen to maximise expected information ratio — under an honest prior, and under the priors an allocator might actually hold. Then the test that matters: does picking past winners work?</p>
+  <dl class="meta">
+    <div><dt>Candidates</dt><dd>{man['managers']}</dd></div>
+    <div><dt>Empirical-Bayes τ</dt><dd>{tau_eb:.1%}</dd></div>
+    <div><dt>Avg residual correlation</dt><dd>{man['avg_corr']:+.2f}</dd></div>
+    <div><dt>Selected (τ = 2%)</dt><dd>{man['selected']}</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+<section class="verdict">
+  <div class="sh"><h2>What the data say before any allocation</h2></div>
+  <div class="card"><p style="font-size:16px">{eb_txt}</p>
+  <p class="cap">Shrinkage: α* = μ + τ²/(τ² + s²) · (α̂ − μ), with μ the precision-weighted cross-sectional mean and s each manager's Newey–West standard error. τ is estimated as √max(0, Var(α̂) − mean s²). This is the James–Stein logic applied to manager selection: the noisier the estimate, the less of it survives.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Allocation under stated priors</h2></div>
+  <p class="note">An allocator who believes some managers have skill must say how much dispersion in true alpha they believe in (Baks, Metrick &amp; Wachter 2001). Each row shrinks with that τ, keeps the managers whose shrunk alpha is positive, and maximises the blend's expected information ratio with no manager above {man['max_weight']:.0%}.</p>
+  <div class="grid2">
+    <div class="card tscroll"><h3>By prior</h3><table><thead><tr><th>prior</th><th class="n">τ</th><th class="n">managers held</th><th class="n">blend alpha</th><th class="n">expected IR</th></tr></thead><tbody>{prior_rows}</tbody></table>
+      <p class="cap">Expected IR = shrunk blend alpha ÷ blend residual volatility from the shrunk correlation matrix. Ex ante; the out-of-sample section below is the check.</p></div>
+    <div class="card tscroll"><h3>The τ = 2% blend, three ways</h3><table><thead><tr><th>blend</th><th class="n">managers</th><th class="n">alpha</th><th class="n">resid vol</th><th class="n">expected IR</th></tr></thead><tbody>{blend_rows}</tbody></table>
+      <p class="cap">Optimisation versus equal weight of the top ten versus holding everyone: how much the correlation structure is worth on top of selection.</p></div>
+  </div>
+  <div class="card tscroll" style="margin-top:14px"><h3>Optimised weights, τ = 2%</h3><table><thead><tr><th>manager</th><th class="n">shrunk alpha</th><th class="n">residual vol</th><th class="n">shrunk IR</th><th class="n">weight</th></tr></thead><tbody>{wrow}</tbody></table>
+  <p class="cap">Low-residual-volatility managers (listed funds, diversified long-only books) get large weights even with modest alpha because they cost little tracking risk; concentrated clones get small weights because their residual volatility is 10–14%/yr.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Shrinkage, manager by manager</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>manager</th><th class="n">months</th><th class="n">raw alpha</th><th class="n">std error</th><th class="n">t</th><th class="n">keep (τ=2%)</th><th class="n">shrunk (τ=2%)</th><th class="n">empirical Bayes</th></tr></thead><tbody>{srow}</tbody></table>
+  <p class="cap">Top twenty by raw alpha. "Keep" is τ²/(τ² + s²): the share of the raw estimate that survives. The empirical-Bayes column is what the data alone support. Full table: <a href="/research/data/fund-of-funds/managers.csv">managers.csv</a>.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>How many managers?</h2></div>
+  <div class="card">{cchart}<p class="cap">Expected information ratio of an equal-weight blend of the top-N managers by shrunk IR (τ = 2%), adding one at a time. It rises while the added manager's alpha outweighs the dilution, then flattens: with residual correlations averaging {man['avg_corr']:+.2f}, diversification across managers is cheap but the alpha to diversify is thin.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Does picking past winners work?</h2></div>
+  <div class="card">{oos_html}</div>
+</section>
+
+<section>
+  <div class="sh"><h2>Method and limits</h2></div>
+  <div class="card">
+    <p><b>Inputs.</b> Each manager's monthly FF3 regression from the verification pipeline: alpha, Newey–West standard error, residual series. Managers with fewer than {man['min_months']} months and strategies whose 13F is not a portfolio are excluded. Listed funds (real net returns) sit alongside 13F clones (reconstructed gross long books) — a real allocation would have audited net series for all of them.</p>
+    <p><b>Correlations.</b> Pairwise on overlapping months (minimum 24), shrunk {man['corr_shrink']:.0%} toward zero. Residual returns, not total returns: factor exposure is bought elsewhere, cheaply.</p>
+    <p><b>Optimisation.</b> Maximise αᵀw / √(wᵀΣw) over long-only weights, Σw = 1, each ≤ {man['max_weight']:.0%}, SLSQP. No transaction costs, capacity or liquidity terms; a real fund-of-funds adds minimum ticket sizes, redemption terms and operational scores.</p>
+    <p><b>Reading it.</b> Two findings are the substance of the page: that the cross-section of alphas is indistinguishable from noise, and that ranking on past alpha did not select future alpha in this sample. Everything under a stated prior is what an allocator would do <i>if</i> they believed otherwise, shown so the belief is explicit rather than hidden in a weight.</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
+  <h4>Important information</h4>
+  <p>Built from the pipeline's own outputs on public SEC EDGAR filings and Yahoo Finance prices. A demonstration of fund-of-funds construction; not investment advice. Rebuild: <code>python -m trackrecord fund-of-funds</code>.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""

@@ -99,6 +99,20 @@ held with drift, and tested against the Carhart four factors with HAC errors, as
 lag the names just sold; the one apparent anomaly (least-crowded names) sits exactly where the price panel's
 survivorship bias lives and is reported as unreliable.
 
+## The site, by job area
+- **Passive** — `index-tracker`: a cap-weighted index built to a stated rulebook (US-domestic filers held by ≥ 5 managers,
+  point-in-time shares × split-adjusted close), replicated in full and by optimised sampling under the risk model
+  (40 / 80 / 150 names → TE 1.9 / 1.0 / 0.5% vs predicted 1.85 / 0.93 / 0.42%), with the Daily Portfolio Status
+  Worksheet, cash-flow slice and reconstitution trade list. `/research/index-tracker`.
+- **Active** — `alpha-lab`: eight point-in-time signals (prices + SEC XBRL fundamentals), ICs, deciles, equal-weight
+  linear composite vs walk-forward xgboost (finding: tree ≈ line); `risk-model`: Barra-style fundamental factor
+  model (market + 8 styles + 12 industries, EWMA covariance, specific risk, bias statistic ≈ 1.1); `construct`
+  (below); `r-verify` (below). `/research/alpha-lab`, `/research/risk-model`.
+- **External managers** — the verification pipeline and screener, per-manager memos, `signals13f` (13F signal
+  research), and `fund-of-funds`: empirical-Bayes alpha shrinkage (τ comes out at 0 — the cross-section of alphas
+  is noise), allocations under stated priors, diversification curve, and a true out-of-sample selection test.
+  `/external`, `/research/13f-signals`, `/research/fund-of-funds`.
+
 ## Portfolio construction: from signal to trade list
 `python -m trackrecord construct` runs a demonstration mandate: universe = names held by ≥ 5 managers each quarter,
 benchmark = the aggregate disclosed book, alpha = 12-1 momentum z-score, and a **linear program** that maximises

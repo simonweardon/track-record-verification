@@ -51,7 +51,7 @@ Then an interview-prep quiz on the project.
 - No real client statements are in the repo, ever (`data/entered`, `data/raw`, `userdata` are ignored).
 
 ## Conventions
-- Python 3.12, `.venv` locally; `pip install -r requirements.txt` in a fresh clone. Tests: `python -m pytest -q`
+- Python 3.10 in `.venv` locally (so no backslashes inside f-string expressions); `pip install -r requirements.txt` in a fresh clone. Tests: `python -m pytest -q`
   (71+ tests; keep them green, add one per new module).
 - Design: Palatino serif, navy/gold/sand palette, hairline rules, light/dark via `prefers-color-scheme`.
   Page chrome comes from `serve.page()`; dashboards from `dashboard.CSS`/`JS`. No new top navigation —

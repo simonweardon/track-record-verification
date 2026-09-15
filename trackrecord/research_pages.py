@@ -589,3 +589,260 @@ def _kb(p: Path) -> str:
     except OSError:
         return "\u2014"
     return f"{n / 1024:.0f} KB" if n >= 1024 else f"{n} B"
+
+
+# ---------------------------------------------------------------- alpha model lab
+
+def alphalab_html(out_dir: Path | None = None) -> str | None:
+    from .alphalab import OUT_DIR as LAB_DIR, SIGNALS
+    d = out_dir or LAB_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    S = pd.read_csv(d / "summary.csv").set_index("signal")
+    ic = pd.read_csv(d / "ic_monthly.csv", index_col=0, parse_dates=True)
+    dec = pd.read_csv(d / "deciles.csv", index_col=0)
+    imps = pd.read_csv(d / "xgboost_importance.csv", index_col=0)
+    corr = pd.read_csv(d / "signal_correlation.csv", index_col=0)
+    latest = pd.read_csv(d / "latest_ranks.csv")
+    hh = man.get("head_to_head", {})
+    feats = man["features"]
+
+    def light(t):
+        return ("yes", "evidence") if t >= 2 else ("weak", "weak") if t >= 1 else ("no", "none") if t > -1 else ("no", "wrong way")
+    # signal table
+    srow = ""
+    for s in feats + ["linear", "xgboost"]:
+        if s not in S.index: continue
+        r = S.loc[s]; c, lab = light(r.ic_t)
+        srow += (f"<tr><td><b>{esc(r.label)}</b></td><td class='n'>{r.coverage:.0%}</td><td class='n'>{int(r.months)}</td><td class='n'>{r.ic_mean:+.3f}</td><td class='n'>{r.ic_t:+.1f}</td>"
+                 f"<td class='n'>{r.ic_pct_positive:.0%}</td><td class='n'>{pct(r.spread_ann, 1)}</td><td class='n'>{r.spread_t:+.1f}</td><td class='n'>{num(r.spread_sharpe)}</td>"
+                 f"<td><span class='v {c}' style='color:#fff;background:var(--{ {'no': 'crit', 'weak': 'warn', 'yes': 'good'}[c] });font:600 9px var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:4px 7px'>{esc(lab)}</span></td></tr>")
+    # cumulative IC chart (linear vs xgboost) and rolling 12m IC for the best signals
+    cells = [x.strftime("%Y-%m") for x in ic.index]
+    series = []
+    for col, name, cls in [("linear", "Linear composite", "s1"), ("xgboost", "xgboost", "s4"), ("momentum", "Momentum", "s0"), ("value", "Value", "s5"), ("low_vol", "Low volatility", "s2")]:
+        if col in ic:
+            cum = ic[col].fillna(0).cumsum().where(ic[col].notna().cummax())
+            series.append(dict(name=name, values=[None if pd.isna(v) else float(v) for v in cum], cls=cls, emph=col in ("linear", "xgboost")))
+    cum_chart = line_chart(cells, series, height=300, width=860, y_fmt=lambda v: f"{v:+.1f}", end_labels=False, uid="cumic")
+    legend = "".join(f'<span><span class="k {s["cls"]}"></span>{esc(s["name"])}</span>' for s in series)
+    # deciles bars for linear and xgboost
+    def dec_bars(col):
+        if col not in dec: return ""
+        v = dec[col]
+        return diverging_bars([f"D{int(i)}" for i in v.index], [float(x) * 12 for x in v.values], height=200, width=420, y_fmt=lambda y: f"{y * 100:+.0f}%",
+                              tips=[f"decile {int(i)}: {x * 12 * 100:+.1f}%/yr average" for i, x in v.items()])
+    imp_last = imps.iloc[:, -1].sort_values(ascending=False) if len(imps.columns) else pd.Series(dtype=float)
+    imp_rows = "".join(f"<tr><td>{esc(SIGNALS.get(f, f))}</td><td class='n'>{v:.0%}</td></tr>" for f, v in imp_last.items())
+    corr_head = "".join(f"<th class='n'>{esc(SIGNALS.get(c, c).split(' (')[0])}</th>" for c in corr.columns)
+    corr_rows = "".join("<tr><td>" + esc(SIGNALS.get(r, r)) + "</td>" + "".join(f"<td class='n'>{corr.loc[r, c]:+.2f}</td>" for c in corr.columns) + "</tr>" for r in corr.index)
+    lat_rows = "".join(f"<tr><td><b>{esc(r.ticker)}</b></td>" + "".join(f"<td class='n'>{'—' if pd.isna(r[f]) else f'{r[f]:+.1f}'}</td>" for f in feats) + f"<td class='n'><b>{r.linear:+.2f}</b></td><td class='n'>{'—' if pd.isna(r.xgboost) else f'{r.xgboost * 100:+.2f}%'}</td></tr>" for _, r in latest.head(25).iterrows())
+    lin, xg = S.loc["linear"] if "linear" in S.index else None, S.loc["xgboost"] if "xgboost" in S.index else None
+    verdict = ("No: tree ≈ line" if hh.get("ic_diff_t", 0) < 2 else "Yes: tree > line") if xg is not None and lin is not None else ""
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alpha model lab</title>
+<style>{CSS}{EXTRA_CSS}</style>
+<div class="banner" role="note"><span class="bl">Research note</span> Signals from public prices and SEC filings, tested out of sample on a survivor-biased universe. A demonstration of method, not a strategy.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Active portfolios · alpha model lab</div></div>
+  <div class="gold-rule"></div>
+  <h1>Which signals predict returns —<br>and does a tree model beat a line?</h1>
+  <p class="sub">Eight classic stock-selection signals built point-in-time for ~{man['universe_avg']} names a month, ranked and tested every month from {man['first'][:7]} to {man['last'][:7]}: information coefficients, decile spreads, an equal-weight linear composite, and a gradient-boosted model (xgboost) trained walk-forward on the same inputs.</p>
+  <dl class="meta">
+    <div><dt>Months</dt><dd>{man['months']}</dd></div>
+    <div><dt>Names / month</dt><dd>~{man['universe_avg']}</dd></div>
+    <div><dt>Signals</dt><dd>{len(feats)}</dd></div>
+    <div><dt>xgboost tested</dt><dd>{man.get('xgb_months', 0)} months from {(man.get('xgb_first') or '')[:7]}</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+<section class="verdict">
+  <div class="sh"><h2>Findings</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Linear composite IC</div><div class="tv">{lin.ic_mean:+.3f}</div><div class="td muted">t = {lin.ic_t:+.1f} · positive in {lin.ic_pct_positive:.0%} of months · D10−D1 {pct(lin.spread_ann, 1)}/yr</div></div>
+    <div class="tile"><div class="tl">xgboost IC, walk-forward</div><div class="tv">{xg.ic_mean:+.3f}</div><div class="td muted">t = {xg.ic_t:+.1f} · positive in {xg.ic_pct_positive:.0%} of months · D10−D1 {pct(xg.spread_ann, 1)}/yr</div></div>
+    <div class="tile"><div class="tl">Head to head</div><div class="tv">{hh.get('ic_diff_mean', 0):+.3f}</div><div class="td muted">xgboost minus linear IC, same {hh.get('months', 0)} months · t = {hh.get('ic_diff_t', 0):+.1f} · xgboost ahead in {hh.get('xgb_wins_share', 0):.0%}</div></div>
+    <div class="tile"><div class="tl">Does the tree model beat the line?</div><div class="tv small">{esc(verdict)}</div><div class="td muted">same inputs, same months; on this universe and period</div></div>
+  </div>
+  <p class="cap" style="margin-top:14px">An IC is the rank correlation between a signal today and returns next month; 0.03–0.05 with t above 3 is what a usable signal looks like over a long sample. The composite and the tree model are compared on exactly the same months — the first {man['min_train']} months are held out so xgboost has something to learn from, and it is refit every {man['retrain']} months using only earlier data.</p>
+</section>
+
+<section>
+  <div class="sh"><h2>Signal by signal</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>signal</th><th class="n">coverage</th><th class="n">months</th><th class="n">mean IC</th><th class="n">t</th><th class="n">IC &gt; 0</th><th class="n">D10 − D1 /yr</th><th class="n">t</th><th class="n">Sharpe</th><th>evidence</th></tr></thead><tbody>{srow}</tbody></table>
+  <p class="cap">Coverage is the share of stock-months with the signal available (fundamentals depend on SEC XBRL tags). D10 − D1 is the equal-weight top-decile minus bottom-decile monthly return, annualized ×12. Evidence: t ≥ 2 evidence, 1–2 weak, below 1 none.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Cumulative information coefficient</h2></div>
+  <div class="card"><div class="legend">{legend}</div>{cum_chart}
+  <p class="cap">Running sum of monthly ICs. A signal that works climbs steadily; one that does not wanders around zero. The two models start at {(man.get('xgb_first') or '')[:7]}, when the first xgboost prediction is available.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Decile returns</h2></div>
+  <div class="grid2">
+    <div class="card"><h3>Linear composite, by decile (annualized)</h3>{dec_bars('linear')}</div>
+    <div class="card"><h3>xgboost, by decile (annualized)</h3>{dec_bars('xgboost')}</div>
+  </div>
+  <p class="cap">Average next-month return of each decile, ×12. A monotone staircase is the signature of a real signal; a spread that comes only from D1 or only from D10 is a warning about what is driving it.</p>
+</section>
+
+<section>
+  <div class="sh"><h2>What the tree model uses, and how the signals overlap</h2></div>
+  <div class="grid2">
+    <div class="card"><h3>xgboost feature importance (latest fit)</h3><div class="tscroll"><table><thead><tr><th>signal</th><th class="n">gain share</th></tr></thead><tbody>{imp_rows}</tbody></table></div>
+      <p class="cap">Share of the model's split gain attributed to each input. Importance is not predictive power — a signal can be used heavily and add nothing out of sample.</p></div>
+    <div class="card tscroll"><h3>Average rank correlation between signals</h3><table><thead><tr><th></th>{corr_head}</tr></thead><tbody>{corr_rows}</tbody></table>
+      <p class="cap">Averaged across months. Highly correlated signals are one signal wearing two names; the composite's equal weights double-count them.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><h2>Latest ranking — {esc(man['last'][:7])}</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>stock</th>{''.join(f"<th class='n'>{esc(SIGNALS.get(f, f).split(' (')[0])}</th>" for f in feats)}<th class="n">composite</th><th class="n">xgboost</th></tr></thead><tbody>{lat_rows}</tbody></table>
+  <p class="cap">Top 25 by the linear composite at the latest month-end; z-scores across the universe. The xgboost column is its predicted return relative to the universe mean next month. This is what feeds the <a href="/research/construction">portfolio constructor</a>.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Method and limits</h2></div>
+  <div class="card">
+    <p><b>Point in time.</b> Prices through the month-end; a filing is used only after its filed date and only if its period end is within 15 months. Balance-sheet items are the latest instant fact; income and cash flow are the latest annual-duration fact (330–400 days), so they update once a year like a Fama–French book value.</p>
+    <p><b>Universe.</b> Names held by at least {MIN_HOLDERS if False else 5} managers at the latest 13F formation date, price ≥ $1. Around {man['universe_avg']} names a month; large and liquid, which is where anomalies are weakest. Delisted names drop out at their last price (survivorship, disclosed).</p>
+    <p><b>Models.</b> The linear composite is the plain mean of available z-scores — no fitted weights at all. xgboost: 300 trees, depth 3, learning rate 0.03, subsample 0.8, min child weight 50, L2 = 5, trained on demeaned next-month returns; expanding window, first {man['min_train']} months held out, refit every {man['retrain']} months. No hyper-parameters were tuned on the test period.</p>
+    <p><b>Reading it.</b> With ~150 months and one universe, an IC t-statistic below 2 is noise; a tree model with eight inputs cannot learn much that a line does not already capture, and the head-to-head test says how much. That is the finding a research meeting needs, not a backtest that looks good.</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
+  <h4>Important information</h4>
+  <p>Built from public SEC EDGAR filings (13F holdings, XBRL company facts) and Yahoo Finance prices. In-sample reconstructions with the limits stated above; not a strategy, a recommendation or investment advice. Past performance is not indicative of future results. Rebuild: <code>python -m trackrecord alpha-lab</code>.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""
+
+
+# ---------------------------------------------------------------- risk model
+
+def riskmodel_html(out_dir: Path | None = None) -> str | None:
+    from .riskmodel import OUT_DIR as RM_DIR
+    from .alphalab import SIGNALS
+    d = out_dir or RM_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    fr = pd.read_csv(d / "factor_returns.csv", index_col=0, parse_dates=True)
+    r2 = pd.read_csv(d / "r2_monthly.csv", index_col=0, parse_dates=True).r2
+    vols = pd.read_csv(d / "factor_vols_latest.csv").set_index("factor")
+    spec = pd.read_csv(d / "specific_risk_latest.csv")
+    decs = json.loads((d / "decompositions_latest.json").read_text())
+    bt = pd.read_csv(d / "bias_by_year.csv", index_col=0).bias_stat
+    bias = man.get("bias", {})
+    styles = man["styles"]
+    lab = lambda f: SIGNALS.get(f, f).split(" (")[0] if not f.startswith("ind:") else f[4:]
+
+    cells = [x.strftime("%Y-%m") for x in fr.index]
+    cls_cycle = ["s1", "s4", "s2", "s5", "s0", "s1l", "s1", "s4"]
+    series = [dict(name=lab(s), values=[float(v) for v in fr[s].fillna(0).cumsum()], cls=cls_cycle[i % len(cls_cycle)]) for i, s in enumerate(styles) if s in fr]
+    fchart = line_chart(cells, series, height=300, width=860, y_fmt=lambda v: f"{v * 100:+.0f}%", end_labels=False, uid="fret")
+    legend = "".join(f'<span><span class="k {s["cls"]}"></span>{esc(s["name"])}</span>' for s in series)
+    r2y = r2.groupby(r2.index.year).mean()
+    r2_bars = diverging_bars([str(i) for i in r2y.index], [float(v) for v in r2y.values], height=180, width=860, y_fmt=lambda v: f"{v:.0%}",
+                             tips=[f"{i}: average cross-sectional R² {v:.0%}" for i, v in r2y.items()])
+    bias_bars = diverging_bars([str(i) for i in bt.index], [float(v) - 1 for v in bt.values], height=180, width=860, y_fmt=lambda v: f"{v + 1:.2f}",
+                               tips=[f"{i}: bias statistic {v:.2f} (1 = calibrated)" for i, v in bt.items()])
+    vrows = "".join(f"<tr><td>{esc(lab(f))}</td><td class='n'>{r.vol_ann:.1%}</td><td class='n'>{r.mean_ret_ann * 100:+.1f}%</td><td class='n'>{r.t:+.1f}</td></tr>"
+                    for f, r in vols.iterrows() if not f.startswith("ind:"))
+    irows = "".join(f"<tr><td>{esc(lab(f))}</td><td class='n'>{r.vol_ann:.1%}</td><td class='n'>{r.mean_ret_ann * 100:+.1f}%</td><td class='n'>{r.t:+.1f}</td></tr>"
+                    for f, r in vols.sort_values("vol_ann", ascending=False).iterrows() if f.startswith("ind:"))
+    def dec_card(name, x):
+        g = x.get("groups", {})
+        rows = "".join(f"<tr><td>{esc(k.title())}</td><td class='n'>{v:.0%}</td></tr>" for k, v in g.items()) + f"<tr><td class='muted'>Cross-factor interaction</td><td class='n'>{x.get('interaction', 0):.0%}</td></tr><tr><td>Stock-specific</td><td class='n'>{1 - x['share_factor']:.0%}</td></tr>"
+        top = "".join(f"<tr><td>{esc(lab(t['factor']))}</td><td class='n'>{t['exposure']:+.2f}</td><td class='n'>{t['var_share']:.0%}</td></tr>" for t in x["top"][:6])
+        return (f"<div class='card'><h3>{esc(name)}</h3><div class='tiles' style='margin-bottom:10px'>"
+                f"<div class='tile'><div class='tl'>Total risk</div><div class='tv'>{x['total']:.1%}</div><div class='td muted'>annualized · {x['n_names']} names</div></div>"
+                f"<div class='tile'><div class='tl'>Factor</div><div class='tv'>{x['factor']:.1%}</div><div class='td muted'>{x['share_factor']:.0%} of variance</div></div>"
+                f"<div class='tile'><div class='tl'>Specific</div><div class='tv'>{x['specific']:.1%}</div><div class='td muted'>{1 - x['share_factor']:.0%} of variance</div></div></div>"
+                f"<div class='grid2'><div class='tscroll'><table><thead><tr><th>source</th><th class='n'>share of variance</th></tr></thead><tbody>{rows}</tbody></table></div>"
+                f"<div class='tscroll'><table><thead><tr><th>largest exposures</th><th class='n'>exposure</th><th class='n'>var share</th></tr></thead><tbody>{top}</tbody></table></div></div></div>")
+    dec_html = "".join(dec_card(k, v) for k, v in decs.items())
+    spec_med = float(spec.specific_vol_ann.median()); spec_hi = spec.head(8)
+    spec_rows = "".join(f"<tr><td><b>{esc(r.ticker)}</b></td><td class='n'>{r.specific_vol_ann:.0%}</td></tr>" for _, r in spec_hi.iterrows())
+    b_rand, b_uni = bias.get("random", float("nan")), bias.get("universe", float("nan"))
+    verdict = ("calibrated" if 0.85 <= b_rand <= 1.15 else "under-forecasts risk" if b_rand > 1.15 else "over-forecasts risk")
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Risk model</title>
+<style>{CSS}{EXTRA_CSS}</style>
+<div class="banner" role="note"><span class="bl">Research note</span> A fundamental factor risk model estimated on the research universe. A demonstration of the method a vendor model implements at scale.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Active portfolios · risk model</div></div>
+  <div class="gold-rule"></div>
+  <h1>A fundamental factor risk model,<br>Barra-style</h1>
+  <p class="sub">Every month, stock returns are regressed on the same point-in-time exposures the alpha lab uses plus industry membership; the factor returns and residuals become a factor covariance and stock-specific risk, and any portfolio decomposes into where its risk comes from — with a calibration test to say whether the forecasts can be trusted.</p>
+  <dl class="meta">
+    <div><dt>Months</dt><dd>{man['months']} · {man['first'][:7]} → {man['last'][:7]}</dd></div>
+    <div><dt>Factors</dt><dd>{man['factors']} · market + {len(styles)} styles + {man['industries']} industries</dd></div>
+    <div><dt>Avg R²</dt><dd>{man['r2_avg']:.0%}</dd></div>
+    <div><dt>Bias statistic</dt><dd>{b_rand:.2f}</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+<section class="verdict">
+  <div class="sh"><h2>Does it forecast risk?</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Bias statistic, random portfolios</div><div class="tv">{b_rand:.2f}</div><div class="td muted">std of realized ÷ predicted · 1.00 is perfect · {verdict}</div></div>
+    <div class="tile"><div class="tl">Bias statistic, whole universe</div><div class="tv">{b_uni:.2f}</div><div class="td muted">equal-weight universe each month</div></div>
+    <div class="tile"><div class="tl">Explanatory power</div><div class="tv">{man['r2_avg']:.0%}</div><div class="td muted">average cross-sectional R² per month</div></div>
+    <div class="tile"><div class="tl">Median specific risk</div><div class="tv">{spec_med:.0%}</div><div class="td muted">annualized, per stock, latest</div></div>
+  </div>
+  <p class="cap" style="margin-top:14px">The bias statistic is the standard test: for {len(bt)} years of monthly random 50-name portfolios, divide each realized return by the volatility the model predicted for it the month before; a calibrated model gives a ratio with standard deviation 1. Above 1 the model under-forecasts risk (dangerous), below 1 it over-forecasts (costly). Factor covariance uses a {man['window']}-month window with a {man['half_life']}-month half-life; specific variance is an EWMA of each stock's residuals, shrunk toward the median for short histories.</p>
+  <div class="card" style="margin-top:14px"><h3>Bias statistic by year (random portfolios)</h3>{bias_bars}<p class="cap">Plotted as deviation from 1. Years above the line are years the model was too confident — typically regime changes the trailing window had not seen.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Factor returns</h2></div>
+  <div class="card"><div class="legend">{legend}</div>{fchart}
+  <p class="cap">Cumulative return to each style factor: the return to a unit exposure, holding the other styles and industries fixed. These are the "pure" factor returns a Barra report shows, not long-short portfolios.</p></div>
+  <div class="grid2" style="margin-top:14px">
+    <div class="card tscroll"><h3>Style factors, latest window</h3><table><thead><tr><th>factor</th><th class="n">vol /yr</th><th class="n">mean /yr</th><th class="n">t</th></tr></thead><tbody>{vrows}</tbody></table></div>
+    <div class="card tscroll"><h3>Industry factors, latest window</h3><table><thead><tr><th>industry</th><th class="n">vol /yr</th><th class="n">mean /yr</th><th class="n">t</th></tr></thead><tbody>{irows}</tbody></table></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>Cross-sectional R² by year</h3>{r2_bars}<p class="cap">How much of the month's dispersion in stock returns the factors explain. Vendor models on broad universes typically run 20–40%; higher in crises when everything moves together.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Risk decomposition — {esc(man['latest_month'][:7])}</h2></div>
+  <p class="note">The report a portfolio manager reads before a rebalance: where the risk is, and whether the active bets are the intended ones. Groups are own-group variance shares; cross-factor covariance is shown separately.</p>
+  {dec_html}
+</section>
+
+<section>
+  <div class="sh"><h2>Specific risk</h2></div>
+  <div class="card"><div class="grid2"><div class="tscroll"><table><thead><tr><th>highest specific risk, latest</th><th class="n">vol /yr</th></tr></thead><tbody>{spec_rows}</tbody></table></div>
+  <div><p>Median {spec_med:.0%} across {len(spec)} names. Specific risk is what diversification removes and what a concentrated manager is paid for taking; the names at the top of this list are where a single position can move a portfolio.</p></div></div></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Method and limits</h2></div>
+  <div class="card">
+    <p><b>Estimation.</b> Each month t, the return over t → t+1 of every stock in the universe is regressed on its exposures at t: an intercept (market), {len(styles)} style z-scores, and {man['industries']} industry dummies with the count-weighted sum of industry returns constrained to zero. Ordinary least squares, equal weights; a vendor would weight by √cap and winsorise residuals.</p>
+    <p><b>Covariance.</b> Exponentially weighted over the trailing {man['window']} months with a {man['half_life']}-month half-life; no Newey–West, no volatility-regime adjustment. Specific variance per stock: EWMA of squared residuals, shrunk toward the cross-sectional median by n/(n+12) for stocks with n months of history.</p>
+    <p><b>What this is not.</b> Barra's USE4 has ~10 styles built from dozens of descriptors, ~60 industries, daily estimation, and years of calibration. This model shares the structure — exposures × factor returns + specific — and the tests, on one universe of ~{man['universe_avg']} names. It is enough to run the portfolio constructor and index tracker on, and to show where a vendor model earns its fee.</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
+  <h4>Important information</h4>
+  <p>Built from public SEC EDGAR filings and Yahoo Finance prices and sectors. A demonstration with the limits stated above; not investment advice. Rebuild: <code>python -m trackrecord risk-model</code>.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""

@@ -1,0 +1,38 @@
+{
+ "built": "2026-09-15",
+ "months": 157,
+ "universe_avg": 352,
+ "first": "2013-08-31",
+ "last": "2026-08-31",
+ "fundamentals": true,
+ "coverage": {
+  "momentum": 0.9760792409097494,
+  "reversal": 0.9998551354483558,
+  "low_vol": 0.9997102708967116,
+  "size": 0.8370092713313052,
+  "value": 0.7233630305664204,
+  "profitability": 0.8390735911922352,
+  "cash_flow": 0.8267419962335216,
+  "earnings_yield": 0.7327973344922497
+ },
+ "features": [
+  "momentum",
+  "reversal",
+  "low_vol",
+  "size",
+  "value",
+  "profitability",
+  "cash_flow",
+  "earnings_yield"
+ ],
+ "min_train": 36,
+ "retrain": 12,
+ "head_to_head": {
+  "months": 120,
+  "ic_diff_mean": 5.211527164823611e-05,
+  "ic_diff_t": 0.004266628744431493,
+  "xgb_wins_share": 0.5
+ },
+ "xgb_first": "2016-08-31",
+ "xgb_months": 120
+}

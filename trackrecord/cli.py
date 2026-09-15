@@ -320,6 +320,10 @@ def main(argv=None):
         assert contact, "SEC requires a contact: --contact 'Name email' or SEC_CONTACT"
         F.build(F.universe_tickers(), contact); return 0
     fd.set_defaults(fn=_fund)
+    al = sub.add_parser("alpha-lab", help="alpha model lab: point-in-time signals, ICs, deciles, linear vs walk-forward xgboost -> data/research/alpha-lab")
+    al.set_defaults(fn=lambda a: (__import__("trackrecord.alphalab", fromlist=["build"]).build(), 0)[1])
+    rm = sub.add_parser("risk-model", help="fundamental factor risk model: factor returns, covariance, specific risk, decompositions, bias test -> data/research/risk-model")
+    rm.set_defaults(fn=lambda a: (__import__("trackrecord.riskmodel", fromlist=["build"]).build(), 0)[1])
     cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
     cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
     cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")

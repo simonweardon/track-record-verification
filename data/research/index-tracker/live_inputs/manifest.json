@@ -1,0 +1,17 @@
+{
+ "formation": "2026-08-31",
+ "last_month": "2026-08-31",
+ "nav": 250000000.0,
+ "cash_target": 0.005,
+ "months_since_formation": 0,
+ "styles": [
+  "momentum",
+  "reversal",
+  "low_vol",
+  "size",
+  "value",
+  "profitability",
+  "cash_flow",
+  "earnings_yield"
+ ]
+}

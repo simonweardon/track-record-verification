@@ -151,7 +151,7 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> Public SEC 13F filings and Yahoo Finance prices. A reconstruction for research, not a strategy and not investment advice.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Quantitative research · 13F universe</div></div>
+  <div class="cover-top"><div class="eyebrow">Manager Analysis · 13F Signal Research</div></div>
   <div class="gold-rule"></div>
   <h1>Do managers' disclosed<br>books carry a signal?</h1>
   <p class="sub">Every quarter, {man['managers']} prominent managers' public filings are turned into long-only portfolios — best ideas, crowded names, fresh buys — bought the month the filings become public and held three months. Then each one is tested the way a manager would be.</p>
@@ -285,7 +285,7 @@ def construction_html(out_dir: Path | None = None) -> str | None:
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> A demonstration mandate on public data — a transparent signal through a real constraint set. Not a strategy and not investment advice.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Quantitative portfolio management · construction</div></div>
+  <div class="cover-top"><div class="eyebrow">Active · Portfolio Construction</div></div>
   <div class="gold-rule"></div>
   <h1>From signal to trade list,<br>under a mandate's constraints</h1>
   <p class="sub">A linear program turns alpha scores into target weights that respect name caps, active and sector bands and a turnover budget — then into the buy and sell tickets a trader would receive. Rebalanced {man['rebalances']} times since {man['first'][:7]}; solved in Python (HiGHS) and R (Rglpk) and checked against each other.</p>
@@ -429,7 +429,7 @@ tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
 </style>
 <div class="banner" role="note"><span class="bl">Verification</span> A second implementation of the same statistics, written in R against the same aligned data. It tests the code, not the conclusion.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Due diligence on the due-diligence engine</div></div>
+  <div class="cover-top"><div class="eyebrow">Active · R Verification</div></div>
   <div class="gold-rule"></div>
   <h1>The same alphas,<br>recomputed in R</h1>
   <p class="sub">Every headline number on a manager's dashboard — factor alphas, their Newey-West t-statistics, annualized return, volatility, Sharpe, max drawdown and the alpha-maxing score — is recomputed by <code>r/verify.R</code> in data.table and base R, from the aligned returns alone, and compared with what Python reported. No shared code: the HAC sandwich is written out by hand on the R side.</p>
@@ -645,7 +645,7 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> Signals from public prices and SEC filings, tested out of sample on a survivor-biased universe. A demonstration of method, not a strategy.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Active portfolios · alpha model lab</div></div>
+  <div class="cover-top"><div class="eyebrow">Active · Alpha Model Lab</div></div>
   <div class="gold-rule"></div>
   <h1>Which signals predict returns —<br>and does a tree model beat a line?</h1>
   <p class="sub">Eight classic stock-selection signals built point-in-time for ~{man['universe_avg']} names a month, ranked and tested every month from {man['first'][:7]} to {man['last'][:7]}: information coefficients, decile spreads, an equal-weight linear composite, and a gradient-boosted model (xgboost) trained walk-forward on the same inputs.</p>
@@ -780,7 +780,7 @@ def riskmodel_html(out_dir: Path | None = None) -> str | None:
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> A fundamental factor risk model estimated on the research universe. A demonstration of the method a vendor model implements at scale.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Active portfolios · risk model</div></div>
+  <div class="cover-top"><div class="eyebrow">Active · Factor Risk Model</div></div>
   <div class="gold-rule"></div>
   <h1>A fundamental factor risk model,<br>Barra-style</h1>
   <p class="sub">Every month, stock returns are regressed on the same point-in-time exposures the alpha lab uses plus industry membership; the factor returns and residuals become a factor covariance and stock-specific risk, and any portfolio decomposes into where its risk comes from — with a calibration test to say whether the forecasts can be trusted.</p>
@@ -865,6 +865,14 @@ def tracker_html(out_dir: Path | None = None) -> str | None:
     tl = pd.read_csv(d / "rebalance_trades.csv") if (d / "rebalance_trades.csv").exists() else pd.DataFrame()
     slc = pd.read_csv(d / "dpsw_cashflow_slice.csv")
     idx_name = man["benchmark"]
+    # the live book, if the server has refreshed it; otherwise the snapshot at the last month-end
+    from .livebook import load as load_live, OUT_DIR as LIVE_DIR, STATE as LIVE_STATE
+    live = load_live()
+    drift_tl = pd.DataFrame()
+    if live:
+        ws = live
+        hold = pd.read_csv(LIVE_DIR / "dpsw_holdings_live.csv"); slc = pd.read_csv(LIVE_DIR / "dpsw_cashflow_slice_live.csv")
+        drift_tl = pd.read_csv(LIVE_DIR / "drift_trades_live.csv") if (LIVE_DIR / "drift_trades_live.csv").exists() else pd.DataFrame()
 
     # replication table
     rows = ""
@@ -908,7 +916,7 @@ def tracker_html(out_dir: Path | None = None) -> str | None:
 </style>
 <div class="banner" role="note"><span class="bl">Research note</span> A cap-weighted index built to a stated rulebook from public data, replicated the way a passive desk replicates a vendor index. A demonstration of method.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Passive portfolios · index tracking</div></div>
+  <div class="cover-top"><div class="eyebrow">Passive · Index Tracking — live book</div></div>
   <div class="gold-rule"></div>
   <h1>Replicate the index with fewer names —<br>and run the book every day</h1>
   <p class="sub">The {esc(idx_name)}: ~{man['names_index']} US names, cap-weighted, reconstituted quarterly. Held in full, and with 40, 80 and 150 names chosen by optimised sampling under the risk model. Then the desk's daily sheet: NAV, cash, actives, predicted tracking error, events, and the trades.</p>
@@ -917,7 +925,7 @@ def tracker_html(out_dir: Path | None = None) -> str | None:
     <div><dt>Index names</dt><dd>~{man['names_index']}</dd></div>
     <div><dt>Book</dt><dd>${man['nav'] / 1e6:,.0f}m · {man['names_held']} names</dd></div>
     <div><dt>Realized TE, 80 names</dt><dd>{man['te_realized']:.2%}</dd></div>
-    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+    <div><dt>{'Book last updated' if live else 'Built'}</dt><dd>{esc(ws['updated']) if live else esc(man['built'])}</dd></div>
   </dl>
 </div></header>
 <main class="wrap">
@@ -928,9 +936,10 @@ def tracker_html(out_dir: Path | None = None) -> str | None:
   <div class="card" style="margin-top:14px"><div class="legend">{legend}</div>{chart}<p class="cap">Cumulative active return of each sampled book against the index. Flat and close to zero is the goal of a passive mandate; the drift is tracking difference, the wiggle is tracking error.</p></div>
 </section>
 
-<section class="dpsw">
-  <div class="sh"><h2>Daily Portfolio Status Worksheet — {esc(ws['date'])}</h2></div>
-  <p class="note">The sheet a passive PM completes each morning for the 80-name book, generated from the portfolio's own state: what we hold, how far from the index we are and why, what the model expects that to cost, and what needs doing today.</p>
+<section class="dpsw" id="dpsw">
+  <div class="sh"><h2>Daily Portfolio Status Worksheet — {esc(ws.get('price_date', ws.get('date', '')))}</h2>{'<span class="chip public">Live book</span>' if live else '<span class="chip estimated">Snapshot at month-end</span>'}</div>
+  <p class="note">{(f"<b>Live.</b> Prices as of {esc(ws['price_date'])}; last refreshed {esc(ws['updated'])}. The 80-name book and the full index are carried forward from the {esc(ws['last_month'])} month-end with daily Yahoo Finance prices, and every figure below is recomputed; the server refreshes once a day. <a href='/live/passive/refresh'>Refresh now</a>." if live else "The book as of the last complete month-end; the live refresh has not run on this server yet.")}
+  The sheet a passive PM completes each morning: what we hold, how far from the index we are and why, what the model expects that to cost, and what needs doing today.{f" <span class='err'>Last refresh error: {esc(LIVE_STATE['error'])}</span>" if LIVE_STATE.get('error') else ''}</p>
   <div class="card"><div class="kv">
     <div class="tile"><div class="tl">NAV</div><div class="tv">${ws['nav'] / 1e6:,.1f}m</div><div class="td muted">cash ${ws['cash'] / 1e6:,.2f}m ({ws['cash_pct']:.1%} target)</div></div>
     <div class="tile"><div class="tl">Holdings</div><div class="tv">{ws['n_holdings']}</div><div class="td muted">of {ws['n_index']} index names</div></div>
@@ -939,19 +948,24 @@ def tracker_html(out_dir: Path | None = None) -> str | None:
     <div class="tile"><div class="tl">YTD</div><div class="tv">{ytd[0]:+.2%}</div><div class="td muted">index {ytd[1]:+.2%} · active {(ytd[0] - ytd[1]) * 1e4:+.0f} bps</div></div>
     <div class="tile"><div class="tl">Predicted TE</div><div class="tv">{ws['pred_te']:.2%}</div><div class="td muted">factor {ws['pred_te_factor']:.2%} · specific {ws['pred_te_specific']:.2%}</div></div>
     <div class="tile"><div class="tl">Largest active</div><div class="tv">{ws['max_active'] * 1e4:+.0f} bps</div><div class="td muted">{esc(ws['max_active_name'])}</div></div>
-    <div class="tile"><div class="tl">Drift from target</div><div class="tv">{ws['drift_max'] * 1e4:.0f} bps</div><div class="td muted">largest, {esc(ws['drift_max_name'])}</div></div>
+    <div class="tile"><div class="tl">Drift from target</div><div class="tv">{ws['drift_max'] * 1e4:.0f} bps</div><div class="td muted">largest, {esc(ws['drift_max_name'])}{f" · {ws['drift_total']:.1%} one-way to re-target" if 'drift_total' in ws else ''}</div></div>
   </div>
   <div class="grid2" style="margin-top:14px">
     <div class="tscroll"><h3>Sector active weights</h3><table><thead><tr><th>sector</th><th class="n">active</th></tr></thead><tbody>{sec_rows}</tbody></table></div>
     <div><h3>Largest active positions</h3><div class="tscroll"><table><thead><tr><th>stock</th><th class="n">active</th></tr></thead><tbody>{act_rows}</tbody></table></div>
       <h3 style="margin-top:14px">Where the tracking risk comes from</h3><div class="tscroll"><table><thead><tr><th>factor</th><th class="n">active exposure</th><th class="n">share of TE²</th></tr></thead><tbody>{risk_rows}</tbody></table></div></div>
   </div>
-  <h3 style="margin-top:18px">Events and actions today</h3><ul>{ev_html}</ul>
+  <h3 style="margin-top:18px">Events and actions today</h3><ul>{ev_html}
+  <li><b>Not yet wired, versus a real desk:</b> corporate-action notices from the custodian (dividends, splits, spin-offs, tender offers) and the index vendor's add/delete calendar. Here a corporate action is visible only as a price that stops or jumps, and index changes are known only at reconstitution. Nothing is interpolated.</li></ul>
+  {(f"<h3 style='margin-top:14px'>Trades to return to target today</h3><p class='cap'>The drifted book versus the {esc(ws.get('formation', ''))} target at today's prices: {ws.get('drift_trades', 0)} tickets, ${ws.get('drift_traded_usd', 0) / 1e6:,.1f}m. A passive desk does not usually trade drift between reconstitutions; this is what it would cost to. Full list: <a href='/live/passive/drift_trades_live.csv'>drift_trades_live.csv</a>.</p>"
+     + "<div class='tscroll'><table><thead><tr><th>stock</th><th class='n'>now</th><th class='n'>target</th><th class='n'>shares</th><th class='n'>$</th></tr></thead><tbody>"
+     + "".join(f"<tr><td><b>{esc(r.ticker)}</b> <span class='muted'>{esc(r.sector)}</span></td><td class='n'>{r.current_wt:.2%}</td><td class='n'>{r.target_wt:.2%}</td><td class='n'>{r.shares:+,}</td><td class='n'>${r.trade_usd / 1e6:+,.2f}m</td></tr>" for _, r in drift_tl.head(10).iterrows())
+     + "</tbody></table></div>") if len(drift_tl) else ''}
   <div class="grid2" style="margin-top:14px">
     <div class="tscroll"><h3>Largest holdings</h3><table><thead><tr><th>stock</th><th class="n">weight</th><th class="n">index</th><th class="n">active bps</th><th class="n">shares</th><th class="n">value</th></tr></thead><tbody>{hold_rows}</tbody></table>
-      <p class="cap">Full list: <a href="/research/data/index-tracker/dpsw_holdings.csv">dpsw_holdings.csv</a>.</p></div>
+      <p class="cap">Full list: {'<a href="/live/passive/dpsw_holdings_live.csv">dpsw_holdings_live.csv</a> · <a href="/live/passive/dpsw_live.json">dpsw_live.json</a>' if live else '<a href="/research/data/index-tracker/dpsw_holdings.csv">dpsw_holdings.csv</a>'}.</p></div>
     <div class="tscroll"><h3>Cash-flow slice: invest ${ws['inflow'] / 1e6:,.1f}m</h3><table><thead><tr><th>stock</th><th class="n">target</th><th class="n">buy</th><th class="n">shares</th></tr></thead><tbody>{slc_rows}</tbody></table>
-      <p class="cap">A client inflow is invested pro rata to target weights so tracking error does not move; whole shares, residual to cash. Full list: <a href="/research/data/index-tracker/dpsw_cashflow_slice.csv">dpsw_cashflow_slice.csv</a>.</p></div>
+      <p class="cap">A client inflow is invested pro rata to target weights so tracking error does not move; whole shares, residual to cash. Full list: {'<a href="/live/passive/dpsw_cashflow_slice_live.csv">dpsw_cashflow_slice_live.csv</a>' if live else '<a href="/research/data/index-tracker/dpsw_cashflow_slice.csv">dpsw_cashflow_slice.csv</a>'}.</p></div>
   </div></div>
 </section>
 
@@ -1036,7 +1050,7 @@ def fof_html(out_dir: Path | None = None) -> str | None:
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> Manager alphas from 13F clones and listed funds — public proxies for the audited, net-of-fee series a real allocation would use. A demonstration of method.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">External managers · fund of funds</div></div>
+  <div class="cover-top"><div class="eyebrow">Manager Analysis · Fund of Funds</div></div>
   <div class="gold-rule"></div>
   <h1>Combine the managers that pass —<br>after shrinking what they claim</h1>
   <p class="sub">{man['managers']} managers with five years or more of history. Each alpha is shrunk toward the cross-section in proportion to its noise, residual returns are correlated, and a long-only blend is chosen to maximise expected information ratio — under an honest prior, and under the priors an allocator might actually hold. Then the test that matters: does picking past winners work?</p>

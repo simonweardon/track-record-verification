@@ -246,6 +246,20 @@ def build(out_dir: Path = OUT_DIR, log=print) -> dict:
         tl = tl[tl.shares != 0].sort_values("trade_usd", key=np.abs, ascending=False)
         tl.to_csv(out_dir / "rebalance_trades.csv", index_label="ticker")
         n_trades, traded = int(len(tl)), float(tl.trade_usd.abs().sum())
+    # inputs for the daily live refresh (livebook.py): books at the last complete month-end, index target,
+    # exposures / factor covariance / specific risk at the latest formation, sectors
+    live = out_dir / "live_inputs"; live.mkdir(exist_ok=True)
+    b80 = last["cur"]["sampled_80"]; bidx = last["cur"]["index"]
+    pd.DataFrame({"ticker": b80.index, "weight": b80.values, "target": target.reindex(b80.index).fillna(0).values}).to_csv(live / "book_80.csv", index=False)
+    pd.DataFrame({"ticker": bidx.index, "weight": bidx.values, "target": last["b"].reindex(bidx.index).fillna(0).values}).to_csv(live / "book_index.csv", index=False)
+    union = sorted(set(b80.index) | set(bidx.index) | set(target.index))
+    last["X"].reindex(union).fillna(0.0).to_csv(live / "exposures.csv", index_label="ticker")
+    last["Fc"].to_csv(live / "factor_cov.csv", index_label="factor")
+    pd.DataFrame({"ticker": last["D"].index, "specific_var": last["D"].values}).to_csv(live / "specific_var.csv", index=False)
+    pd.DataFrame({"ticker": union, "sector": res["sectors"].reindex(union).fillna("Unknown").values}).to_csv(live / "sectors.csv", index=False)
+    Rl = R.loc[R.index > F, ["index", "sampled_80"]].dropna()
+    (live / "manifest.json").write_text(json.dumps(dict(formation=str(F.date()), last_month=str(res["prices"].index.max().date()), nav=NAV, cash_target=CASH_TARGET,
+                                                          months_since_formation=len(Rl), styles=res["model"]["styles"]), indent=1))
     s80 = S.set_index("key").loc["sampled_80"]
     man = dict(built=str(date.today()), benchmark=INDEX_NAME, first=str(lg.formation.min()), last=str(lg.formation.max()), rebalances=int(len(lg)),
                names_index=int(round(lg.constituents.mean())), names_held=80, samples=SAMPLES, te_realized=float(s80.tracking_error),

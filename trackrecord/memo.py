@@ -247,7 +247,7 @@ def build_memo(out_dir: Path, data_dir: Path, label: str | None = None) -> str |
 </style>
 <div class="banner" role="note"><span class="bl">{'Illustrative data' if is_clone else 'Memo'}</span> {'A 13F long-only clone of the disclosed US book — a reconstruction, not the fund. ' if is_clone else ''}Generated from the pipeline's outputs; every figure links back to a table on the dashboard.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Investment due diligence · memorandum</div></div>
+  <div class="cover-top"><div class="eyebrow">Manager Analysis · Due Diligence Memo</div></div>
   <div class="gold-rule"></div>
   <h1>{esc(name)}</h1>
   <p class="sub">{esc(manager)}{' · ' if manager and style_name else ''}{esc(style_name)}{' — ' + esc(style_note) if style_note else ''}</p>

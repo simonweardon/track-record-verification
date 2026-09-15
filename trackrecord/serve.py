@@ -309,14 +309,15 @@ NAV_CSS = """<style>
 .tr-nav a.home,.tr-nav a.on{background:var(--navy,#1b2a41);color:var(--cover-ink,#e8e4da)}
 @media(max-width:640px){.tr-nav{padding:8px 16px}.tr-nav a,.tr-nav button{padding:7px 10px;letter-spacing:.12em}}
 .tr-sub{display:flex;gap:14px;align-items:center;padding:6px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif}
-.tr-sub a{font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--navy,#1b2a41);text-decoration:none}
+.tr-sub a{font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--cover-ink,#e8e4da);background:var(--navy,#1b2a41);padding:7px 14px;text-decoration:none}
 .tr-sub .crumb,.tr-nav .crumb{margin-left:auto;font:600 9px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--muted,#a09883)}
-@media(prefers-color-scheme:dark){.tr-sub a{color:var(--gold-l,#c9b48a)}}
+@media(prefers-color-scheme:dark){.tr-sub a{background:var(--gold-l,#c9b48a);color:#1b2a40}}
 @media(prefers-color-scheme:dark){.tr-nav a,.tr-nav button{border-color:var(--gold-l,#c9b48a);color:var(--gold-l,#c9b48a)}.tr-nav a.home,.tr-nav a.on{background:var(--gold-l,#c9b48a);color:#1b2a40}}
 </style>"""
 
 
-TOOLS = [("Home", "/"), ("Passive", "/passive"), ("Active", "/active"), ("External managers", "/external"), ("My records", "/me")]
+TOOLS = [("Home", "/"), ("Passive", "/research/index-tracker"), ("Active", "/active"), ("Manager Analysis", "/external"), ("My records", "/me")]
+AREA_OF = {"/research/index-tracker": "passive", "/active": "active", "/external": "external"}
 
 
 _AREAS_CACHE = {"t": 0.0, "live": set()}
@@ -339,7 +340,7 @@ def toolbar(current: str = "", extra: tuple[str, str] | None = None, crumb: str 
     links (a manager's memo, back to its dashboard) go on a thin line underneath, never in the bar."""
     live = live_areas()
     links = "".join(f'<a class="{"home" if href == "/" else "on" if href == current else ""}" href="{href}">{label}</a>'
-                    for label, href in TOOLS if href.strip("/") not in ("passive", "active", "external") or href.strip("/") in live)
+                    for label, href in TOOLS if href not in AREA_OF or AREA_OF[href] in live)
     bar = ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>' + links + '</div>')
     if extra or crumb:
         bar += ('<div class="tr-sub">' + (f'<a href="{html.escape(extra[1], quote=True)}">{html.escape(extra[0])} &rarr;</a>' if extra else '')
@@ -1088,9 +1089,11 @@ class Handler(SimpleHTTPRequestHandler):
             return self._html(home_html(page, len(fi) + n_listed, n_ok + n_listed))
         if u.path in ("/external", "/managers", "/leaderboard"):
             return self._html(directory_html())
-        if u.path in ("/active", "/passive"):
+        if u.path == "/passive":                       # no landing page: Passive is the running book
+            return self._redirect("/research/index-tracker")
+        if u.path == "/active":
             from .areas import area_html
-            return self._html(area_html(page, u.path.strip("/")))
+            return self._html(area_html(page, "active"))
         if u.path == "/account":
             cur = self._uid()
             if cur and not AC.is_guest(cur):
@@ -1164,31 +1167,45 @@ class Handler(SimpleHTTPRequestHandler):
             doc = signals13f_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Research · 13F signals", current="/research/13f-signals")))
+            return self._html(with_nav(doc, nav_html("Manager Analysis · 13F Signal Research", current="/external")))
         if u.path == "/research/fund-of-funds":
             from .research_pages import fof_html
             doc = fof_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord fund-of-funds</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("External managers · fund of funds", current="/external")))
+            return self._html(with_nav(doc, nav_html("Manager Analysis · Fund of Funds", current="/external")))
+        if u.path == "/live/passive/refresh":
+            from . import livebook
+            if not livebook.STATE["running"] and time.time() - livebook.STATE["last_run"] > 600:
+                threading.Thread(target=_live_once, daemon=True).start()
+            return self._redirect("/research/index-tracker#dpsw")
+        if u.path.startswith("/live/passive/"):
+            from .livebook import OUT_DIR as LIVE_DIR
+            name = u.path.rsplit("/", 1)[1]
+            f = LIVE_DIR / name
+            if re.match(r"^[a-z0-9_]+\.(csv|json)$", name) and f.exists():
+                b = f.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/csv; charset=utf-8" if name.endswith(".csv") else "application/json")
+                self.send_header("Content-Disposition", f"attachment; filename={name}"); self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+            return self._html(not_found_html(u.path), 404)
         if u.path == "/research/index-tracker":
             from .research_pages import tracker_html
             doc = tracker_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord index-tracker</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Passive · index tracking", current="/passive")))
+            return self._html(with_nav(doc, nav_html("Passive · index tracking", current="/research/index-tracker")))
         if u.path == "/research/risk-model":
             from .research_pages import riskmodel_html
             doc = riskmodel_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord risk-model</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Active · risk model", current="/active")))
+            return self._html(with_nav(doc, nav_html("Active · Factor Risk Model", current="/active")))
         if u.path == "/research/alpha-lab":
             from .research_pages import alphalab_html
             doc = alphalab_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord alpha-lab</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Active · alpha model lab", current="/active")))
+            return self._html(with_nav(doc, nav_html("Active · Alpha Model Lab", current="/active")))
         if u.path == "/research/construction":
             from .research_pages import construction_html
             doc = construction_html()
@@ -1200,7 +1217,7 @@ class Handler(SimpleHTTPRequestHandler):
             doc = rverify_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord r-verify</code> where R and data.table are installed.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Research \u00b7 R reproduction", current="/research/r-verify")))
+            return self._html(with_nav(doc, nav_html("Active \u00b7 R Verification", current="/active")))
         if u.path.startswith("/research/r-verify/") and u.path.endswith(".csv"):
             from .rverify import OUT_DIR as RV_DIR
             f = RV_DIR / u.path.rsplit("/", 1)[1]
@@ -1251,13 +1268,20 @@ class Handler(SimpleHTTPRequestHandler):
             out = OUT / ("funds" if kind == "f" else "t") / key
             data = (FUNDS_ROOT / key) if kind == "f" else (ROOT / "data" / "tickers" / key)
             if not (out / "phase4" / "regressions.csv").exists():
-                return self._redirect(f"/f/{key}/" if kind == "f" else f"/analyze?ticker={key}")
+                if kind == "f":                                  # build the manager first, then land on the memo
+                    job = start_fund(key)
+                    try:
+                        lbl = json.loads((FUNDS_ROOT / key / "meta.json").read_text()).get("name", key)
+                    except Exception:
+                        lbl = key
+                    return self._html(ticker_status_html(key, job, label=lbl, ready_href=f"/f/{key}/memo"))
+                return self._redirect(f"/analyze?ticker={key}")
             from .memo import build_memo
             doc = build_memo(out, data)
             if doc is None:
                 return self._html(not_found_html(u.path), 404)
             back = f"/funds/{key}/dashboard.html" if kind == "f" else f"/t/{key}/dashboard.html"
-            return self._html(with_nav(doc, nav_html("Due-diligence memo", extra=("Dashboard", back))))
+            return self._html(with_nav(doc, nav_html("Manager Analysis · Due Diligence Memo", extra=("Dashboard", back), current="/external")))
         if u.path.endswith("dashboard.html"):
             f = OUT / u.path.lstrip("/")
             if f.exists():
@@ -1270,9 +1294,9 @@ class Handler(SimpleHTTPRequestHandler):
                         import json as _j; crumb = _j.loads((FUNDS_ROOT / parts[1] / "meta.json").read_text()).get("name", parts[1]) + " — 13F clone"
                     except Exception:
                         crumb = parts[1]
-                    extra = ("Due-diligence memo", f"/f/{parts[1]}/memo")
+                    extra = ("Generate due-diligence memo", f"/f/{parts[1]}/memo")
                 elif parts[0] == "t":
-                    crumb = parts[1] + " — listed"; extra = ("Due-diligence memo", f"/t/{parts[1]}/memo")
+                    crumb = parts[1] + " — listed"; extra = ("Generate due-diligence memo", f"/t/{parts[1]}/memo")
                 doc = with_nav(doc, nav_html(crumb, extra=extra))
                 return self._html(doc)
             parts = u.path.strip("/").split("/")          # not built (fresh container?) -> build it
@@ -1325,6 +1349,26 @@ class Handler(SimpleHTTPRequestHandler):
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
 
+def _live_once() -> None:
+    from . import livebook
+    try:
+        livebook.STATE["running"] = True; livebook.refresh(_log)
+    except Exception as e:
+        livebook.STATE["error"] = str(e); _log(f"live book refresh failed: {e}")
+    finally:
+        livebook.STATE["running"] = False
+
+
+def live_passive_scheduler() -> None:
+    """Daily refresh of the simulated passive book (LIVE_REFRESH_HOURS, default 24; 0 disables)."""
+    hours = float(os.environ.get("LIVE_REFRESH_HOURS", "24"))
+    if hours <= 0:
+        return
+    from . import livebook
+    time.sleep(20)                                    # needs only the committed live_inputs and network, not the manager warm-up
+    livebook.loop(hours, log=_log)
+
+
 def main(port: int | None = None, build: bool = True) -> None:
     OUT.mkdir(exist_ok=True)
     port = port or int(os.environ.get("PORT", "8080"))
@@ -1332,6 +1376,7 @@ def main(port: int | None = None, build: bool = True) -> None:
         threading.Thread(target=build_all, daemon=True).start()
     else:
         STATE["phase"] = "ready"; STATE["done"] = True
+    threading.Thread(target=live_passive_scheduler, daemon=True).start()
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"serving {OUT} on 0.0.0.0:{port}" + (" (password protected)" if os.environ.get("DASHBOARD_PASSWORD") else " (no password — placeholder only)"), flush=True)
     srv.serve_forever()

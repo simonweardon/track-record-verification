@@ -27,5 +27,5 @@ def test_blend_applies_fee_per_manager(monkeypatch, tmp_path):
     monkeypatch.setattr(S, "SIMS", tmp_path)
     d = S.write_dataset(b, {"A": {"name": "Alpha Fund"}, "B": {"name": "Beta Fund"}})
     st = pd.read_csv(d / "statements.csv"); meta = __import__("json").loads((d / "meta.json").read_text())
-    assert len(st) == 48 and abs(st.ending_value.iloc[-1] / 1e6 - (1 + b["gross"]).prod()) < 1e-6
+    assert len(st) == 49 and abs(st.ending_value.iloc[-1] / 1e6 - (1 + b["gross"]).prod()) < 1e-6
     assert meta["style"] == "sim" and "Alpha Fund 50%" in meta["manager"]

@@ -172,12 +172,12 @@ def write_dataset(b: dict, cands: dict[str, dict]) -> Path:
     spec = b["spec"]; sid = spec.sim_id(); d = SIMS / sid; d.mkdir(parents=True, exist_ok=True)
     acct = "SIM_" + sid.upper()
     val = 1_000_000.0; rows = []; g = b["gross"]
-    first = g.index[0]
+    first = (g.index[0].to_period("M") - 1).to_timestamp("M")          # deposit at the month-end before the first return month
     rows.append(dict(statement_id=f"{acct}_{first.to_period('M')}", account_id=acct, custodian="Simulation (blend of built manager series)",
                      period_start=first.to_period("M").start_time.date(), period_end=first.date(), ending_value=round(val, 2), source_file="simulate", source_pages="",
-                     notes="notional $1m at the first common month"))
+                     notes="notional $1m at the month-end before the first common month"))
     flows = [dict(account_id=acct, date=first.date(), amount=round(val, 2), flow_type="deposit", description="notional $1m", source_statement_id=f"{acct}_{first.to_period('M')}")]
-    for m in g.index[1:]:
+    for m in g.index:
         val *= (1 + float(g[m]))
         rows.append(dict(statement_id=f"{acct}_{m.to_period('M')}", account_id=acct, custodian="Simulation (blend of built manager series)",
                          period_start=m.to_period("M").start_time.date(), period_end=m.date(), ending_value=round(val, 2), source_file="simulate", source_pages="", notes=""))

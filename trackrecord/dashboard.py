@@ -66,9 +66,16 @@ def cell_year(c) -> int:
 
 # ---------------------------------------------------------------- SVG charts
 
+# Every chart is wrapped in a .chartbox: on a phone the box scrolls sideways and the
+# chart keeps a legible minimum width, instead of the whole drawing shrinking to 40%
+# and taking its axis labels down to four pixels with it. svg_close() shuts both.
 def svg_open(w, h, cls="", extra=""):
-    return (f'<svg viewBox="0 0 {w} {h}" width="100%" class="chart {cls}" role="img" '
+    return (f'<div class="chartbox"><svg viewBox="0 0 {w} {h}" width="100%" class="chart {cls}" role="img" '
             f'preserveAspectRatio="xMidYMid meet" {extra}>')
+
+
+def svg_close():
+    return "</svg></div>"
 
 
 def money(v):
@@ -125,7 +132,7 @@ def line_chart(cells, series, height=300, width=760, y_fmt=lambda v: f"{v:.0f}",
     # crosshair + hit area
     out.append(f'<line class="xh" x1="0" x2="0" y1="{mt}" y2="{height - mb}" visibility="hidden"/>')
     out.append(f'<rect class="hit" x="{ml}" y="{mt}" width="{width - ml - mr}" height="{height - mt - mb}" fill="transparent"/>')
-    out.append("</svg>")
+    out.append(svg_close())
     xs_list = [round(xs(i), 1) for i in range(n)]
     rows = []
     for i in range(n):
@@ -173,7 +180,7 @@ def diverging_bars(labels, values, height=240, width=760, y_fmt=lambda v: f"{v *
         out.append(f'<path class="bar {cls}" d="{path}" data-tip="{tip}"/>')
         if i % step == 0:
             out.append(f'<text class="ax" x="{x + bw / 2:.1f}" y="{height - 8}" text-anchor="middle">{esc(lab)}</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -213,7 +220,7 @@ def coverage_grid(mat: pd.DataFrame, stmt: pd.DataFrame, width=760):
                 tip = f"{a} · {y} · no statement (hole inside observed span)"
             out.append(f'<rect class="cell {code}" x="{x + 1:.1f}" y="{yy + 1}" width="{cw - 2:.1f}" height="{ch - 2}" rx="3" data-tip="{esc(tip)}"/>')
             out.append(f'<text class="cellt" x="{x + cw / 2:.1f}" y="{yy + ch / 2 + 3.5:.1f}" text-anchor="middle">{letter.get(code, code)}{"" if cw < 20 else count}</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -235,7 +242,7 @@ def stacked_h(segments, width=760, height=64, fmt=lambda v: f"{v * 100:+.1f}%"):
         x += w
     out.append(f'<text class="ax" x="{ml}" y="{height - 10}">0</text>')
     out.append(f'<text class="ax" x="{width - mr}" y="{height - 10}" text-anchor="end">{esc(fmt(total))} total</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -260,7 +267,7 @@ def dot_whisker(rows, width=760, x_fmt=lambda v: f"{v * 100:+.0f}%"):
         out.append(f'<line class="whisk {r["cls"]}" x1="{xs(r["lo"]):.1f}" x2="{xs(r["hi"]):.1f}" y1="{y:.1f}" y2="{y:.1f}" data-tip="{esc(r["note"])}"/>')
         out.append(f'<circle class="dot {r["cls"]}" cx="{xs(r["value"]):.1f}" cy="{y:.1f}" r="5" data-tip="{esc(r["note"])}"/>')
         out.append(f'<text class="lab" x="{width - mr + 10}" y="{y + 4:.1f}">{esc(x_fmt(r["value"]))}</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -287,7 +294,7 @@ def histogram(samples: np.ndarray, actual: float, width=760, height=220, bins=48
     out.append(f'<line class="marker" x1="{xa:.1f}" x2="{xa:.1f}" y1="{mt - 4}" y2="{height - mb}"/>')
     anchor = "end" if xa > width * 0.7 else "start"
     out.append(f'<text class="lab strong" x="{xa + (-8 if anchor == "end" else 8):.1f}" y="{mt + 6}" text-anchor="{anchor}">this record {esc(x_fmt(actual))}/yr</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -317,7 +324,7 @@ def band_line(cells, mid, lo, hi, width=760, height=230, y_fmt=lambda v: f"{v * 
         out.append(f'<circle class="dot s1" cx="{xs(i):.1f}" cy="{ys(mid[i]):.1f}" r="4"/>')
     out.append(f'<line class="xh" x1="0" x2="0" y1="{mt}" y2="{height - mb}" visibility="hidden"/>')
     out.append(f'<rect class="hit" x="{ml}" y="{mt}" width="{width - ml - mr}" height="{height - mt - mb}" fill="transparent"/>')
-    out.append("</svg>")
+    out.append(svg_close())
     rows = [f"<b>{esc(cell_label(cells[i]))}</b><br>{esc(name)} {esc(y_fmt(mid[i]))}<br>95% CI {esc(y_fmt(lo[i]))} … {esc(y_fmt(hi[i]))}"
             if not pd.isna(mid[i]) else f"<b>{esc(cell_label(cells[i]))}</b><br>window not yet full" for i in range(n)]
     data = json.dumps({"xs": [round(xs(i), 1) for i in range(n)], "rows": rows})
@@ -355,7 +362,7 @@ def h_bars_ref(rows, ref, ref_label, width=860, x_fmt=lambda v: f"{v * 100:.1f}%
         xr = xs(ref)
         out.append(f'<line class="marker" x1="{xr:.1f}" x2="{xr:.1f}" y1="{mt - 4}" y2="{height - mb}"/>')
         out.append(f'<text class="lab strong" x="{xr + 6:.1f}" y="{mt + 4}">{esc(ref_label)}</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -392,7 +399,7 @@ def scatter(points, width=760, height=320, fmt=lambda v: f"{v * 100:.0f}%"):
         out.append(f'<circle class="pt {q["kind"]}" cx="{x:.1f}" cy="{y:.1f}" r="{r}" data-tip="{esc(tip)}"/>')
         if q["kind"] in ("composite", "benchmark", "modelnet", "rf"):
             out.append(f'<text class="lab{" strong" if q["kind"] == "composite" else ""}" x="{x + r + 5:.1f}" y="{y + 4:.1f}">{esc(q["name"])}</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -428,7 +435,7 @@ def vol_by_year(years, vol_p, vol_b, width=760, height=220, name_b="benchmark"):
         for i, v in enumerate(vol_b):
             if not pd.isna(v):
                 out.append(f'<circle class="dot s0" cx="{xc(i):.1f}" cy="{ys(v):.1f}" r="3.5" data-tip="{years[i]}: {esc(name_b)} volatility {v * 100:.1f}%/yr"/>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -457,7 +464,7 @@ def contrib_bars(rows, width=860, x_fmt=lambda v: f"{v * 100:+.1f} pp"):
         out.append(f'<rect class="bar {cls}" x="{left:.1f}" y="{y}" width="{max(w, 1):.1f}" height="16" data-tip="{esc(r["tip"])}"/>')
         tx = x1 + 6 if r["value"] >= 0 else x0 + 6          # negatives label just right of zero, where the row is empty
         out.append(f'<text class="lab" x="{tx:.1f}" y="{y + 13:.1f}" text-anchor="start">{esc(x_fmt(r["value"]))}</text>')
-    out.append("</svg>")
+    out.append(svg_close())
     return "".join(out)
 
 
@@ -1161,6 +1168,43 @@ ol.stocks li.drag svg.strip .held { fill: var(--crit); }
 .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line); padding: 8px 11px; font: 12.5px/1.45 var(--serif); box-shadow: 0 4px 18px rgba(27,42,65,.14); max-width: 320px; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 @media (prefers-reduced-motion: no-preference) { .chart [data-tip] { transition: filter .12s; } }
+/* phones and small tablets. Three things go wrong at 390px and each is fixed here:
+   a grid or flex item whose min-content is wider than the screen drags the whole page
+   sideways (min-width: 0 stops it); multi-column tracks with a 300-420px minimum never
+   fit, so they collapse to one column; and a chart scaled to a third of its drawing
+   width takes its labels with it, so charts scroll inside .chartbox instead. */
+@media (max-width: 720px) {
+  .wrap > *, section > *, .card > *, .two > *, .grid2 > *, .tiles > *, .verdict .top > *,
+  .kv > *, .findings > *, .hero > *, .tile > * { min-width: 0; }
+  .two, .grid2, .tiles, .kv, .findings, .verdict .top { grid-template-columns: 1fr; }
+  .two { gap: 20px; }
+  .wrap { padding: 8px 16px 48px; gap: 32px; }
+  .cover-in { padding: 30px 16px 26px; }
+  /* the toolbar is already sticky at top: 0 and would sit on top of this */
+  .banner { position: static; padding: 8px 16px; }
+  h1 { font-size: 32px; }
+  h2 { font-size: 21px; }
+  .cover .sub { font-size: 15px; }
+  dl.meta { gap: 12px 28px; margin: 26px 0 0; }
+  .hero { padding: 18px 18px; }
+  .hv { font-size: 44px; }
+  .card { padding: 18px 16px; }
+  .tile { padding: 14px 16px; }
+  .tile.score .tv { font-size: 36px; }
+  .cap, .howb { max-width: none; }
+  .foot p { max-width: none; }
+  .running { gap: 10px; flex-wrap: wrap; }
+  /* charts: scroll them rather than shrink the type into illegibility */
+  .chartbox { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chartbox > svg.chart { min-width: 520px; }
+  .chart text { font-size: 16px; } .chart .ax { font-size: 15.5px; } .chart .lab { font-size: 16px; }
+  .chart .rowlab { font-size: 17px; } .chart .cellt { font-size: 14px; } .chart .segt { font-size: 15px; }
+  /* the held-since strip is drawn at a fixed 260px and has to come down with its column */
+  svg.strip { max-width: 100%; height: auto; }
+  /* touch targets */
+  details.how summary { padding: 12px 0; line-height: 1.4; }
+  .exp { gap: 2px 18px; }
+}
 """
 
 JS = r"""

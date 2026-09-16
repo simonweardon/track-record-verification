@@ -1254,6 +1254,12 @@ class Handler(SimpleHTTPRequestHandler):
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Manager Analysis · 13F Signal Research", current="/external")))
+        if u.path == "/research/decay":
+            from .research_pages import decay_html
+            doc = decay_html()
+            if doc is None:
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord decay</code>.</p></main>"), 404)
+            return self._html(with_nav(doc, nav_html("Manager Analysis · Manager Decay Model", current="/external")))
         if u.path == "/research/fund-of-funds":
             from .research_pages import fof_html
             doc = fof_html()

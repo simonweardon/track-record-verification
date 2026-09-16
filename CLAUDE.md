@@ -17,7 +17,14 @@ the context that is not in the code.
 - Disclose AI assistance plainly (README/cover note): built with Claude Code as pair programmer;
   methodology, data-quality rules and verification are Simon's.
 
-## Status (Sept 16, 2026) — pick up here
+## Status (Sept 16, 2026, evening) — pick up here
+Manager decay model built (`trackrecord/decay.py`, `r/decay.R`, `/research/decay`, card under Manager Analysis): the
+one place xgboost and data.table do work that needed them — a classification problem on the full 576k-row 13F panel.
+Honest null (AUC ≈ 0.5 walk-forward) plus the leaky-CV-vs-walk-forward gap (0.57 vs 0.49) as the teaching point.
+110 tests. Simon asked for a site-wide audit of "pandering" (features that exist for the JD rather than on merit);
+findings were delivered in chat on Sept 16 — decisions on what to change are Simon's, pending.
+
+## Earlier status (Sept 16, 2026)
 Site reorganised by job area (Simon's brief: tools that do the job's work; redundant tabs removed). Toolbar:
 Home · Passive · Active · External managers · My records (identical on every page; areas with no built tool are hidden).
 New tools, all built, tested (102 tests) and pushed: alpha lab (xgboost native API), risk model, index tracker + DPSW,

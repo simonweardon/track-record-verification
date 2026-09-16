@@ -499,6 +499,7 @@ def research_index_html() -> str:
     with the CSVs it was built from, and each row says plainly what is in the file."""
     from .rverify import OUT_DIR as RV_DIR
     from .construct import OUT_DIR as CON_DIR
+    from .decay import OUT_DIR as DECAY_DIR
     R = Path(__file__).resolve().parents[1] / "data" / "research"
 
     def man(p):
@@ -507,7 +508,7 @@ def research_index_html() -> str:
         except Exception:
             return {}
 
-    sig, con, rv = man(SIG_DIR / "manifest.json"), man(CON_DIR / "manifest.json"), man(RV_DIR / "manifest.json")
+    sig, con, rv, dec = man(SIG_DIR / "manifest.json"), man(CON_DIR / "manifest.json"), man(RV_DIR / "manifest.json"), man(DECAY_DIR / "manifest.json")
 
     notes = []
     if sig:
@@ -530,6 +531,17 @@ def research_index_html() -> str:
                        ("construction/rebalances.csv", "every rebalance with turnover, active share and ex-ante tracking error"),
                        ("construction/backtest_monthly.csv", "monthly returns of all three portfolios"),
                        ("construction/sectors_latest.csv", "sector exposure against the benchmark at the latest rebalance")]))
+    if dec.get("managers"):
+        notes.append(("/research/decay", "Manager Decay Model",
+                      f"{dec.get('rows_labelled', 0):,} manager-quarters for {dec.get('managers')} managers: filing and return features at each "
+                      f"13F formation date, a twelve-month lag-the-market label, and three walk-forward predictors (persistence, logistic, xgboost) "
+                      "scored within each date; the R twin rebuilds the panel with data.table.",
+                      [("decay/panel.csv", "one row per manager-quarter: every feature, the forward excess return and label, and each predictor's out-of-sample score"),
+                       ("decay/summary.csv", "one row per predictor: pooled and cross-sectional AUC with t, riskiest-minus-safest spread, Brier"),
+                       ("decay/by_date.csv", "cross-sectional AUC and spread of each predictor at every formation date"),
+                       ("decay/features.csv", "each feature alone: rank IC with next year's excess return, xgboost gain share, logistic coefficient"),
+                       ("decay/watchlist.csv", "the latest formation date: every manager's features and scores"),
+                       ("decay/panel_r.csv", "the same panel rebuilt in R with data.table, for the comparison")]))
     if rv.get("managers"):
         notes.append(("/research/r-verify", "R Verification",
                       f"{rv.get('checks', 0):,} numbers across {rv.get('managers')} managers recomputed by an independent "
@@ -1112,6 +1124,163 @@ def fof_html(out_dir: Path | None = None) -> str | None:
   <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
   <h4>Important information</h4>
   <p>Built from the pipeline's own outputs on public SEC EDGAR filings and Yahoo Finance prices. A demonstration of fund-of-funds construction; not investment advice. Rebuild: <code>python -m trackrecord fund-of-funds</code>.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""
+
+
+# ---------------------------------------------------------------- manager decay model
+
+def decay_html(out_dir: Path | None = None) -> str | None:
+    from .decay import OUT_DIR as DECAY_DIR, FEATURES, LABELS, MODELS
+    d = out_dir or DECAY_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    S = pd.read_csv(d / "summary.csv").set_index("model")
+    D = pd.read_csv(d / "by_date.csv", parse_dates=["formation"])
+    U = pd.read_csv(d / "features.csv").set_index("feature")
+    W = pd.read_csv(d / "watchlist.csv")
+    hh, G, R = man.get("head_to_head", {}), man.get("grouped_cv", {}), man.get("r") or {}
+    best_t = float(S.auc_cs_t.max())
+    verdict = "No" if best_t < 2 else "Weakly" if best_t < 3 else "Yes"
+
+    def light(t):
+        t = abs(t) if t == t else 0.0
+        return ("yes", "evidence") if t >= 2 else ("weak", "weak") if t >= 1 else ("no", "none")
+    def badge(t):
+        c, lab = light(t)
+        return f"<span class='v {c}' style='color:#fff;background:var(--{ {'no': 'crit', 'weak': 'warn', 'yes': 'good'}[c] });font:600 9px var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:4px 7px'>{esc(lab)}</span>"
+
+    # models table
+    mrow = ""
+    for m in MODELS:
+        if m not in S.index: continue
+        r = S.loc[m]
+        brier = "—" if pd.isna(r.brier) else f"{r.brier:.3f}"
+        skill = "—" if pd.isna(r.brier_skill) else f"{r.brier_skill:+.0%}"
+        mrow += (f"<tr><td><b>{esc(r.label)}</b></td><td class='n'>{r.auc_pooled:.3f}</td><td class='n'>{r.auc_cs_mean:.3f}</td><td class='n'>{r.auc_cs_t:+.1f}</td>"
+                 f"<td class='n'>{r.auc_cs_pct_above:.0%}</td><td class='n'>{pct(r.spread_mean, 1)}</td><td class='n'>{r.spread_t:+.1f}</td><td class='n'>{brier}</td><td class='n'>{skill}</td><td>{badge(r.auc_cs_t)}</td></tr>")
+    # cumulative edge chart: running sum of (AUC − 0.5), one line per model
+    Dx = D.pivot(index="formation", columns="model", values="auc").sort_index()
+    cells = [x.strftime("%Y-%m") for x in Dx.index]
+    series = []
+    for m, cls in [("persist", "s0"), ("logistic", "s1"), ("xgboost", "s4")]:
+        if m in Dx:
+            cum = (Dx[m] - 0.5).fillna(0).cumsum()
+            series.append(dict(name=MODELS[m], values=[float(v) for v in cum], cls=cls, emph=m != "persist"))
+    chart = line_chart(cells, series, height=280, width=860, y_fmt=lambda v: f"{v:+.1f}", end_labels=False, uid="cumauc")
+    legend = "".join(f'<span><span class="k {s["cls"]}"></span>{esc(s["name"])}</span>' for s in series)
+    # features table
+    frow = ""
+    for f in FEATURES:
+        if f not in U.index: continue
+        r = U.loc[f]
+        gain = "—" if pd.isna(r.xgb_gain_share) else f"{r.xgb_gain_share:.0%}"
+        coef = "—" if pd.isna(r.logistic_coef) else f"{r.logistic_coef:+.2f}"
+        frow += (f"<tr><td>{esc(LABELS.get(f, f))}</td><td class='n'>{r.coverage:.0%}</td><td class='n'>{r.ic_mean:+.3f}</td><td class='n'>{r.ic_t:+.1f}</td>"
+                 f"<td class='n'>{r.ic_pct_positive:.0%}</td><td class='n'>{gain}</td><td class='n'>{coef}</td><td>{badge(r.ic_t)}</td></tr>")
+    n_sig = int((U.ic_t.abs() >= 2).sum())
+    # latest scores
+    wrow = ""
+    for _, r in W.head(12).iterrows():
+        wrow += (f"<tr><td><b>{esc(r['name'])}</b><div class='muted' style='font-size:12px'>{esc(r.style_name if isinstance(r.style_name, str) else '')}</div></td>"
+                 f"<td class='n'>{r.p_xgboost:.2f}</td><td class='n'>{r.p_logistic:.2f}</td><td class='n'>{int(r.rank_persist) if pd.notna(r.rank_persist) else '—'}</td>"
+                 f"<td class='n'>{pct(r.excess_12, 1)}</td><td class='n'>{r.turnover:.0%}</td><td class='n'>{r.hhi:.2f}</td><td class='n'>{r.crowding:.1f}</td></tr>")
+    rk = (W.rank_xgboost.corr(W.rank_logistic.astype(float), method="spearman"), W.rank_xgboost.corr(W.rank_persist.astype(float), method="spearman")) if len(W) > 5 else (np.nan, np.nan)
+    # R twin
+    rblock = ""
+    if R.get("available"):
+        rx = R.get("auc_cs_mean_r", {})
+        rblock = (f"<div class='card'><h3>The same panel and walk-forward in R (data.table, glm, xgboost)</h3>"
+                  f"<p><code>r/decay.R</code> rebuilds every feature from the raw filings and statements with data.table — {R.get('rows_r', 0):,} manager-quarters, "
+                  f"{len(R.get('by_column', {}))} columns — and re-runs the walk-forward. Largest difference from Python across the panel and the logistic predictions: "
+                  f"<b>{R.get('max_abs_diff', 0):.0e}</b>. R's xgboost, which draws its own subsamples, gives a cross-sectional AUC of "
+                  f"{rx.get('xgboost', float('nan')):.3f} against Python's {S.loc['xgboost', 'auc_cs_mean']:.3f}; logistic {rx.get('logistic', float('nan')):.3f} against {S.loc['logistic', 'auc_cs_mean']:.3f}.</p></div>")
+    else:
+        rblock = f"<div class='card'><h3>R twin</h3><p><code>r/decay.R</code> was not run in this build ({esc(str(R.get('reason', 'not attempted')))}).</p></div>"
+    P_ = S.loc["persist"]; L_ = S.loc["logistic"]; X_ = S.loc["xgboost"]
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manager Decay Model</title>
+<style>{CSS}{EXTRA_CSS}</style>
+<div class="banner" role="note"><span class="bl">Research note</span> {man['managers']} 13F clones over {man['formation_dates']} quarters — a small sample by the standard that matters. A scouting result, not a validated model.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Manager Analysis · Manager Decay Model</div></div>
+  <div class="gold-rule"></div>
+  <h1>Manager Decay Model</h1>
+  <p class="sub">Does anything in a manager's public book today — concentration, turnover, crowding, what they just bought and sold, how the last year went — say whether the record will lag the market over the next twelve months? {len(FEATURES)} things an analyst reads off a 13F and a return stream, for {man['managers']} managers at every filing date from {man['first'][:7]} to {man['last'][:7]}, tested three ways: last year's laggards, a logistic regression, and gradient-boosted trees (xgboost) — all walk-forward with a twelve-month embargo.</p>
+  <dl class="meta">
+    <div><dt>Managers</dt><dd>{man['managers']}</dd></div>
+    <div><dt>Manager-quarters</dt><dd>{man['rows_labelled']:,}</dd></div>
+    <div><dt>Tested out of sample</dt><dd>{man['tested_rows']:,} from {(man.get('first_test') or '')[:7]}</dd></div>
+    <div><dt>Base rate</dt><dd>{man['base_rate']:.0%} lag</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+<section class="verdict">
+  <div class="sh"><h2>Findings</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Last year's laggards lag again?</div><div class="tv">{P_.auc_cs_mean:.3f}</div><div class="td muted">cross-sectional AUC · t = {P_.auc_cs_t:+.1f} · above 0.5 in {P_.auc_cs_pct_above:.0%} of quarters</div></div>
+    <div class="tile"><div class="tl">Logistic regression</div><div class="tv">{L_.auc_cs_mean:.3f}</div><div class="td muted">t = {L_.auc_cs_t:+.1f} · Brier skill {L_.brier_skill:+.0%} vs the base rate</div></div>
+    <div class="tile"><div class="tl">xgboost, walk-forward</div><div class="tv">{X_.auc_cs_mean:.3f}</div><div class="td muted">t = {X_.auc_cs_t:+.1f} · Brier skill {X_.brier_skill:+.0%} · vs logistic {hh.get('auc_diff_mean', 0):+.3f} (t = {hh.get('auc_diff_t', 0):+.1f})</div></div>
+    <div class="tile"><div class="tl">Can the filings predict next year?</div><div class="tv small">{esc(verdict)}</div><div class="td muted">best t across the three predictors {best_t:+.1f}; the bar is 2</div></div>
+  </div>
+  <p class="cap" style="margin-top:14px">An AUC is the chance that a randomly chosen manager who went on to lag was scored riskier than one who did not; 0.5 is a coin flip. It is computed <em>within</em> each formation date, so a year that was bad for everyone cannot flatter or damn a model, and then averaged over {man['tested_dates']} dates with Newey-West errors (lag {man['hac_lag']}, because the twelve-month labels overlap). Every fit uses only rows whose label window had closed by the formation date.</p>
+</section>
+
+<section>
+  <div class="sh"><h2>The number a careless backtest would report</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Leave-managers-out, xgboost</div><div class="tv">{G.get('auc_xgboost', float('nan')):.3f}</div><div class="td muted">pooled AUC · train and test share calendar years</div></div>
+    <div class="tile"><div class="tl">Leave-managers-out, logistic</div><div class="tv">{G.get('auc_logistic', float('nan')):.3f}</div><div class="td muted">same folds</div></div>
+    <div class="tile"><div class="tl">Walk-forward, xgboost</div><div class="tv">{X_.auc_pooled:.3f}</div><div class="td muted">pooled AUC · nothing from the test year in training</div></div>
+    <div class="tile"><div class="tl">Difference</div><div class="tv">{G.get('auc_xgboost', 0) - X_.auc_pooled:+.3f}</div><div class="td muted">what the regime leak is worth</div></div>
+  </div>
+  <p class="cap" style="margin-top:14px">Splitting by manager looks rigorous — the model never sees the manager it is scoring — but a manager's 2022 in the training set teaches the model what 2022 looked like, and it applies that to the other managers' 2022. The walk-forward number is the one to believe. This gap is the most useful thing on the page: it is the size of the mistake in a due-diligence vendor's "AI manager-selection" pitch that reports cross-validated accuracy.</p>
+</section>
+
+<section>
+  <div class="sh"><h2>Predictor by predictor</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>predictor</th><th class="n">pooled AUC</th><th class="n">AUC by date</th><th class="n">t</th><th class="n">&gt; 0.5</th><th class="n">riskiest − safest fifth</th><th class="n">t</th><th class="n">Brier</th><th class="n">skill</th><th>evidence</th></tr></thead><tbody>{mrow}</tbody></table>
+  <p class="cap">Riskiest − safest fifth: at each date the managers are ranked by the predictor; the realized next-twelve-month excess return of the top fifth (predicted most likely to lag) minus the bottom fifth. A working predictor makes this negative. Brier is the mean squared error of the probability; skill is the improvement over always predicting the training base rate — negative means the model's confidence was misplaced.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Cumulative edge over a coin flip</h2></div>
+  <div class="card"><div class="legend">{legend}</div>{chart}
+  <p class="cap">Running sum of (AUC − 0.5) by formation date. A predictor with skill climbs; these wander.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>One thing at a time</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>feature</th><th class="n">coverage</th><th class="n">rank IC</th><th class="n">t</th><th class="n">IC &gt; 0</th><th class="n">xgboost gain</th><th class="n">logistic β</th><th>evidence</th></tr></thead><tbody>{frow}</tbody></table>
+  <p class="cap">Rank IC: Spearman correlation between the feature and the next twelve months' excess return across managers, date by date, averaged with Newey-West errors — positive means more of it went with a better year. {n_sig} of {len(FEATURES)} clear |t| ≥ 2, which is about what fourteen tries at noise would give. xgboost gain and the logistic coefficient (standardized, positive = more likely to lag) are from the latest fit on {man.get('last_fit', {}).get('n_train', 0):,} rows — what the models lean on, not evidence that it works.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>What the models say today — {esc(man['last'][:7])}</h2></div>
+  <div class="card tscroll"><table><thead><tr><th>manager</th><th class="n">P(lag) xgboost</th><th class="n">P(lag) logistic</th><th class="n">persistence rank</th><th class="n">trailing 12m excess</th><th class="n">turnover</th><th class="n">HHI</th><th class="n">crowding</th></tr></thead><tbody>{wrow}</tbody></table>
+  <p class="cap">The twelve managers xgboost scores riskiest at the latest filing date, with what the other two predictors make of them (rank correlation of the xgboost ranking with the logistic ranking {rk[0]:+.2f}, with persistence {rk[1]:+.2f}). Shown for transparency: given the findings above, this is not a watchlist and should not be read as one.</p></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Method and limits</h2></div>
+  <div class="card">
+    <p><b>Panel.</b> One row per manager per formation date — the month-end by which the quarter's 13F is public (45-day deadline). Filing features come from that filing and the previous one; return features from the clone's monthly returns through the formation date; the label is whether the clone's return over the following {man['horizon']} months fell short of the US market's. A manager needs a year of clone history to enter. Book values switched from thousands to dollars in the 2022 Q4 filings; ×1000 steps are removed from book growth.</p>
+    <p><b>Models.</b> Persistence ranks managers by their trailing twelve-month excess return, nothing fitted. Logistic regression on standardized features, missing values at the training mean. xgboost: {man.get('xgb_rounds')} trees, depth {man['xgb_params'].get('max_depth')}, learning rate {man['xgb_params'].get('eta')}, subsample {man['xgb_params'].get('subsample')}, min child weight {man['xgb_params'].get('min_child_weight')}, L2 = {man['xgb_params'].get('reg_lambda')}, missing values handled natively. Refit at every formation date on all rows whose label window had closed ({man['min_train_dates']} dates of history required before the first prediction). No hyper-parameter was tuned on the test period.</p>
+    <p><b>Sample size, honestly.</b> {man['rows_labelled']:,} labelled manager-quarters sounds like a lot; it is {man['managers']} managers over about {man['formation_dates'] // 4} years, and consecutive quarters of one manager share most of their label window. There are roughly a dozen independent years here. A cross-sectional AUC of 0.55 with t of 2 is about the smallest effect this design could detect; the effects found are smaller than that, so the honest reading is "nothing detectable", not "nothing there".</p>
+    <p><b>What the clones are not.</b> Long US positions from 13F filings, priced at the 45-day lag, survivorship in the price data, no shorts, no non-US, no credit. A manager whose real edge is elsewhere shows up here as noise. Every caveat on the <a href="/external">manager pages</a> applies.</p>
+  </div>
+  {rblock}
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
+  <h4>Important information</h4>
+  <p>Built from public SEC EDGAR 13F-HR filings, Yahoo Finance prices and the Kenneth R. French Data Library. Reconstructions with the limits stated above; not a strategy, a recommendation or investment advice. Past performance is not indicative of future results. Rebuild: <code>python -m trackrecord decay</code>.</p>
 </footer>
 </main>
 <div id="tip" class="tip" hidden></div>

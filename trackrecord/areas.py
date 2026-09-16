@@ -115,6 +115,17 @@ def tool_cards() -> dict[str, list[dict]]:
             what=f"Best ideas, crowding and fresh buys from every filing, formed into quarterly portfolios and tested as Carhart spreads. "
                  f"Finding: {'no edge survives the 45-day lag' if t is None or abs(t) < 2 else 'a spread that survives the lag'}.",
             stats=[(f"{sigman.get('managers', '')}", "managers"), (f"{sigman.get('quarters', '')}", "quarters"), (f"{_num(sigman.get('positions'), 0):,.0f}", "positions")]))
+    dec, decman = _rows("decay/summary.csv", "model"), _man("decay/manifest.json")
+    if dec and decman.get("managers"):
+        xg, lg, ps = dec.get("xgboost", {}), dec.get("logistic", {}), dec.get("persist", {})
+        best_t = max(_num(r.get("auc_cs_t"), 0) for r in dec.values())
+        cards["external"].append(dict(href="/research/decay", eyebrow="Can the filings say who will lag next year?",
+            title="Manager Decay Model",
+            what=f"Concentration, turnover, crowding, what was bought and sold, and how the last year went, for {decman['managers']} managers at every filing date; "
+                 f"last year's laggards, a logistic regression and xgboost, all walk-forward with a twelve-month embargo. "
+                 f"Finding: {'nothing detectable' if best_t < 2 else 'a weak signal'} — and a worked example of how a leaky backtest would say otherwise.",
+            stats=[(f"{_num(xg.get('auc_cs_mean'), 0.5):.3f}", "xgboost AUC by date"), (f"{_num(lg.get('auc_cs_mean'), 0.5):.3f}", "logistic AUC"),
+                   (f"{_num(ps.get('auc_cs_mean'), 0.5):.3f}", "persistence AUC")]))
     fof = _man("fund-of-funds/manifest.json")
     if fof.get("managers"):
         cards["external"].append(dict(href="/research/fund-of-funds", eyebrow="Allocating across managers",

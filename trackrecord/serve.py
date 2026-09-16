@@ -340,7 +340,7 @@ def toolbar(current: str = "", extra: tuple[str, str] | None = None, crumb: str 
     """The same bar on every page: Back, then every tool (the current one filled). Page-specific
     links (a manager's memo, back to its dashboard) go on a thin line underneath, never in the bar."""
     live = live_areas()
-    links = "".join(f'<a class="{"home" if href == "/" else "on" if href == current else ""}" href="{href}">{label}</a>'
+    links = "".join(f'<a class="{"on" if href == current else ""}" href="{href}">{label}</a>'
                     for label, href in TOOLS if href not in AREA_OF or AREA_OF[href] in live)
     bar = ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>' + links + '</div>')
     if extra or crumb:
@@ -1152,7 +1152,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._html(ticker_status_html(slug, job, label=label, ready_href=f"/me/{slug}/dashboard.html"))
         if u.path in ("/research", "/research/"):
             from .research_pages import research_index_html
-            return self._html(with_nav(research_index_html(), nav_html("Research", current="/research")))
+            return self._html(with_nav(research_index_html(), nav_html("Research Data", current="")))
         if u.path.startswith("/research/data/"):
             # any CSV under data/research, addressed as <note>/<file>.csv — no traversal
             rel = u.path[len("/research/data/"):]
@@ -1194,7 +1194,7 @@ class Handler(SimpleHTTPRequestHandler):
             doc = tracker_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord index-tracker</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Passive · index tracking", current="/research/index-tracker")))
+            return self._html(with_nav(doc, nav_html("Passive · Index Tracking", current="/research/index-tracker")))
         if u.path == "/research/risk-model":
             from .research_pages import riskmodel_html
             doc = riskmodel_html()
@@ -1212,7 +1212,7 @@ class Handler(SimpleHTTPRequestHandler):
             doc = construction_html()
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord construct</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Research · portfolio construction", current="/research/construction")))
+            return self._html(with_nav(doc, nav_html("Active · Portfolio Construction", current="/active")))
         if u.path == "/research/r-verify":
             from .research_pages import rverify_html
             doc = rverify_html()
@@ -1298,7 +1298,13 @@ class Handler(SimpleHTTPRequestHandler):
                     extra = ("Generate due-diligence memo", f"/f/{parts[1]}/memo")
                 elif parts[0] == "t":
                     crumb = parts[1] + " — listed"; extra = ("Generate due-diligence memo", f"/t/{parts[1]}/memo")
-                doc = with_nav(doc, nav_html(crumb, extra=extra))
+                current = ""
+                if parts[0] in ("funds", "t"):                # manager pages carry the Manager Analysis naming; private records keep their own
+                    doc = (doc.replace("<title>Track Record Verification</title>", f"<title>{html.escape(crumb.split(' — ')[0])} — Manager Verification</title>", 1)
+                              .replace('<div class="eyebrow">Independent performance verification</div>', '<div class="eyebrow">Manager Analysis · Manager Verification</div>', 1)
+                              .replace("<h1>Track Record<br>Verification</h1>", "<h1>Manager<br>Verification</h1>", 1))
+                    crumb = f"Manager Analysis · Manager Verification · {crumb}"; current = "/external"
+                doc = with_nav(doc, nav_html(crumb, extra=extra, current=current))
                 return self._html(doc)
             parts = u.path.strip("/").split("/")          # not built (fresh container?) -> build it
             if parts[0] == "funds" and len(parts) == 3 and (FUNDS_ROOT / parts[1] / "meta.json").exists():

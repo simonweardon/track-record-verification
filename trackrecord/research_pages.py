@@ -147,14 +147,14 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
 
     mapped_note = "96% of disclosed dollar value maps to a priced US ticker; the rest is foreign-domiciled, delisted or unlisted"
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>13F signals — research note</title>
+<title>13F Signal Research</title>
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> Public SEC 13F filings and Yahoo Finance prices. A reconstruction for research, not a strategy and not investment advice.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Manager Analysis · 13F Signal Research</div></div>
   <div class="gold-rule"></div>
-  <h1>Do managers' disclosed<br>books carry a signal?</h1>
-  <p class="sub">Every quarter, {man['managers']} prominent managers' public filings are turned into long-only portfolios — best ideas, crowded names, fresh buys — bought the month the filings become public and held three months. Then each one is tested the way a manager would be.</p>
+  <h1>13F Signal Research</h1>
+  <p class="sub">Do managers' disclosed books carry a signal? Every quarter, {man['managers']} prominent managers' public filings are turned into long-only portfolios — best ideas, crowded names, fresh buys — bought the month the filings become public and held three months. Then each one is tested the way a manager would be.</p>
   <dl class="meta">
     <div><dt>Managers</dt><dd>{man['managers']}</dd></div>
     <div><dt>Formation dates</dt><dd>{man['quarters']} · {man['first_formation'][:7]} → {man['last_formation'][:7]}</dd></div>
@@ -281,14 +281,14 @@ def construction_html(out_dir: Path | None = None) -> str | None:
                f"largest weight difference {rt.get('max_abs_diff', 0):.1e}, total {rt.get('sum_abs_diff', 0):.1e}. Linear programs have one optimum value; ties between equally good corners can differ, which is why the objective — not the weights — is the check.</p>"
                if rt.get("available") else f"<p>R twin not run on this build ({esc(str(rt.get('reason', '')))}). The script is <code>r/construct.R</code>; the unit test compares it with the Python solve whenever Rscript and Rglpk are present.</p>")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portfolio construction — LP with trade list</title>
+<title>Portfolio Construction</title>
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> A demonstration mandate on public data — a transparent signal through a real constraint set. Not a strategy and not investment advice.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Active · Portfolio Construction</div></div>
   <div class="gold-rule"></div>
-  <h1>From signal to trade list,<br>under a mandate's constraints</h1>
-  <p class="sub">A linear program turns alpha scores into target weights that respect name caps, active and sector bands and a turnover budget — then into the buy and sell tickets a trader would receive. Rebalanced {man['rebalances']} times since {man['first'][:7]}; solved in Python (HiGHS) and R (Rglpk) and checked against each other.</p>
+  <h1>Portfolio Construction</h1>
+  <p class="sub">From signal to trade list, under a mandate's constraints. A linear program turns alpha scores into target weights that respect name caps, active and sector bands and a turnover budget — then into the buy and sell tickets a trader would receive. Rebalanced {man['rebalances']} times since {man['first'][:7]}; solved in Python (HiGHS) and R (Rglpk) and checked against each other.</p>
   <dl class="meta">
     <div><dt>Rebalances</dt><dd>{man['rebalances']} · {man['first'][:7]} → {man['last'][:7]}</dd></div>
     <div><dt>Universe</dt><dd>names held by ≥ {man['min_holders']} managers</dd></div>
@@ -421,7 +421,7 @@ def rverify_html(out_dir: Path | None = None) -> str | None:
     verdict = (f"All {man['checks']:,} numbers agree" if not bad else
                f"{bad} of {man['managers']} managers disagree")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>R reproduction — do the headline numbers hold up?</title>
+<title>R Verification</title>
 <style>{CSS}{EXTRA_CSS}
 tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
 .v {{ display: inline-block; font: 600 9.5px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; }}
@@ -431,8 +431,8 @@ tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Active · R Verification</div></div>
   <div class="gold-rule"></div>
-  <h1>The same alphas,<br>recomputed in R</h1>
-  <p class="sub">Every headline number on a manager's dashboard — factor alphas, their Newey-West t-statistics, annualized return, volatility, Sharpe, max drawdown and the alpha-maxing score — is recomputed by <code>r/verify.R</code> in data.table and base R, from the aligned returns alone, and compared with what Python reported. No shared code: the HAC sandwich is written out by hand on the R side.</p>
+  <h1>R Verification</h1>
+  <p class="sub">The same alphas, recomputed in R. Every headline number on a manager's dashboard — factor alphas, their Newey-West t-statistics, annualized return, volatility, Sharpe, max drawdown and the alpha-maxing score — is recomputed by <code>r/verify.R</code> in data.table and base R, from the aligned returns alone, and compared with what Python reported. No shared code: the HAC sandwich is written out by hand on the R side.</p>
   <dl class="meta">
     <div><dt>Managers</dt><dd>{man['managers']}</dd></div>
     <div><dt>Numbers checked</dt><dd>{man['checks']:,}</dd></div>
@@ -511,7 +511,7 @@ def research_index_html() -> str:
 
     notes = []
     if sig:
-        notes.append(("/research/13f-signals", "Do the disclosed books carry a signal?",
+        notes.append(("/research/13f-signals", "13F Signal Research",
                       f"Best-ideas, crowding and conviction-change portfolios from {sig.get('managers', '')} managers over "
                       f"{sig.get('quarters', '')} quarters ({sig.get('positions', 0):,} positions), formed 45 days after each "
                       "quarter-end and tested as Carhart spreads with HAC t-statistics.",
@@ -521,7 +521,7 @@ def research_index_html() -> str:
                        ("13f-signals/ic.csv", "rank information coefficient at each formation date"),
                        ("13f-signals/latest_crowding.csv", "how many managers hold each name in the latest filings")]))
     if con:
-        notes.append(("/research/construction", "From a signal to a trade list",
+        notes.append(("/research/construction", "Portfolio Construction",
                       f"A demonstration mandate rebalanced {con.get('rebalances', '')} times on a "
                       f"${con.get('nav', 0) / 1e6:,.0f}m book: an LP maximising alpha net of cost under name, sector, "
                       "active-share and turnover constraints, solved in Python (HiGHS) and R (Rglpk).",
@@ -531,7 +531,7 @@ def research_index_html() -> str:
                        ("construction/backtest_monthly.csv", "monthly returns of all three portfolios"),
                        ("construction/sectors_latest.csv", "sector exposure against the benchmark at the latest rebalance")]))
     if rv.get("managers"):
-        notes.append(("/research/r-verify", "The same alphas, recomputed in R",
+        notes.append(("/research/r-verify", "R Verification",
                       f"{rv.get('checks', 0):,} numbers across {rv.get('managers')} managers recomputed by an independent "
                       f"R implementation and compared with Python; largest difference {rv.get('max_abs_diff', 0):.0e}, "
                       f"{rv.get('disagreements', 0)} disagreements.",
@@ -550,7 +550,7 @@ def research_index_html() -> str:
                    f"<p class='cap'>Read the note: <a href='{href}'>{esc(title)}</a></p></div></section>")
 
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Research and datasets</title>
+<title>Research Data</title>
 <style>{CSS}{EXTRA_CSS}
 .sh h2 a {{ color: inherit; text-decoration: none; border-bottom: 1px solid var(--gold); }}
 .sh h2 a:hover {{ color: var(--gold); }}
@@ -561,8 +561,8 @@ def research_index_html() -> str:
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Research \u00b7 notes and data</div></div>
   <div class="gold-rule"></div>
-  <h1>The research,<br>and the data under it</h1>
-  <p class="sub">Three research notes built on public SEC 13F filings and public prices, and the {sum(len(f) for _, _, _, f in notes)} CSVs they are generated from. Nothing on those pages is hand-written prose: change the data and the sentences change with it. Per-manager due-diligence memos are one click from any row on the <a href="/">home page</a>.</p>
+  <h1>Research Data</h1>
+  <p class="sub">The research notes and the data under them. Three research notes built on public SEC 13F filings and public prices, and the {sum(len(f) for _, _, _, f in notes)} CSVs they are generated from. Nothing on those pages is hand-written prose: change the data and the sentences change with it. Per-manager due-diligence memos are one click from any row under <a href="/external#all">Manager Analysis</a>.</p>
 </div></header>
 <main class="wrap">
 {blocks}
@@ -641,14 +641,14 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
     lin, xg = S.loc["linear"] if "linear" in S.index else None, S.loc["xgboost"] if "xgboost" in S.index else None
     verdict = ("No: tree ≈ line" if hh.get("ic_diff_t", 0) < 2 else "Yes: tree > line") if xg is not None and lin is not None else ""
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Alpha model lab</title>
+<title>Alpha Model Lab</title>
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> Signals from public prices and SEC filings, tested out of sample on a survivor-biased universe. A demonstration of method, not a strategy.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Active · Alpha Model Lab</div></div>
   <div class="gold-rule"></div>
-  <h1>Which signals predict returns —<br>and does a tree model beat a line?</h1>
-  <p class="sub">Eight classic stock-selection signals built point-in-time for ~{man['universe_avg']} names a month, ranked and tested every month from {man['first'][:7]} to {man['last'][:7]}: information coefficients, decile spreads, an equal-weight linear composite, and a gradient-boosted model (xgboost) trained walk-forward on the same inputs.</p>
+  <h1>Alpha Model Lab</h1>
+  <p class="sub">Which signals predict returns, and does a tree model beat a line? Eight classic stock-selection signals built point-in-time for ~{man['universe_avg']} names a month, ranked and tested every month from {man['first'][:7]} to {man['last'][:7]}: information coefficients, decile spreads, an equal-weight linear composite, and a gradient-boosted model (xgboost) trained walk-forward on the same inputs.</p>
   <dl class="meta">
     <div><dt>Months</dt><dd>{man['months']}</dd></div>
     <div><dt>Names / month</dt><dd>~{man['universe_avg']}</dd></div>
@@ -776,14 +776,14 @@ def riskmodel_html(out_dir: Path | None = None) -> str | None:
     b_rand, b_uni = bias.get("random", float("nan")), bias.get("universe", float("nan"))
     verdict = ("calibrated" if 0.85 <= b_rand <= 1.15 else "under-forecasts risk" if b_rand > 1.15 else "over-forecasts risk")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Risk model</title>
+<title>Factor Risk Model</title>
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> A fundamental factor risk model estimated on the research universe. A demonstration of the method a vendor model implements at scale.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Active · Factor Risk Model</div></div>
   <div class="gold-rule"></div>
-  <h1>A fundamental factor risk model,<br>Barra-style</h1>
-  <p class="sub">Every month, stock returns are regressed on the same point-in-time exposures the alpha lab uses plus industry membership; the factor returns and residuals become a factor covariance and stock-specific risk, and any portfolio decomposes into where its risk comes from — with a calibration test to say whether the forecasts can be trusted.</p>
+  <h1>Factor Risk Model</h1>
+  <p class="sub">A fundamental factor risk model, Barra-style. Every month, stock returns are regressed on the same point-in-time exposures the alpha lab uses plus industry membership; the factor returns and residuals become a factor covariance and stock-specific risk, and any portfolio decomposes into where its risk comes from — with a calibration test to say whether the forecasts can be trusted.</p>
   <dl class="meta">
     <div><dt>Months</dt><dd>{man['months']} · {man['first'][:7]} → {man['last'][:7]}</dd></div>
     <div><dt>Factors</dt><dd>{man['factors']} · market + {len(styles)} styles + {man['industries']} industries</dd></div>
@@ -910,16 +910,16 @@ def tracker_html(out_dir: Path | None = None) -> str | None:
                       for _, r in tl.head(16).iterrows()) if len(tl) else ""
     s80 = S.loc["sampled_80"]
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Index tracking</title>
+<title>Index Tracking — live book</title>
 <style>{CSS}{EXTRA_CSS}
 .dpsw h3 {{ margin-top: 0 }} .dpsw .kv {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px }} .dpsw .kv .tile .tv {{ font-size: 22px }}
 </style>
 <div class="banner" role="note"><span class="bl">Research note</span> A cap-weighted index built to a stated rulebook from public data, replicated the way a passive desk replicates a vendor index. A demonstration of method.</div>
 <header class="cover"><div class="cover-in">
-  <div class="cover-top"><div class="eyebrow">Passive · Index Tracking — live book</div></div>
+  <div class="cover-top"><div class="eyebrow">Passive · Index Tracking</div></div>
   <div class="gold-rule"></div>
-  <h1>Replicate the index with fewer names —<br>and run the book every day</h1>
-  <p class="sub">The {esc(idx_name)}: ~{man['names_index']} US names, cap-weighted, reconstituted quarterly. Held in full, and with 40, 80 and 150 names chosen by optimised sampling under the risk model. Then the desk's daily sheet: NAV, cash, actives, predicted tracking error, events, and the trades.</p>
+  <h1>Index Tracking — live book</h1>
+  <p class="sub">Replicate the index with fewer names, and run the book every day. The {esc(idx_name)}: ~{man['names_index']} US names, cap-weighted, reconstituted quarterly. Held in full, and with 40, 80 and 150 names chosen by optimised sampling under the risk model. Then the desk's daily sheet: NAV, cash, actives, predicted tracking error, events, and the trades.</p>
   <dl class="meta">
     <div><dt>Rebalances</dt><dd>{man['rebalances']} · {man['first'][:7]} → {man['last'][:7]}</dd></div>
     <div><dt>Index names</dt><dd>~{man['names_index']}</dd></div>
@@ -1046,14 +1046,14 @@ def fof_html(out_dir: Path | None = None) -> str | None:
               if tau_eb == 0 else
               f"The empirical-Bayes prior standard deviation is {tau_eb:.1%}/yr: the estimated alphas disperse more than noise alone would produce, so some of it is real.")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fund of funds</title>
+<title>Fund of Funds</title>
 <style>{CSS}{EXTRA_CSS}</style>
 <div class="banner" role="note"><span class="bl">Research note</span> Manager alphas from 13F clones and listed funds — public proxies for the audited, net-of-fee series a real allocation would use. A demonstration of method.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Manager Analysis · Fund of Funds</div></div>
   <div class="gold-rule"></div>
-  <h1>Combine the managers that pass —<br>after shrinking what they claim</h1>
-  <p class="sub">{man['managers']} managers with five years or more of history. Each alpha is shrunk toward the cross-section in proportion to its noise, residual returns are correlated, and a long-only blend is chosen to maximise expected information ratio — under an honest prior, and under the priors an allocator might actually hold. Then the test that matters: does picking past winners work?</p>
+  <h1>Fund of Funds</h1>
+  <p class="sub">Combine the managers that pass, after shrinking what they claim. {man['managers']} managers with five years or more of history. Each alpha is shrunk toward the cross-section in proportion to its noise, residual returns are correlated, and a long-only blend is chosen to maximise expected information ratio — under an honest prior, and under the priors an allocator might actually hold. Then the test that matters: does picking past winners work?</p>
   <dl class="meta">
     <div><dt>Candidates</dt><dd>{man['managers']}</dd></div>
     <div><dt>Empirical-Bayes τ</dt><dd>{tau_eb:.1%}</dd></div>

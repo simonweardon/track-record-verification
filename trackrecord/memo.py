@@ -239,7 +239,7 @@ def build_memo(out_dir: Path, data_dir: Path, label: str | None = None) -> str |
             f"Beat the market in {consistency:.0f}% of rolling five-year windows."
             + (f" Market timing (Treynor–Mazuy): γ = {float(tm.gamma):+.2f}, p = {float(tm.gamma_p):.2f} — {'some evidence of timing' if float(tm.gamma_p) < 0.1 else 'no evidence of timing'}." if tm is not None else ""))
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{esc(name)} — due-diligence memo</title>
+<title>{esc(name)} — Due Diligence Memo</title>
 <style>{CSS}
 .memo h3 {{ margin-top: 0 }} .memo ol.q li {{ margin: 8px 0 }} .memo .chip {{ vertical-align: middle }}
 .kv {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px }} .kv .tile .tv {{ font-size: 26px }}

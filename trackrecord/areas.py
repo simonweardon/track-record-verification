@@ -110,15 +110,15 @@ def tool_cards() -> dict[str, list[dict]]:
     sig, sigman = _rows("13f-signals/summary.csv", "key"), _man("13f-signals/manifest.json")
     if sig and sigman:
         t = _num(sig.get("BEST1", {}).get("carhart_t"))
-        cards["external"].append(dict(href="/research/13f-signals", eyebrow="13F Signal Research",
-            title="Trading on 13F disclosures",
+        cards["external"].append(dict(href="/research/13f-signals", eyebrow="Trading on 13F disclosures",
+            title="13F Signal Research",
             what=f"Best ideas, crowding and fresh buys from every filing, formed into quarterly portfolios and tested as Carhart spreads. "
                  f"Finding: {'no edge survives the 45-day lag' if t is None or abs(t) < 2 else 'a spread that survives the lag'}.",
             stats=[(f"{sigman.get('managers', '')}", "managers"), (f"{sigman.get('quarters', '')}", "quarters"), (f"{_num(sigman.get('positions'), 0):,.0f}", "positions")]))
     fof = _man("fund-of-funds/manifest.json")
     if fof.get("managers"):
-        cards["external"].append(dict(href="/research/fund-of-funds", eyebrow="Fund of Funds",
-            title="Allocating across managers",
+        cards["external"].append(dict(href="/research/fund-of-funds", eyebrow="Allocating across managers",
+            title="Fund of Funds",
             what="Shrink each manager's alpha toward zero in proportion to its noise, estimate the correlation of their active returns, and allocate: "
                  "how many managers diversification actually rewards, and what the blend's expected information ratio is.",
             stats=[(f"{fof.get('managers')}", "candidates"), (f"{fof.get('selected')}", "selected"), (f"{_num(fof.get('ir_blend'), 0):.2f}", "blend IR, shrunk")]))

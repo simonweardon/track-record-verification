@@ -225,6 +225,53 @@ def start_fund(slug: str) -> dict:
     return job
 
 
+def build_sim(sid: str, args: list[str]) -> None:
+    job = JOBS["sim:" + sid]
+    try:
+        job["phase"] = "running phases 1–4 on the blended portfolio (about 30 s)"
+        _run_job(job, args)
+        job["phase"] = "ready"
+    except Exception as e:
+        job["error"] = str(e); job["phase"] = "failed"
+    finally:
+        job["done"] = True
+
+
+def start_sim(sid: str, args: list[str]) -> dict:
+    key = "sim:" + sid
+    with JOBS_LOCK:
+        job = JOBS.get(key)
+        if job and not job["done"]:
+            return job
+        if (OUT / "sims" / sid / "phase4" / "scores.csv").exists():
+            JOBS[key] = job = {"phase": "ready", "log": [], "error": None, "started": time.time(), "done": True}
+            return job
+        JOBS[key] = job = {"phase": "queued", "log": [], "error": None, "started": time.time(), "done": False}
+    threading.Thread(target=build_sim, args=(sid, args), daemon=True).start()
+    return job
+
+
+def _sim_query(q: dict):
+    """Parse the simulate page's query: targets, prefilled picks, compare keys, fees."""
+    from .simulate import Targets
+    g = lambda k, d: q.get(k, [d])[0]
+    def fl(k, d):
+        try: return float(g(k, d))
+        except ValueError: return d
+    t = Targets(target_return=fl("tr", 0.10), max_vol=fl("mv", 0.15), max_drawdown=fl("md", 0.30), min_sharpe=fl("sh", 0.5), max_te=fl("te", 0.06),
+                n_managers=int(fl("n", 6)), max_weight=fl("mw", 0.30), min_months=int(fl("mm", 60)), styles=[x for x in q.get("st", []) if x], prefer=g("prefer", "wealth"))
+    sel = {}
+    for item in (g("m", "") or "").split(","):
+        if ":" in item:
+            k, w = item.split(":", 1)
+            try: sel[k] = float(w)
+            except ValueError: pass
+    pf = lambda v: v / 100.0 if v >= 1 else v                     # accept 1 (%) or 0.01 (fraction)
+    fee = dict(mgmt=pf(fl("mgmt", 0.0)), perf=pf(fl("perf", 0.0)), reb=g("reb", "monthly"), name=g("name", ""))
+    cmp_keys = [x for x in (g("cmp", "") or "").split(",") if x]
+    return t, sel, fee, cmp_keys
+
+
 def _f(v, fmt):
     try:
         v = float(v)
@@ -317,7 +364,7 @@ NAV_CSS = """<style>
 </style>"""
 
 
-TOOLS = [("Home", "/"), ("Passive", "/research/index-tracker"), ("Active", "/active"), ("Manager Analysis", "/external"), ("My records", "/me")]
+TOOLS = [("Home", "/"), ("Passive", "/research/index-tracker"), ("Active", "/active"), ("Manager Analysis", "/external"), ("Simulation", "/simulate"), ("My records", "/me")]
 AREA_OF = {"/research/index-tracker": "passive", "/active": "active", "/external": "external"}
 
 
@@ -979,6 +1026,29 @@ class Handler(SimpleHTTPRequestHandler):
             fields, files = parse_multipart(ctype, body)
         else:
             fields = {k: v[0] for k, v in parse_qs(body.decode("utf-8", errors="replace")).items()}; files = {}
+        if u.path == "/simulate/run":
+            from .simulate import Spec, blend, write_dataset, candidates
+            from urllib.parse import urlencode
+            form = parse_qs(body.decode("utf-8", "replace"))          # body was read above
+            keys = [k for k in form.get("sel", []) if re.match(r"^[A-Za-z0-9.\-]{1,40}$", k)]
+            mans = []
+            for k in keys:
+                try: w = float(form.get(f"w_{k}", ["0"])[0] or 0)
+                except ValueError: w = 0.0
+                mans.append((k, w))
+            def fl(k, d):
+                try: return float(form.get(k, [d])[0]) / 100.0
+                except ValueError: return d
+            spec = Spec(mans, mgmt=max(0.0, fl("mgmt", 0.0)), perf=max(0.0, fl("perf", 0.0)), rebalance=form.get("reb", ["monthly"])[0], name=form.get("name", [""])[0][:60])
+            try:
+                if len(mans) < 1:
+                    raise ValueError("pick at least one manager")
+                b = blend(spec)
+                write_dataset(b, {c["key"]: c for c in candidates()})
+            except Exception as e:
+                back = "/simulate?" + urlencode(dict(m=",".join(f"{k}:{w}" for k, w in mans), mgmt=spec.mgmt, perf=spec.perf, reb=spec.rebalance, err=str(e)))
+                return self._redirect(back)
+            return self._redirect(f"/sim/{spec.sim_id()}/")
         if u.path == "/guest":
             AC.purge_guests()
             gid = AC.create_guest()
@@ -1175,6 +1245,39 @@ class Handler(SimpleHTTPRequestHandler):
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord fund-of-funds</code>.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Manager Analysis · Fund of Funds", current="/external")))
+        if u.path == "/simulate":
+            from .simpages import simulate_html, compare_block
+            from .simulate import suggest, candidates
+            q = parse_qs(u.query); t, sel, fee, cmp_keys = _sim_query(q)
+            suggested = None
+            if q.get("suggest"):
+                try:
+                    suggested = suggest(t, candidates())
+                    if suggested.get("ok"):
+                        sel = dict(suggested["weights"])
+                except Exception as e:
+                    suggested = dict(ok=False, reason=str(e))
+            cmp = compare_block(cmp_keys) if cmp_keys else None
+            if cmp_keys and not sel:
+                sel = {k: 1.0 / len(cmp_keys) for k in cmp_keys}
+            return self._html(simulate_html(page, t, suggested, sel, cmp, fee, error=q.get("err", [None])[0]))
+        ms = re.match(r"^/sim/([a-f0-9]{10})/(memo)?$", u.path)
+        if ms:
+            sid = ms.group(1); data = ROOT / "data" / "sims" / sid; out = OUT / "sims" / sid
+            if not (data / "meta.json").exists():
+                return self._html(not_found_html(u.path), 404)
+            from .simulate import Spec, report_args
+            meta = json.loads((data / "meta.json").read_text()); sp = meta["spec"]
+            spec = Spec([tuple(x) for x in sp["managers"]], sp["mgmt"], sp["perf"], sp["rebalance"], sp.get("name", ""))
+            job = start_sim(sid, report_args(sid, spec))
+            if not (job["done"] and not job.get("error") and (out / "phase4" / "scores.csv").exists()):
+                return self._html(ticker_status_html(sid, job, label=meta.get("name", sid), ready_href=u.path))
+            if ms.group(2) == "memo":
+                from .memo import build_memo
+                doc = build_memo(out, data)
+                return self._html(with_nav(doc, nav_html("Simulation · Due Diligence Memo", extra=("Simulation results", f"/sim/{sid}/"), current="/simulate")))
+            from .simpages import sim_summary_html
+            return self._html(sim_summary_html(page, sid, out, data))
         if u.path == "/live/passive/refresh":
             from . import livebook
             if not livebook.STATE["running"] and time.time() - livebook.STATE["last_run"] > 600:
@@ -1298,7 +1401,13 @@ class Handler(SimpleHTTPRequestHandler):
                     extra = ("Generate due-diligence memo", f"/f/{parts[1]}/memo")
                 elif parts[0] == "t":
                     crumb = parts[1] + " — listed"; extra = ("Generate due-diligence memo", f"/t/{parts[1]}/memo")
-                current = ""
+                elif parts[0] == "sims":
+                    try:
+                        crumb = "Simulation · " + json.loads((ROOT / "data" / "sims" / parts[1] / "meta.json").read_text()).get("name", parts[1])
+                    except Exception:
+                        crumb = "Simulation"
+                    extra = ("Simulation results and memo", f"/sim/{parts[1]}/")
+                current = "/simulate" if parts[0] == "sims" else ""
                 if parts[0] in ("funds", "t"):                # manager pages carry the Manager Analysis naming; private records keep their own
                     doc = (doc.replace("<title>Track Record Verification</title>", f"<title>{html.escape(crumb.split(' — ')[0])} — Manager Verification</title>", 1)
                               .replace('<div class="eyebrow">Independent performance verification</div>', '<div class="eyebrow">Manager Analysis · Manager Verification</div>', 1)

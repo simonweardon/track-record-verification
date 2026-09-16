@@ -32,6 +32,18 @@ MIN_MONTHS = 36
 NOT_MEANINGFUL = {"multi", "macro", "mm"}
 
 
+SLEEVES = {                      # asset-class sleeves around the fund of managers; public total-return proxies
+    "managers": ("Fund of managers", None),
+    "us_stocks": ("US stocks (SPY)", "SPY"),
+    "intl_stocks": ("International stocks (EFA)", "EFA"),
+    "gold": ("Gold (GLD)", "GLD"),
+    "bonds": ("US bonds (AGG)", "AGG"),
+    "treasuries": ("Long Treasuries (TLT)", "TLT"),
+    "cash": ("Cash (T-bills)", "RF"),
+}
+SLEEVES_FILE = ROOT / "data" / "reference" / "compact" / "sleeves_monthly.csv"
+
+
 @dataclass
 class Spec:
     managers: list[tuple[str, float]]            # (key, weight) — key is a fund slug or a ticker
@@ -39,18 +51,39 @@ class Spec:
     perf: float = 0.0                            # performance fee on each manager's gains above its HWM
     rebalance: str = "monthly"                   # "monthly" | "drift"
     name: str = ""
+    alloc: dict = field(default_factory=lambda: {"managers": 1.0})     # sleeve -> share of the total portfolio
 
     def normalized(self) -> "Spec":
         w = np.array([max(0.0, x) for _, x in self.managers], float)
-        if w.sum() <= 0:
+        if len(w) and w.sum() <= 0:
             w = np.ones(len(w))
-        w = w / w.sum()
-        return Spec([(k, float(x)) for (k, _), x in zip(self.managers, w)], self.mgmt, self.perf, self.rebalance, self.name)
+        w = w / w.sum() if len(w) else w
+        a = {k: max(0.0, float(v)) for k, v in self.alloc.items() if k in SLEEVES}
+        tot = sum(a.values()) or 1.0
+        a = {k: v / tot for k, v in a.items() if v > 0}
+        if not self.managers:
+            a.pop("managers", None); tot = sum(a.values()) or 1.0; a = {k: v / tot for k, v in a.items()}
+        return Spec([(k, float(x)) for (k, _), x in zip(self.managers, w)], self.mgmt, self.perf, self.rebalance, self.name, a)
 
     def sim_id(self) -> str:
         s = self.normalized()
-        payload = json.dumps(dict(m=sorted((k, round(x, 6)) for k, x in s.managers), mgmt=round(s.mgmt, 6), perf=round(s.perf, 6), reb=s.rebalance), sort_keys=True)
+        payload = json.dumps(dict(m=sorted((k, round(x, 6)) for k, x in s.managers), mgmt=round(s.mgmt, 6), perf=round(s.perf, 6), reb=s.rebalance,
+                                  a=sorted((k, round(v, 6)) for k, v in s.alloc.items())), sort_keys=True)
         return hashlib.sha1(payload.encode()).hexdigest()[:10]
+
+
+def sleeve_series() -> pd.DataFrame:
+    """Monthly total returns of the asset-class sleeves (ETF adjusted closes; cash = Ken French RF)."""
+    from .reference import load_all
+    px = pd.read_csv(SLEEVES_FILE, index_col=0, parse_dates=True) if SLEEVES_FILE.exists() else pd.DataFrame()
+    px.index = pd.DatetimeIndex(px.index).to_period("M").to_timestamp("M")
+    r = px.pct_change(fill_method=None)
+    rf = load_all()["US_RF"]; rf.index = pd.DatetimeIndex(rf.index).to_period("M").to_timestamp("M")
+    out = pd.DataFrame(index=r.index.union(rf.index))
+    for key, (_, tk) in SLEEVES.items():
+        if tk is None: continue
+        out[key] = rf.reindex(out.index) if tk == "RF" else r[tk].reindex(out.index) if tk in r else np.nan
+    return out
 
 
 # ---------------------------------------------------------------- candidates
@@ -132,37 +165,64 @@ def residual_correlation(keys: list[str]) -> pd.DataFrame:
 
 # ---------------------------------------------------------------- blending
 
+def _combine(R: pd.DataFrame, w: pd.Series, rebalance: str) -> pd.Series:
+    if rebalance == "monthly":
+        return (R * w).sum(axis=1)
+    nav = (1 + R).cumprod() * w                                      # buy and hold: each sleeve grows from its starting weight
+    tot = nav.sum(axis=1)
+    return tot.pct_change().fillna(tot.iloc[0] - 1.0)
+
+
 def blend(spec: Spec) -> dict:
     spec = spec.normalized()
-    series = {k: gross_series(k) for k, _ in spec.managers}
+    ann = lambda s: float((1 + s).prod() ** (12 / len(s)) - 1)
+    use_mgr = "managers" in spec.alloc and spec.managers
+    # ---- the fund-of-managers sleeve
+    series = {k: gross_series(k) for k, _ in spec.managers} if use_mgr else {}
     missing = [k for k, s in series.items() if s is None]
     if missing:
         raise ValueError(f"not built: {', '.join(missing)}")
     idx = None
     for s in series.values():
         idx = s.index if idx is None else idx.intersection(s.index)
+    # ---- asset-class sleeves
+    SL = sleeve_series() if [k for k in spec.alloc if k != "managers"] else pd.DataFrame()
+    for k in spec.alloc:
+        if k != "managers":
+            si = SL[k].dropna().index
+            idx = si if idx is None else idx.intersection(si)
+    if idx is None:
+        raise ValueError("nothing to blend: pick managers or an allocation")
     idx = idx.sort_values()
     if len(idx) < MIN_MONTHS:
-        raise ValueError(f"only {len(idx)} months in common (need {MIN_MONTHS})")
-    G = pd.DataFrame({k: s.reindex(idx) for k, s in series.items()})
+        raise ValueError(f"only {len(idx)} months in common (need {MIN_MONTHS}) — gold and bond ETFs start in 2003–04")
     fee = FeeSchedule(mgmt_pct=spec.mgmt, perf_pct=spec.perf)
-    N = pd.DataFrame({k: model_net(G[k], pd.Series(1 / 12, index=idx), fee) for k in G.columns}) if (spec.mgmt or spec.perf) else G.copy()
-    w = pd.Series(dict(spec.managers))
-    def combine(R: pd.DataFrame) -> pd.Series:
-        if spec.rebalance == "monthly":
-            return (R * w).sum(axis=1)
-        nav = (1 + R).cumprod() * w                                  # buy and hold: each sleeve grows from its starting weight
-        tot = nav.sum(axis=1)
-        return tot.pct_change().fillna(tot.iloc[0] - 1.0)
-    gross = combine(G); net = combine(N)
-    ann = lambda s: float((1 + s).prod() ** (12 / len(s)) - 1)
     per = []
-    for k in G.columns:
-        per.append(dict(key=k, weight=float(w[k]), gross=ann(G[k]), net=ann(N[k]), fee_drag=ann(G[k]) - ann(N[k]), vol=float(G[k].std() * np.sqrt(12)),
-                        contribution_gross=float((w[k] * G[k]).mean() * 12) if spec.rebalance == "monthly" else np.nan))
+    if use_mgr:
+        G = pd.DataFrame({k: s.reindex(idx) for k, s in series.items()})
+        N = pd.DataFrame({k: model_net(G[k], pd.Series(1 / 12, index=idx), fee) for k in G.columns}) if (spec.mgmt or spec.perf) else G.copy()
+        w = pd.Series(dict(spec.managers))
+        mgr_gross = _combine(G, w, spec.rebalance); mgr_net = _combine(N, w, spec.rebalance)
+        for k in G.columns:
+            per.append(dict(key=k, weight=float(w[k]), gross=ann(G[k]), net=ann(N[k]), fee_drag=ann(G[k]) - ann(N[k]), vol=float(G[k].std() * np.sqrt(12))))
+        corr = G.corr()
+    else:
+        mgr_gross = mgr_net = None; corr = pd.DataFrame()
+    # ---- total portfolio
+    cols_g, cols_n = {}, {}
+    for k, a in spec.alloc.items():
+        if k == "managers":
+            cols_g[k] = mgr_gross; cols_n[k] = mgr_net
+        else:
+            cols_g[k] = SL[k].reindex(idx); cols_n[k] = cols_g[k]
+    A = pd.Series(spec.alloc)
+    gross = _combine(pd.DataFrame(cols_g), A, spec.rebalance); net = _combine(pd.DataFrame(cols_n), A, spec.rebalance)
+    sleeves = [dict(key=k, label=SLEEVES[k][0], weight=float(a), ret=ann(cols_g[k]), vol=float(cols_g[k].std() * np.sqrt(12)),
+                    contribution=float((a * cols_g[k]).mean() * 12)) for k, a in spec.alloc.items()]
     return dict(spec=spec, months=len(idx), first=str(idx.min().date()), last=str(idx.max().date()), gross=gross, net=net,
-                ann_gross=ann(gross), ann_net=ann(net), fee_drag=ann(gross) - ann(net), per_manager=per, fee=fee.describe() if (spec.mgmt or spec.perf) else "no fees",
-                corr=G.corr())
+                ann_gross=ann(gross), ann_net=ann(net), fee_drag=ann(gross) - ann(net), per_manager=per, sleeves=sleeves,
+                mgr_ann_gross=ann(mgr_gross) if mgr_gross is not None else None, mgr_ann_net=ann(mgr_net) if mgr_net is not None else None,
+                fee=fee.describe() if (spec.mgmt or spec.perf) else "no fees", corr=corr)
 
 
 # ---------------------------------------------------------------- dataset
@@ -187,15 +247,22 @@ def write_dataset(b: dict, cands: dict[str, dict]) -> Path:
     pd.DataFrame(flows).to_csv(d / "flows.csv", index=False)
     pd.DataFrame(columns=["statement_id", "account_id", "as_of_date", "identifier", "description", "asset_class", "quantity", "price", "market_value", "weight_pct"]).to_csv(d / "positions.csv", index=False)
     label = spec.name or "Simulated portfolio " + sid
+    alloc_txt = ", ".join(f"{SLEEVES[k][0]} {v:.0%}" for k, v in spec.alloc.items())
     pd.DataFrame([dict(account_id=acct, label=label, owner_type="principal", discretionary="Y", strategy="default", benchmark="US_MKT",
-                       notes=f"{len(spec.managers)} managers, {spec.rebalance} rebalancing, {b['fee']}")]).to_csv(d / "accounts.csv", index=False)
+                       notes=f"{alloc_txt}; {len(spec.managers)} managers, {spec.rebalance} rebalancing, {b['fee']}")]).to_csv(d / "accounts.csv", index=False)
     names = ", ".join(f"{cands.get(k, {}).get('name', k)} {x:.0%}" for k, x in spec.managers)
-    meta = dict(slug=sid, name=label, manager=names, style="sim", style_name="Simulated fund of managers", style_note=f"{spec.rebalance} rebalancing; {b['fee']} applied per manager",
-                months=b["months"], first=b["first"], last=b["last"], status="ok", spec=dict(managers=spec.managers, mgmt=spec.mgmt, perf=spec.perf, rebalance=spec.rebalance, name=spec.name),
-                ann_gross=b["ann_gross"], ann_net=b["ann_net"], fee_drag=b["fee_drag"], per_manager=b["per_manager"], fee=b["fee"])
+    only_mgr = list(spec.alloc) == ["managers"]
+    meta = dict(slug=sid, name=label, manager=(names if only_mgr else alloc_txt + (" — managers: " + names if names else "")), style="sim",
+                style_name="Simulated fund of managers" if only_mgr else "Simulated multi-asset portfolio",
+                style_note=f"{spec.rebalance} rebalancing; {b['fee']} applied per manager",
+                months=b["months"], first=b["first"], last=b["last"], status="ok",
+                spec=dict(managers=spec.managers, mgmt=spec.mgmt, perf=spec.perf, rebalance=spec.rebalance, name=spec.name, alloc=spec.alloc),
+                ann_gross=b["ann_gross"], ann_net=b["ann_net"], fee_drag=b["fee_drag"], per_manager=b["per_manager"], sleeves=b["sleeves"],
+                mgr_ann_gross=b["mgr_ann_gross"], mgr_ann_net=b["mgr_ann_net"], fee=b["fee"])
     (d / "meta.json").write_text(json.dumps(meta, indent=1, default=float))
     pd.DataFrame({"month": g.index.strftime("%Y-%m"), "gross": g.values, "net": b["net"].values}).to_csv(d / "blend_monthly.csv", index=False)
-    b["corr"].to_csv(d / "correlation.csv", index_label="key")
+    if len(b["corr"]):
+        b["corr"].to_csv(d / "correlation.csv", index_label="key")
     return d
 
 

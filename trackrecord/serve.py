@@ -269,6 +269,13 @@ def _sim_query(q: dict):
     pf = lambda v: v / 100.0 if v >= 1 else v                     # accept 1 (%) or 0.01 (fraction)
     fee = dict(mgmt=pf(fl("mgmt", 0.0)), perf=pf(fl("perf", 0.0)), reb=g("reb", "monthly"), name=g("name", ""))
     cmp_keys = [x for x in (g("cmp", "") or "").split(",") if x]
+    alloc = {}
+    for item in (g("a", "") or "").split(","):
+        if ":" in item:
+            k, v = item.split(":", 1)
+            try: alloc[k] = float(v)
+            except ValueError: pass
+    fee["alloc"] = alloc or {"managers": 1.0}
     return t, sel, fee, cmp_keys
 
 
@@ -1039,14 +1046,22 @@ class Handler(SimpleHTTPRequestHandler):
             def fl(k, d):
                 try: return float(form.get(k, [d])[0]) / 100.0
                 except ValueError: return d
-            spec = Spec(mans, mgmt=max(0.0, fl("mgmt", 0.0)), perf=max(0.0, fl("perf", 0.0)), rebalance=form.get("reb", ["monthly"])[0], name=form.get("name", [""])[0][:60])
+            from .simulate import SLEEVES
+            alloc = {}
+            for k in SLEEVES:
+                try: alloc[k] = float(form.get(f"a_{k}", ["0"])[0] or 0) / 100.0
+                except ValueError: alloc[k] = 0.0
+            if not any(alloc.values()):
+                alloc = {"managers": 1.0}
+            spec = Spec(mans, mgmt=max(0.0, fl("mgmt", 0.0)), perf=max(0.0, fl("perf", 0.0)), rebalance=form.get("reb", ["monthly"])[0], name=form.get("name", [""])[0][:60], alloc=alloc)
             try:
-                if len(mans) < 1:
-                    raise ValueError("pick at least one manager")
+                if len(mans) < 1 and alloc.get("managers", 0) > 0 and len([k for k, v in alloc.items() if v > 0 and k != "managers"]) == 0:
+                    raise ValueError("pick at least one manager, or allocate to other asset classes")
                 b = blend(spec)
                 write_dataset(b, {c["key"]: c for c in candidates()})
             except Exception as e:
-                back = "/simulate?" + urlencode(dict(m=",".join(f"{k}:{w}" for k, w in mans), mgmt=spec.mgmt, perf=spec.perf, reb=spec.rebalance, err=str(e)))
+                back = "/simulate?" + urlencode(dict(m=",".join(f"{k}:{w}" for k, w in mans), mgmt=spec.mgmt, perf=spec.perf, reb=spec.rebalance, err=str(e),
+                                                     a=",".join(f"{k}:{v}" for k, v in alloc.items())))
                 return self._redirect(back)
             return self._redirect(f"/sim/{spec.sim_id()}/")
         if u.path == "/guest":
@@ -1260,7 +1275,7 @@ class Handler(SimpleHTTPRequestHandler):
             cmp = compare_block(cmp_keys) if cmp_keys else None
             if cmp_keys and not sel:
                 sel = {k: 1.0 / len(cmp_keys) for k in cmp_keys}
-            return self._html(simulate_html(page, t, suggested, sel, cmp, fee, error=q.get("err", [None])[0]))
+            return self._html(simulate_html(page, t, suggested, sel, cmp, fee, error=q.get("err", [None])[0], alloc=fee["alloc"]))
         ms = re.match(r"^/sim/([a-f0-9]{10})/(memo)?$", u.path)
         if ms:
             sid = ms.group(1); data = ROOT / "data" / "sims" / sid; out = OUT / "sims" / sid
@@ -1412,6 +1427,9 @@ class Handler(SimpleHTTPRequestHandler):
                     doc = (doc.replace("<title>Track Record Verification</title>", f"<title>{html.escape(crumb.split(' — ')[0])} — Manager Verification</title>", 1)
                               .replace('<div class="eyebrow">Independent performance verification</div>', '<div class="eyebrow">Manager Analysis · Manager Verification</div>', 1)
                               .replace("<h1>Track Record<br>Verification</h1>", "<h1>Manager<br>Verification</h1>", 1))
+                    # the memo button sits in the cover, right after the manager's name
+                    doc = re.sub(r'(<p class="sub">.*?</p>)', lambda m_: m_.group(1) + f'<p style="margin:16px 0 0"><a href="{extra[1]}" style="display:inline-block;font:600 13px/1 \'Helvetica Neue\',Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;padding:14px 26px;background:var(--gold-l,#c9b48a);color:#1b2a40;text-decoration:none">{extra[0]}</a></p>', doc, count=1, flags=re.S)
+                    extra = None
                     crumb = f"Manager Analysis · Manager Verification · {crumb}"; current = "/external"
                 doc = with_nav(doc, nav_html(crumb, extra=extra, current=current))
                 return self._html(doc)

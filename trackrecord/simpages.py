@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from .dashboard import CSS as DASH_CSS, JS as DASH_JS, diverging_bars, esc, line_chart, pct, num
-from .simulate import OUT, SIMS, Targets, candidates, residual_correlation, stats_of
+from .simulate import OUT, SIMS, SLEEVES, Targets, candidates, residual_correlation, stats_of
 
 def _dash_rules() -> str:
     keep = (".chart", ".k ", ".k.", ".tip", ".tiles", ".tile", ".tl", ".tv", ".td", ".sv", ".of", ".legend", ".grid2", ".cap", ".muted", ".tscroll")
@@ -48,7 +48,8 @@ def _f(v, fmt="{:.1%}", dash="—"):
         return dash
 
 
-def simulate_html(page, targets: Targets, suggested: dict | None, selected: dict[str, float], compare: dict | None, fee: dict, error: str | None = None) -> str:
+def simulate_html(page, targets: Targets, suggested: dict | None, selected: dict[str, float], compare: dict | None, fee: dict, error: str | None = None, alloc: dict | None = None) -> str:
+    alloc = alloc or {"managers": 1.0}
     cands = candidates()
     styles = sorted({c["style"] for c in cands if c["style"]})
     by_key = {c["key"]: c for c in cands}
@@ -102,6 +103,11 @@ def simulate_html(page, targets: Targets, suggested: dict | None, selected: dict
                  f"<td><b>{esc(c['name'])}</b>{' <span class=st>' + esc(c['manager']) + '</span>' if c.get('manager') else ''}<br><span class='st'>{esc(c['style'])} · {c['months']} mo{' · not built yet' if not c['built'] else ''}</span></td>"
                  f"<td class='n'>{_f(c.get('ff3_t'), '{:+.1f}')}</td><td class='n'><input type='number' name='w_{esc(k)}' min='0' max='100' step='1' value='{round(w * 100) if sel else ''}' {'' if sel else 'disabled'}></td>"
                  f"<td class='n'><a href='/{'t' if c['kind'] == 'ticker' else 'f'}/{esc(k)}/{'memo' if c['kind'] != 'ticker' else 'memo'}' class='st'>memo</a></td></tr>")
+    def asl(key, label, val):
+        return (f"<div class='sl'><label>{label} <output id='oa_{key}'></output></label>"
+                f"<input type='range' name='a_{key}' min='0' max='100' step='5' value='{round(val * 100)}' oninput=\"document.getElementById('oa_{key}').value=this.value+'%';asum()\"></div>")
+    alloc_html = ("<h4 style='margin:16px 0 4px'>Asset allocation</h4><p class='hint'>What share of the total portfolio goes to the fund of managers above, and what to the other asset classes (public total-return ETFs; cash = T-bills). Shares are normalised to 100%.</p>"
+                  "<div class='sliders'>" + "".join(asl(k, lab, alloc.get(k, 0.0)) for k, (lab, _) in SLEEVES.items()) + "</div><p class='st' id='asum'></p>")
     fee_html = (f"<div class='fee'><label>Management fee /yr<input type='number' name='mgmt' min='0' max='5' step='0.05' value='{fee['mgmt'] * 100:g}'>%</label>"
                 f"<label>Performance fee<input type='number' name='perf' min='0' max='50' step='1' value='{fee['perf'] * 100:g}'>% of gains above HWM</label>"
                 f"<label>Rebalancing<select name='reb'><option value='monthly' {'selected' if fee['reb'] == 'monthly' else ''}>monthly, back to target</option><option value='drift' {'selected' if fee['reb'] == 'drift' else ''}>buy and hold (drift)</option></select></label>"
@@ -112,7 +118,8 @@ function tot(){let s=0,n=0;document.querySelectorAll('.pick input[type=number]:n
 function eq(){const inps=[...document.querySelectorAll('.pick input[type=number]:not(:disabled)')];inps.forEach(i=>i.value=(100/inps.length).toFixed(1));tot();}
 function cmp(){const k=[...document.querySelectorAll('.pick input[type=checkbox]:checked')].map(c=>c.value);if(!k.length){alert('Pick at least one manager');return false;}location.href='/simulate?cmp='+k.join(',')+'#compare';return false;}
 document.getElementById('q').addEventListener('input',e=>{const s=e.target.value.toLowerCase();document.querySelectorAll('.pick tbody tr').forEach(r=>{r.hidden=!(r.classList.contains('sel')||!s||r.dataset.s.includes(s));});});
-document.querySelectorAll('.sl input[type=range]').forEach(r=>r.dispatchEvent(new Event('input')));tot();
+function asum(){let s=0;document.querySelectorAll("input[name^='a_']").forEach(i=>s+=parseFloat(i.value)||0);document.getElementById('asum').textContent='allocation sum '+s.toFixed(0)+'%'+(Math.abs(s-100)>0.5?' (will be normalised to 100%)':'');}
+document.querySelectorAll('.sl input[type=range]').forEach(r=>r.dispatchEvent(new Event('input')));tot();asum();
 </script>"""
     err = f"<div class='banner' style='background:var(--crit);color:#fff'><b>Could not run</b> {esc(error)}</div>" if error else ""
     return page("Simulation", SIM_CSS + err + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Simulation · fund of managers</div><div class="rule"></div><h1>Simulation</h1>
@@ -130,6 +137,7 @@ document.querySelectorAll('.sl input[type=range]').forEach(r=>r.dispatchEvent(ne
 <p class="hint">Tick managers and give weights (they are normalised to 100%). Compare shows them side by side without running anything; Simulate builds the blended portfolio and runs the full pipeline (about half a minute).</p>
 <div class="tools2"><input type="search" id="q" placeholder="Filter managers by name, style or person"><span id="tot" class="st"></span><button type="button" class="btn2 ghost" onclick="eq()">Equal weights</button></div>
 <div class="tscroll"><table class="pick"><thead><tr><th></th><th>manager</th><th class="n">FF3 t</th><th class="n">weight %</th><th></th></tr></thead><tbody>{prow}</tbody></table></div>
+{alloc_html}
 <h4 style="margin:16px 0 6px">Fees and rebalancing</h4>{fee_html}
 <div class="row"><button type="button" class="btn2 ghost" onclick="return cmp()">Compare side by side</button><button class="btn2 gold" type="submit">Simulate this portfolio</button></div>
 <p class="cap">Fees are charged to each manager on its own gains above its own high-water mark, then the sleeves are blended. A simulation is a what-if on public reconstructions; it is not a record and not investment advice.</p></form>
@@ -183,11 +191,19 @@ def sim_summary_html(page, sid: str, out_dir: Path, data_dir: Path) -> str | Non
     yrow = "".join(f"<tr><td>{y}</td><td class='n'>{r.gross:+.1%}</td><td class='n'>{r.net:+.1%}</td><td class='n'>{r.market:+.1%}</td><td class='n'>{(r.gross - r.market) * 1e4:+.0f}</td></tr>" for y, r in yrs.iterrows())
     ybars = diverging_bars([str(y) for y in yrs.index], [float(v) for v in (yrs.gross - yrs.market)], height=200, width=860, tips=[f"{y}: gross {r.gross:+.1%} vs market {r.market:+.1%}" for y, r in yrs.iterrows()])
     cum = (1 + g).cumprod(); dd = cum / cum.cummax() - 1; cumn = (1 + n_).cumprod(); ddn = cumn / cumn.cummax() - 1
-    per = pd.DataFrame(meta["per_manager"])
+    per = pd.DataFrame(meta["per_manager"]) if meta.get("per_manager") else pd.DataFrame(columns=["key", "weight", "gross", "net", "fee_drag", "vol"])
     cands = {c["key"]: c for c in candidates()}
     frow = "".join(f"<tr><td><b>{esc(cands.get(r.key, {}).get('name', r.key))}</b> <span class='muted'>{esc(cands.get(r.key, {}).get('style', ''))}</span></td><td class='n'>{r.weight:.0%}</td><td class='n'>{r.gross:.1%}</td><td class='n'>{r.net:.1%}</td><td class='n'>{r.fee_drag * 1e4:.0f} bps</td><td class='n'>{r.vol:.1%}</td></tr>" for _, r in per.sort_values("weight", ascending=False).iterrows())
     crow = "".join(f"<tr><td>{esc(r.component.strip())}</td><td class='n'>{float(r.value):.0f}</td><td class='n'>{float(r.weight) if pd.notna(r.weight) else ''}</td></tr>" for _, r in comps.iterrows())
-    spec = meta["spec"]; edit = "/simulate?m=" + ",".join(f"{k}:{w:.4f}" for k, w in spec["managers"]) + f"&mgmt={spec['mgmt']}&perf={spec['perf']}&reb={spec['rebalance']}"
+    spec = meta["spec"]; alloc = spec.get("alloc", {"managers": 1.0})
+    edit = ("/simulate?m=" + ",".join(f"{k}:{w:.4f}" for k, w in spec["managers"]) + f"&mgmt={spec['mgmt']}&perf={spec['perf']}&reb={spec['rebalance']}"
+            + "&a=" + ",".join(f"{k}:{v:.4f}" for k, v in alloc.items()))
+    sleeves = meta.get("sleeves") or []
+    srow = "".join(f"<tr><td><b>{esc(x['label'])}</b></td><td class='n'>{x['weight']:.0%}</td><td class='n'>{x['ret']:.1%}</td><td class='n'>{x['vol']:.1%}</td><td class='n'>{x['contribution'] * 100:+.1f} pp</td></tr>" for x in sleeves)
+    alloc_panel = (f"<div class='panel'><h3>Asset allocation</h3><p class='hint'>Each sleeve on the common window, gross of manager fees; contribution = weight × sleeve return (arithmetic, annualized).</p>"
+                   f"<div class='tscroll'><table><thead><tr><th>sleeve</th><th class='n'>weight</th><th class='n'>return /yr</th><th class='n'>vol</th><th class='n'>contribution</th></tr></thead><tbody>{srow}</tbody></table></div>"
+                   + (f"<p class='cap'>The fund-of-managers sleeve alone: {meta['mgr_ann_gross']:.1%}/yr gross, {meta['mgr_ann_net']:.1%}/yr net of manager fees.</p>" if meta.get('mgr_ann_gross') is not None else "")
+                   + "</div>") if len(sleeves) > 1 else ""
     return page(f"{meta['name']} — Simulation", SIM_CSS + f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Simulation · results</div><div class="rule"></div><h1>{esc(meta['name'])}</h1>
 <p class="sub">{esc(meta['manager'])}. {esc(meta['style_note'])}. {meta['months']} months, {meta['first'][:7]} → {meta['last'][:7]}. Run through the same pipeline as every manager: the scores and the memo below are the standard ones.</p>
 <div class="row" style="margin-top:18px"><a class="btn2 gold" href="/sims/{sid}/dashboard.html">Full dashboard</a><a class="btn2 gold" href="/sim/{sid}/memo">Due diligence memo</a><a class="btn2 ghost" style="color:var(--coverink);border-color:var(--goldl)" href="{edit}">Edit this portfolio</a></div></div></header>
@@ -199,6 +215,7 @@ def sim_summary_html(page, sid: str, out_dir: Path, data_dir: Path) -> str | Non
   <div class="tile"><div class="tl">Sharpe · IR</div><div class="tv">{num(mv('Sharpe (excess over RF)'))} · {num(mv('information ratio'))}</div><div class="td muted">tracking error {pct(mv('tracking error (ann.)'), 1, False)} · max DD {pct(mv('max drawdown (cell-level; understated on annual cells)'), 0, False)}</div></div>
 </div><div class="tscroll" style="margin-top:10px"><table><thead><tr><th>wealth-management component</th><th class="n">score</th><th class="n">weight</th></tr></thead><tbody>{crow}</tbody></table></div>
 <p class="cap">Scores are computed on the gross blend by the same fixed maps used for every manager, so this portfolio sits on the same scale as any row in Manager Analysis.</p></div>
+{alloc_panel}
 <div class="panel"><h3>Backtest</h3><p class="hint">The blended portfolio's history with {esc(meta['fee'])}, {esc(spec['rebalance'])} rebalancing, against the US market.</p>
 <div class="legend">{legend}</div>{chart}
 <div class="tiles" style="margin-top:12px">
@@ -209,7 +226,7 @@ def sim_summary_html(page, sid: str, out_dir: Path, data_dir: Path) -> str | Non
 </div>
 <h4 style="margin:16px 0 6px">Year by year</h4><div class="tscroll"><table><thead><tr><th>year</th><th class="n">gross</th><th class="n">net</th><th class="n">market</th><th class="n">excess bps</th></tr></thead><tbody>{yrow}</tbody></table></div>
 <h4 style="margin:16px 0 6px">Excess over the market by year (gross)</h4>{ybars}</div>
-<div class="panel"><h3>Fee breakdown</h3><p class="hint">{esc(meta['fee'])}, charged to each manager on its own gains above its own high-water mark. The dashboard's "model-net" tile applies the same schedule once, at the portfolio level, which is slightly gentler.</p>
+{'<div class="panel"><h3>Fee breakdown</h3>' if per is not None and len(per) else '<div class="panel" hidden><h3>Fee breakdown</h3>'}<p class="hint">{esc(meta['fee'])}, charged to each manager on its own gains above its own high-water mark. The dashboard's "model-net" tile applies the same schedule once, at the portfolio level, which is slightly gentler.</p>
 <div class="tscroll"><table><thead><tr><th>manager</th><th class="n">weight</th><th class="n">gross /yr</th><th class="n">net /yr</th><th class="n">fee drag</th><th class="n">vol</th></tr></thead><tbody>{frow}</tbody></table></div>
 <p class="cap">Blend: gross {meta['ann_gross']:.1%}/yr, net {meta['ann_net']:.1%}/yr, drag {meta['fee_drag'] * 1e4:.0f} bps/yr. Performance fees compound the drag in good years and vanish in drawdowns, which is why net-of-fee volatility is lower than gross.</p></div>
 </div></main><div id="tip" class="tip" hidden></div><script>{DASH_JS}</script>""", current="/simulate")

@@ -64,7 +64,8 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                memo.py       due-diligence memo per manager, assembled from phases 2–4 (/f/<slug>/memo)
                rverify.py    runs the R reproduction over every manager and writes the agreement → data/research/r-verify
                decay.py      manager decay model: 13F book + return features per manager-quarter, walk-forward persistence / logistic / xgboost → data/research/decay
-               research_pages.py  research notes rendered from those CSVs (/research/13f-signals, /research/construction, /research/r-verify)
+               limits.py     due diligence on this work: signals re-tested on 3 nested universes, coverage of the disclosed book by quarter, the construction result reconciled against its IC through the fundamental law, cost/capacity sweeps, per-manager reconstruction quality, provenance → data/research/limits
+               research_pages.py  research notes rendered from those CSVs (/research/13f-signals, /research/construction, /research/r-verify, /research/limits)
 r/             construct.R   the same LP in R (data.table + Rglpk); checked against the Python solve in tests and on every build
                verify.R      the headline statistics recomputed in R (data.table, HAC by hand); checked against Python in tests and over all 91 managers
                decay.R       the decay-model panel rebuilt from the raw filings and statements with data.table, and the walk-forward re-run with glm and xgboost; compared with Python on every build
@@ -115,6 +116,42 @@ Every computed number on the site — research-note tiles, memo and dashboard ti
   cross-validation of the same model reports 0.57, which is the size of the regime leak a careless backtest
   carries. `r/decay.R` rebuilds the panel with data.table (2,432 rows × 17 columns, largest difference 4e-10).
   `/external`, `/research/13f-signals`, `/research/fund-of-funds`, `/research/decay`.
+- **Method** — `limits`: the same scrutiny turned on this work, answered with numbers (see below). `/research/limits`.
+
+## Due diligence on this work (`/research/limits`)
+`python -m trackrecord limits` answers, with numbers rather than disclaimers, the eight objections a reviewer
+raises about the rest of the site. Findings as of 2026-09-17:
+
+- **Universe.** The eight signals re-tested on names held by ≥ 5 / ≥ 2 / ≥ 1 manager (352 / 1,171 / 1,722 names
+  a month). Widening the universe nearly five-fold does not rescue them: momentum goes +0.022 → +0.017, the
+  equal-weight composite +0.013 → +0.015 (t 1.4 → 1.9), and 0 of 27 measurements reach t = 2. Split in half by
+  time, neither half is worse, so this is sample length, not decay. The composite would need ~15 years to reach
+  t = 2 against the 13 available — and the wide universes were tested *after* the narrow one, which is stated.
+- **Survivorship.** Measured directly rather than asserted: the share of each quarter's disclosed value that
+  reaches a priced security runs 64% in 2013 → 98% now. A company that was bought, taken private or renamed has
+  no price history, so it never enters any universe here at all. The largest missing positions are listed by era
+  (Priceline, Tiffany, Time Warner, EMC, Twitter, Allergan…) — overwhelmingly takeovers and renamings, not
+  failures, so the direction of the bias is *not* the usual upward one. Early years carry two thirds of the money.
+- **Headline vs signal.** The construction result is reconciled through the fundamental law: quarterly IC 0.026
+  (t 1.0) × transfer coefficient 0.60 × √(344 names × 4) ⇒ implied IR 0.58 against a realised 0.78, inside the
+  0.32 standard error of an IR measured over 13 years. `construct.py` now records `transfer_coef` and
+  `realized_ic` per rebalance. The whole backtest is re-run at 0/10/25/50/100/200 bps: 0 → 200 bps costs
+  3.6 pp/yr, so the headline is not a story about the cost assumption.
+- **Capacity.** Square-root impact (a day's volume ≈ 0.5% of market cap, one day's volume ≈ one daily σ) applied
+  to the latest trade list at seven portfolio sizes. Average cost stays under 19 bps even at $50bn; what binds is
+  position size — above about **$1bn** individual names break the five-day-volume or 5%-of-company rules.
+- **What the disclosures can be.** Per manager, measured from the filings: options as a share of disclosed value,
+  of which puts, and the share reaching a price. Of 90 managers, 38 are close reconstructions, 28 are hedged books
+  whose short side is invisible, 7 are credit/merger books, and **17 hold > 15% of the disclosed book in options**
+  — which the pipeline drops, so the stock lines that remain are not the position (Scion 81%, Elliott 36%, of which
+  33 points are puts). This now shows as a chip and a filter on the `/external` screener and in its CSV export,
+  so the caveat sits next to the ranking rather than only in a method note.
+- **Evidence bar, verification scope, provenance, freshness.** Years needed to resolve a given IR; exactly what the
+  three independent reimplementations cover (manager statistics, the optimiser, the decay panel) and what no
+  agreement between them can catch (both read the same assembled data); the five classes of data error found and
+  fixed, counted, with named examples (the 2022 thousands→dollars change, 92 cases; Lone Pine's Q4 2014 filing a
+  thousand times its neighbours on both sides; NVIDIA's 548m shares in 2009 → 21.9bn on today's split basis);
+  and when each input was last refreshed, from git rather than file timestamps.
 
 ## Portfolio construction: from signal to trade list
 `python -m trackrecord construct` runs a demonstration mandate: universe = names held by ≥ 5 managers each quarter,

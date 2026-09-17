@@ -16,6 +16,30 @@ import re
 
 # (page regex or None, label regex, how, why).  First match wins; more specific pages first.
 NOTES: list[tuple[str | None, str, str, str]] = [
+    # ---------------------------------------------------------------- due diligence on this work
+    (r"^/research/limits", r"^widest (universe tested|set of stocks tested)$",
+     "The same eight stock characteristics are tested three times over: on the companies held by five or more of the managers in the system, by two or more, and by any one of them. Each universe is rebuilt at every quarterly filing date from the holdings that were public then, and the number shown is the average count of companies in the widest of the three in a month.",
+     "If the weak results came from testing only large, heavily owned companies, then widening the universe nearly five-fold should improve them. It does not, which moves the explanation away from the choice of universe and onto the length of the sample."),
+    (r"^/research/limits", r"^holdings that reach a price$|^of holdings reach a price$",
+     "For every quarterly filing date, the disclosed value of all the managers' positions is divided into the part that can be matched to a company with a usable price history and the part that cannot. The figure shown is the most recent quarter, and the comparison is with the first quarter of the sample.",
+     "This is the direct measure of what has been quietly deleted from the past. A company that was bought, taken private or renamed has no price history to buy, so it never enters any test on this site at all — and in the earliest years that is a third of the money."),
+    (r"^/research/limits", r"^portfolio result against its signal$",
+     "The first number is the information ratio the constructed portfolio actually delivered. The second is what the relationship governing any active portfolio implies it should deliver: the measured skill in the signal, multiplied by the square root of the number of independent decisions taken in a year, multiplied by the share of the signal that the mandate's limits let through into the positions.",
+     "A headline that is far stronger than the signal feeding it is the first thing a reviewer should distrust. Putting the two side by side says whether the result comes from the signal or from somewhere unexamined, and the standard error beside them says how finely the question can even be asked."),
+    (r"^/research/limits", r"^records that are a long book only$",
+     "Each manager is classified from what kind of firm it is and from what its own disclosures contain: the share of disclosed value held in puts and calls, the number of positions and the share of the book that reaches a price. A hedged equity manager discloses the long side of a two-sided book and nothing of the short side.",
+     "The site excludes multi-strategy, quantitative, macro and market-making firms from scoring. It does not exclude hedged equity managers, because their long book is a real object worth measuring — but it is not the fund, and a ranking that forgets this is the standard trap."),
+    (r"^/research/limits", r"^largest size that still trades$",
+     "The latest list of trades is rescaled to portfolios of increasing size. For each, every trade is measured against the company's estimated daily volume, taken as half a percent of its market value, and every holding against the company's market value. The figure is the largest size at which no trade exceeds five days of volume and no holding exceeds five percent of a company.",
+     "Capacity is the question an allocator asks after the return. The answer here is that trading costs are not the constraint — position size is, because a portfolio capped at four percent a name in a few hundred companies must own real stakes in the smaller ones."),
+    (r"^/research/limits", r"^numbers recalculated independently$",
+     "Every headline statistic for every manager was recomputed by a second implementation that shares no code with the first and writes out the robust standard errors by hand, then compared number by number.",
+     "Agreement to the limit of computer precision rules out the quiet kind of arithmetic error. It says nothing about whether the data feeding both sides is right, which is why the page sets out exactly what the check cannot reach."),
+
+    (r"^/research/(construction|limits)", r"^where the result comes from$",
+     "At every rebalance two things are measured: how well the signal ranked the companies by what they then did over the following quarter, and how much of the signal survived the mandate's limits, which is the correlation between the positions the optimiser took and the scores it was given. The first number is those two multiplied together and then by the square root of the number of decisions taken in a year; the second is the information ratio the portfolio actually delivered.",
+     "This is the check that stops a strong-looking portfolio result being taken on faith. A result far above what the signal can support has to be coming from somewhere else — a lucky year, a hidden exposure or a mistake — and a result close to it is simply the arithmetic of applying a weak signal across many names."),
+
     # ---------------------------------------------------------------- manager memo
     ("memo", r"^return /yr$",
      "The monthly returns are chained together, and the total growth is converted to a yearly rate. The market figure is the US stock market as a whole, weighted by company size, over exactly the same months.",

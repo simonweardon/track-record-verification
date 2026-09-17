@@ -1052,7 +1052,10 @@ h3 { font: 700 10px/1.3 var(--sans); margin: 0 0 12px; color: var(--navy); text-
 .chip.estimated::before { background: var(--navy); } .chip.unknown::before { background: var(--dim); }
 .chip.public::before, .chip.inference::before { background: transparent; border: 1px solid var(--muted); }
 .card { background: var(--surface); border: 1px solid var(--line); padding: 22px 24px; }
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 14px; }
+/* grid items default to min-width:auto, which lets a wide table hold the whole page open on a phone;
+   zero it so the table scrolls inside .tscroll rather than the page scrolling sideways */
+.wrap > *, .wrap section > *, .grid2 > *, .tiles > *, .findings > * { min-width: 0; }
 .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; margin-top: 20px; }
 /* verdict */
 .verdict { gap: 14px; }
@@ -1062,7 +1065,7 @@ h3 { font: 700 10px/1.3 var(--sans); margin: 0 0 12px; color: var(--navy); text-
 .hv { font: 400 64px/1 var(--serif); letter-spacing: -.02em; color: var(--navy); }
 .hs { color: var(--ink-2); font-size: 13.5px; }
 .tl { font: 600 9px/1.3 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px; }
 .tile { background: var(--surface); border: 1px solid var(--line); padding: 16px 18px; display: grid; gap: 5px; align-content: start; }
 .tv { font: 400 30px/1.1 var(--serif); letter-spacing: -.01em; color: var(--navy); }
 .tv.small { font-size: 24px; white-space: nowrap; }

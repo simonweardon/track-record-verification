@@ -153,7 +153,7 @@ def _z(x: pd.Series) -> pd.Series:
     return z.clip(-3, 3)
 
 
-def build_panel(log=print) -> tuple[pd.DataFrame, dict]:
+def build_panel(log=print, min_holders: int = MIN_HOLDERS) -> tuple[pd.DataFrame, dict]:
     books = load_books(log=log); prices = load_prices(); rets = clean_returns(prices); close = load_close(prices)
     fund = load_fundamentals()
     have_fund = not fund.empty
@@ -166,7 +166,7 @@ def build_panel(log=print) -> tuple[pd.DataFrame, dict]:
     uni_at = {}
     for F in forms:
         q = b[b.formation == F].groupby("ticker").slug.nunique()
-        uni_at[F] = list(q[q >= MIN_HOLDERS].index)
+        uni_at[F] = list(q[q >= min_holders].index)
     months = [m for m in prices.index if m >= forms[0] and prices.index.get_loc(m) >= 13]
     rows = []
     for m in months:
@@ -199,7 +199,7 @@ def build_panel(log=print) -> tuple[pd.DataFrame, dict]:
         if s in panel:
             panel[s + "_raw"] = panel[s]
             panel[s] = panel.groupby("month")[s].transform(_z)
-    info = dict(months=int(panel.month.nunique()), universe_avg=int(round(panel.groupby("month").size().mean())),
+    info = dict(months=int(panel.month.nunique()), universe_avg=int(round(panel.groupby("month").size().mean())), min_holders=int(min_holders),
                 first=str(panel.month.min().date()), last=str(panel.month.max().date()), fundamentals=have_fund,
                 coverage={s: float(panel[s].notna().mean()) for s in SIGNALS if s in panel})
     log(f"panel: {info['months']} months × ~{info['universe_avg']} names; signal coverage " + ", ".join(f"{k} {v:.0%}" for k, v in info["coverage"].items()))

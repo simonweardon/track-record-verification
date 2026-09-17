@@ -591,6 +591,13 @@ def directory_html() -> str:
             listed.append(dict(key=d.name, href=f"/analyze?ticker={d.name}", mgr=meta.get("name", d.name), fund=f"{d.name} — listed, distributions reinvested",
                                tag=f"{(meta.get('first') or '')[:4]}–{(meta.get('last') or '')[:4]}", alpha=am, wealth=wm, excess=ex, t=t,
                                months=meta.get("months") or meta.get("rows"), memo=f"/t/{d.name}/memo", ok=True))
+    # ---- how closely each record can track the real fund, measured from the disclosures themselves
+    recon = {}
+    rf = ROOT / "data" / "research" / "limits" / "reconstruction.csv"
+    if rf.exists():
+        with rf.open() as fh:
+            for r in csv.DictReader(fh):
+                recon[r["slug"]] = r
     # ---- funds
     funds = fund_index()
     NOT_MEANINGFUL = {"multi", "macro", "mm"}
@@ -602,7 +609,9 @@ def directory_html() -> str:
                           tag=(f"disclosed holdings · {(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} priced" if ok
                                else f"not scorable yet: {r.get('months') or 0} months of usable filings, and 36 are needed"),
                           alpha=r.get("alpha_maxing"), wealth=r.get("wealth"), excess=r.get("excess"), t=r.get("ff3_t"),
-                          months=r.get("months"), memo=f"/f/{r['slug']}/memo", ok=ok))
+                          months=r.get("months"), memo=f"/f/{r['slug']}/memo", ok=ok,
+                          rc=(recon.get(r["slug"], {}).get("confidence") or ("Not meaningful" if nm else "")),
+                          rcnote=(recon.get(r["slug"], {}).get("confidence_note") or "")))
     n_ok = sum(1 for r in frows if r["ok"])
     def row(r, kind):
         a, w, e, t = num(r["alpha"]), num(r["wealth"]), num(r["excess"]), num(r.get("t"))
@@ -613,6 +622,12 @@ def directory_html() -> str:
         memo = (f"<a class='memo' href='{r['memo']}'>Memo</a>" if r["ok"] and not nm and r.get("memo") else "")
         search = html.escape(f"{r['mgr']} {r['fund']} {r.get('style', '')} {kind}".lower(), quote=True)
         style_key = html.escape((r.get("style") or ("Listed vehicle" if kind == "listed" else "")).lower(), quote=True)
+        rc = r.get("rc") or ("Actual returns" if kind == "listed" else "")
+        rc_key = html.escape(rc.lower(), quote=True)
+        rc_cls = {"Close": "ok", "Actual returns": "ok", "Long side only": "part", "Partial": "part",
+                  "Stock positions only": "thin", "Not meaningful": "thin"}.get(rc, "part")
+        rc_title = html.escape(r.get("rcnote") or "", quote=True)
+        rc_chip = (f"<span class='rc {rc_cls}' title='{rc_title}'>{html.escape(rc)}</span>" if rc else "")
         if nm and r["ok"]:
             cells = "<td colspan='3' class='n'><span class='sub2' style='color:var(--muted)'>The disclosed holdings are not meaningful for this strategy, and the actual returns are private.</span></td>"
             w = a = -2; e = -99
@@ -624,8 +639,8 @@ def directory_html() -> str:
         return (f"<tr data-s='{search}' data-n='{html.escape(r['mgr'].lower(), quote=True)}' data-w='{w if w is not None else -1}' "
                 f"data-a='{a if a is not None else -1}' data-e='{e if e is not None else -99}' data-t='{tv}' data-m='{mo:.0f}' "
                 f"data-y='{style_key}' data-mgr='{html.escape(r['mgr'], quote=True)}' data-fund='{html.escape(r['fund'], quote=True)}' "
-                f"data-slug='{html.escape(r['key'], quote=True)}'>"
-                f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}<br>"
+                f"data-slug='{html.escape(r['key'], quote=True)}' data-rc='{rc_key}'>"
+                f"<td><span class='mgr'>{html.escape(r['mgr'])}</span>{'<span class=tag>' + html.escape(r['style']) + '</span>' if r.get('style') else ''}{rc_chip}<br>"
                 f"<span class='fund'>{html.escape(r['fund'])} · {html.escape(r['tag'])}</span></td>"
                 f"{cells}<td class='n'>{memo}{btn}</td></tr>")
     styles = sorted({r["style"] for r in frows if r.get("style")} | ({"Listed vehicle"} if listed else set()))
@@ -679,6 +694,8 @@ th.sort.on::after{border-top-color:var(--gold)}th.sort.on.asc::after{border-top:
 .filters .lnk{background:none;border:0;color:var(--gold);font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;cursor:pointer;padding:6px 0}
 .filters .dlbtn{margin-left:auto;font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;padding:9px 14px;border:1px solid var(--navy);background:var(--navy);color:var(--surface);cursor:pointer}
 .filters .dlbtn:hover{filter:brightness(1.15)}
+.rc{display:inline-block;margin-left:6px;font:600 8px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;padding:3px 6px;border:1px solid currentColor}
+.rc.ok{color:var(--good,#2e7d5b)}.rc.part{color:#9a7b2e}.rc.thin{color:var(--crit,#b3392f)}
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 #tbl td:last-child{white-space:nowrap}
 a.memo{font:600 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);text-decoration:none;margin-right:14px;vertical-align:middle}
@@ -687,25 +704,26 @@ a.memo:hover{text-decoration:underline}
 </style>"""
     js = """<script>
 (function(){const q=document.getElementById('q'),rows=[...document.querySelectorAll('#tbl tbody tr')],cnt=document.getElementById('cnt'),tb=document.querySelector('#tbl tbody');
-const fT=document.getElementById('f-t'),fY=document.getElementById('f-y'),fM=document.getElementById('f-m'),fOk=document.getElementById('f-ok');
+const fT=document.getElementById('f-t'),fY=document.getElementById('f-y'),fM=document.getElementById('f-m'),fOk=document.getElementById('f-ok'),fR=document.getElementById('f-rc');
 function visible(){return rows.filter(r=>!r.hidden);}
-function apply(){const s=q.value.trim().toLowerCase(),ft=fT.value,fy=fY.value,fm=parseFloat(fM.value)||0,ok=fOk.checked;let n=0;
+function apply(){const s=q.value.trim().toLowerCase(),ft=fT.value,fy=fY.value,fm=parseFloat(fM.value)||0,ok=fOk.checked,fr=fR.value;let n=0;
 rows.forEach(r=>{const d=r.dataset,t=parseFloat(d.t),scorable=t>-90;
 let pass=!s||d.s.includes(s);
 if(pass&&ft!=='any'){pass=scorable&&(ft==='neg'?t<0:t>=parseFloat(ft));}
 if(pass&&fy!=='any')pass=d.y===fy;
 if(pass&&fm)pass=(parseFloat(d.m)||0)>=fm;
+if(pass&&fr!=='any')pass=(d.rc||'')===fr;
 if(pass&&ok)pass=scorable;
 r.hidden=!pass;if(pass)n++;});
 cnt.textContent=n+' of '+rows.length;}
-[q,fT,fY,fM,fOk].forEach(el=>el.addEventListener(el===q?'input':'change',apply));
-document.getElementById('f-reset').addEventListener('click',()=>{q.value='';fT.value='any';fY.value='any';fM.value='0';fOk.checked=false;apply();});
+[q,fT,fY,fM,fOk,fR].forEach(el=>el.addEventListener(el===q?'input':'change',apply));
+document.getElementById('f-reset').addEventListener('click',()=>{q.value='';fT.value='any';fY.value='any';fM.value='0';fR.value='any';fOk.checked=false;apply();});
 document.getElementById('dl').addEventListener('click',()=>{
 const esc=v=>{v=(v==null?'':String(v));return /[",\\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-const head=['slug','manager','fund','style','months','excess_vs_market','ff3_t','alpha_maxing','wealth_management'];
+const head=['slug','manager','fund','style','tracks_the_fund','months','excess_vs_market','ff3_t','alpha_maxing','wealth_management'];
 const out=[head.join(',')];
 visible().forEach(r=>{const d=r.dataset,g=x=>{const v=parseFloat(d[x]);return (v===undefined||isNaN(v)||v<=-90||v===-1||v===-2)?'':v;};
-out.push([d.slug,d.mgr,d.fund,d.y,d.m,g('e'),g('t'),g('a'),g('w')].map(esc).join(','));});
+out.push([d.slug,d.mgr,d.fund,d.y,d.rc||'',d.m,g('e'),g('t'),g('a'),g('w')].map(esc).join(','));});
 const b=new Blob([out.join('\\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');
 a.href=u;a.download='managers-'+visible().length+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);});
 const gs=document.getElementById('go-search');if(gs)gs.addEventListener('click',e=>{e.preventDefault();document.getElementById('all').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(()=>q.focus(),400);});
@@ -716,7 +734,7 @@ apply();})();
 </script>"""
     from .areas import area_html
     screener = f"""<h2 data-n="All managers" id="all">Screen every manager in the system</h2>
-<p class="note">Listed funds are shown with their actual returns. Hedge funds and family offices are shown through their <b>disclosed holdings</b>, the US stocks each manager reports owning every quarter, which is a reconstruction rather than the fund itself. Where a firm's filing is trading inventory rather than a portfolio, no score is shown. Press <b>Analyze</b> for the full dashboard or <b>Memo</b> for the due-diligence memo.</p>
+<p class="note">Listed funds are shown with their actual returns. Hedge funds and family offices are shown through their <b>disclosed holdings</b>, the US stocks each manager reports owning every quarter, which is a reconstruction rather than the fund itself. Where a firm's filing is trading inventory rather than a portfolio, no score is shown. The chip beside each manager says how closely the record can track the real fund, judged from the disclosures themselves rather than from the label: a hedged manager's short book is invisible, and a manager who holds much of the book in options is not the stock positions that remain. The reasoning, and the numbers behind it, are on <a href="/research/limits">Due Diligence on This Work</a>. Press <b>Analyze</b> for the full dashboard or <b>Memo</b> for the due-diligence memo.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
 <div class="filters">
   <label>Evidence of alpha <select id="f-t">
@@ -727,6 +745,11 @@ apply();})();
   <label>Track length <select id="f-m">
     <option value="0">any</option><option value="36">3 years or more</option>
     <option value="60">5 years or more</option><option value="120">10 years or more</option></select></label>
+  <label>How closely the record tracks the fund <select id="f-rc">
+    <option value="any">any</option><option value="close">close — the disclosure is most of the portfolio</option>
+    <option value="long side only">long side only — the short book is invisible</option>
+    <option value="partial">partial — credit or merger positions are not disclosed</option>
+    <option value="stock positions only">stock positions only — much of the book is in options</option></select></label>
   <label class="chk"><input type="checkbox" id="f-ok"> scorable only</label>
   <button type="button" id="f-reset" class="lnk">Reset</button>
   <button type="button" id="dl" class="dlbtn">Download CSV</button>
@@ -1147,6 +1170,12 @@ class Handler(SimpleHTTPRequestHandler):
             if doc is None:
                 return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Active \u00b7 Independent Verification", current="/active")))
+        if u.path == "/research/limits":
+            from .research_pages import limits_html
+            doc = limits_html()
+            if doc is None:
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
+            return self._html(with_nav(doc, nav_html("Method \u00b7 Due Diligence on This Work", current="")))
         if u.path.startswith("/research/r-verify/") and u.path.endswith(".csv"):
             from .rverify import OUT_DIR as RV_DIR
             f = RV_DIR / u.path.rsplit("/", 1)[1]

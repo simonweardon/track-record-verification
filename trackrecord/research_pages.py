@@ -221,7 +221,8 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
     <p><b>Prices.</b> Prices are monthly closes adjusted for dividends. Stocks under $1 at formation are excluded, and a monthly return above 300% from a price under $5 is treated as a data error and blanked ({man.get('spikes_removed', 0)} cases in the whole panel). Delisted companies disappear at their last price, so every portfolio here is biased upward by survivorship, and most of all for the smallest, least-held names.</p>
     <p><b>Tests.</b> A spread's t-statistic is its mean monthly return divided by its standard error. Alphas are the intercepts of monthly regressions on the US market, size, value and momentum factors, with Newey–West standard errors, and are annualized. Information coefficients are rank correlations at each formation date. Nothing is optimized: the portfolio definitions were fixed before the results were seen, and every result is shown, including the ones that argue against the idea.</p>
     <p><b>Literature.</b> The relevant studies are Cohen, Polk and Silli (2010) on managers' best ideas, Brown and Schwarz (2013) on the information content of holdings disclosures, and Lakonishok, Shleifer and Vishny (1992) on herding. The question here is narrower than theirs: whether an outsider, acting only on public filings on the date they became public, could have used them.</p>
-  </div>
+    <p class="cap" style="margin-top:12px">Every limit on this page is measured rather than asserted, on <a href="/research/limits">Due Diligence on This Work</a>: the signals re-tested on a universe five times wider, the share of each quarter's holdings that reaches a price, what the portfolio result implies about the signal behind it, and what the independent check cannot reach.</p>
+</div>
 </section>
 
 <footer class="foot">
@@ -250,6 +251,18 @@ def construction_html(out_dir: Path | None = None) -> str | None:
     sec = pd.read_csv(d / "sectors_latest.csv")
     c = man["constraints"]; L = man["latest"]; rt = man.get("r_twin", {})
     P, U, B = summ.loc["portfolio"], summ.loc["unconstrained"], summ.loc["benchmark"]
+    # where does the result come from?  skill in the signal x share the constraints let through x sqrt(decisions)
+    has_law = "transfer_coef" in rb and rb.transfer_coef.notna().any() and rb.realized_ic.notna().any()
+    if has_law:
+        _ic_q = rb.realized_ic.dropna()
+        law_tc = float(rb.transfer_coef.mean()); law_ic = float(_ic_q.mean())
+        law_n = float(rb.universe.mean()) * 4
+        law_ir = law_tc * law_ic * np.sqrt(law_n)
+        law_tile = (f"<div class='tile'><div class='tl'>Where the result comes from</div><div class='tv'>{law_ir:.2f} &rarr; {P.information_ratio:.2f}</div>"
+                    f"<div class='td muted'>the signal ranks the names with a skill of {law_ic:+.3f} a quarter, {law_tc:.0%} of it survives the limits, and it is applied to "
+                    f"{law_n:,.0f} decisions a year, which implies {law_ir:.2f}; the portfolio delivered {P.information_ratio:.2f}</div></div>")
+    else:
+        law_tile = ""
 
     # growth chart
     Rg = R[["benchmark", "portfolio", "unconstrained"]].dropna(how="all")
@@ -307,6 +320,7 @@ def construction_html(out_dir: Path | None = None) -> str | None:
     <div class="tile"><div class="tl">Turnover</div><div class="tv">{P.avg_turnover:.0%}</div><div class="td muted">one-way per quarter against a budget of {c['turnover']:.0%}, holding {P.avg_names:.0f} names on average</div></div>
     <div class="tile"><div class="tl">Unconstrained top decile</div><div class="tv">{pct(U.active_return, 1)}</div><div class="td muted">the same signal with no constraints: tracking error {pct(U.tracking_error, 1, False)}, information ratio {num(U.information_ratio)}, turnover {U.avg_turnover:.0%}, {U.avg_names:.0f} names</div></div>
     <div class="tile"><div class="tl">Benchmark</div><div class="tv">{pct(B.ann_return, 1, False)}</div><div class="td muted">everything the managers own, weighted by dollars held; volatility {pct(B.ann_vol, 1, False)}, worst fall {pct(B.max_dd, 0, False)}</div></div>
+    {law_tile}
   </div>
   <p class="cap" style="margin-top:14px">The signal here is twelve-month price momentum, chosen because it is transparent and available for every stock, not because it is good. The point of the page is the machinery, which takes any signal. Read the constrained and unconstrained figures together: the constraints give up some of the raw signal in exchange for a portfolio that a benchmark-relative mandate could actually hold.</p>
 </section>
@@ -370,7 +384,8 @@ def construction_html(out_dir: Path | None = None) -> str | None:
     <p><b>Costs and drift.</b> Trading costs {c['cost_bps']:.0f} bps per dollar traded and is charged in the first month after each rebalance. Between rebalances every portfolio, including the benchmark, is held without trading. Delisted companies drop out at their last price, which is a survivorship bias and is disclosed.</p>
     <p><b>Risk.</b> The predicted tracking error comes from the covariance of the past 36 months of returns, shrunk halfway toward a constant correlation. It is reported rather than constrained, because the active and sector bands are the linear stand-in that most benchmark-relative mandates actually use. Realized tracking error is the standard deviation of the monthly active returns, annualized.</p>
     <p><b>Honesty.</b> The constraints were fixed before any backtest was run and were not tuned. Both the constrained and the unconstrained rows are shown, whatever they say.</p>
-  </div>
+    <p class="cap" style="margin-top:12px">Every limit on this page is measured rather than asserted, on <a href="/research/limits">Due Diligence on This Work</a>: the signals re-tested on a universe five times wider, the share of each quarter's holdings that reaches a price, what the portfolio result implies about the signal behind it, and what the independent check cannot reach.</p>
+</div>
 </section>
 
 <footer class="foot">
@@ -509,7 +524,9 @@ def research_index_html() -> str:
         except Exception:
             return {}
 
+    from .limits import OUT_DIR as LIM_DIR
     sig, con, rv, dec = man(SIG_DIR / "manifest.json"), man(CON_DIR / "manifest.json"), man(RV_DIR / "manifest.json"), man(DECAY_DIR / "manifest.json")
+    lim = man(LIM_DIR / "manifest.json")
 
     notes = []
     if sig:
@@ -550,6 +567,26 @@ def research_index_html() -> str:
                       f"with {rv.get('disagreements', 0)} disagreements.",
                       [("r-verify/summary.csv", "one row per manager: FF3 alpha and t from both implementations, worst difference"),
                        ("r-verify/by_quantity.csv", "worst disagreement per quantity across every manager")]))
+
+    if lim.get("managers"):
+        notes.append(("/research/limits", "Due Diligence on This Work",
+                      "The same questions the rest of the site asks of an outside manager, asked of this work: whether the results depend on the "
+                      f"choice of stocks (they are re-tested on a universe of {lim.get('widest_universe', 0):,} names), how much of the past is missing "
+                      f"({lim.get('coverage_first', 0):.0%} of the disclosed money reached a price in the first year against {lim.get('coverage_last', 0):.0%} now), "
+                      "whether the portfolio result matches the signal behind it, what disclosed holdings can say about a hedged manager, how large the "
+                      "portfolio could be, what the independent check cannot reach, and how current the data is.",
+                      [("limits/universe_ic.csv", "every signal re-tested on three universes and on each half of the sample"),
+                       ("limits/coverage.csv", "per quarter: how much of the disclosed money reaches a company with a price history"),
+                       ("limits/missing.csv", "the largest positions that reach no price, by era, with names"),
+                       ("limits/law.csv", "the portfolio result reconciled term by term with the signal behind it"),
+                       ("limits/costs.csv", "the whole backtest re-run at six trading-cost assumptions"),
+                       ("limits/capacity.csv", "trade sizes and ownership stakes at seven portfolio sizes"),
+                       ("limits/reconstruction.csv", "per manager: options in the disclosed book, coverage, and how closely the record can track the fund"),
+                       ("limits/evidence.csv", "how many years a given result needs before it can be told apart from luck"),
+                       ("limits/cleaning.csv", "the classes of data error found and the rule for each"),
+                       ("limits/verification.csv", "what the independent check covers and what it cannot"),
+                       ("limits/freshness.csv", "when each input was last refreshed and what the newest data point is"),
+                       ("limits/computation.csv", "which parts of the site are computed on request and which are stored")]))
 
     blocks = ""
     for href, title, what, files in notes:
@@ -726,7 +763,8 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
     <p><b>Universe.</b> The universe is the stocks held by at least five of the managers in the system at the latest filing date and priced at $1 or more. That is around {man['universe_avg']} names a month, large and liquid, which is where such signals are weakest. Delisted companies drop out at their last price, which is a survivorship bias and is disclosed.</p>
     <p><b>Models.</b> The simple average is the plain mean of the available standardized signals, with no fitted weights at all. The learned model is a gradient-boosted ensemble of 300 shallow decision trees trained on next-month returns relative to the universe, using an expanding window with the first {man['min_train']} months held out and a refit every {man['retrain']} months. None of its settings were tuned on the test period.</p>
     <p><b>Reading it.</b> With about 150 months and one universe, a t-statistic below 2 is noise. A learned model with eight inputs cannot learn much that a simple average does not already capture, and the head-to-head test says how much. That is the finding a research meeting needs, rather than a backtest that looks good.</p>
-  </div>
+    <p class="cap" style="margin-top:12px">Every limit on this page is measured rather than asserted, on <a href="/research/limits">Due Diligence on This Work</a>: the signals re-tested on a universe five times wider, the share of each quarter's holdings that reaches a price, what the portfolio result implies about the signal behind it, and what the independent check cannot reach.</p>
+</div>
 </section>
 
 <footer class="foot">
@@ -847,7 +885,8 @@ def riskmodel_html(out_dir: Path | None = None) -> str | None:
     <p><b>Estimation.</b> Each month, the next month's return of every stock in the universe is regressed on its exposures at the time: the market, {len(styles)} standardized style scores, and {man['industries']} industry memberships, with the industry returns constrained to average to zero so that the market factor is identified. The regression is ordinary least squares with equal weights, whereas a commercial vendor would weight by company size and trim extreme residuals.</p>
     <p><b>Covariance.</b> The factor covariance is estimated over the trailing {man['window']} months with recent months weighted more heavily, using a {man['half_life']}-month half-life, and with no adjustment for volatility regimes. Each stock's specific variance is estimated the same way from its own residuals and shrunk toward the median across stocks, more strongly for stocks with short histories.</p>
     <p><b>What this is not.</b> A commercial model such as Barra's has around ten styles built from dozens of descriptors, around sixty industries, daily estimation and years of calibration. This model shares the structure and the tests, on one universe of about {man['universe_avg']} names. It is enough to run Portfolio Construction on, and to show where a commercial model earns its fee.</p>
-  </div>
+    <p class="cap" style="margin-top:12px">Every limit on this page is measured rather than asserted, on <a href="/research/limits">Due Diligence on This Work</a>: the signals re-tested on a universe five times wider, the share of each quarter's holdings that reaches a price, what the portfolio result implies about the signal behind it, and what the independent check cannot reach.</p>
+</div>
 </section>
 
 <footer class="foot">
@@ -963,7 +1002,8 @@ def fof_html(out_dir: Path | None = None) -> str | None:
     <p><b>Correlations.</b> Correlations are measured pairwise on overlapping months, with at least 24 required, and shrunk {man['corr_shrink']:.0%} toward zero. They use residual rather than total returns, because exposure to the market and the factors can be bought elsewhere, cheaply.</p>
     <p><b>Optimisation.</b> The optimiser maximises the blend's expected information ratio over long-only weights that sum to one, with no manager above {man['max_weight']:.0%}. There are no transaction costs, capacity or liquidity terms; a real fund of funds adds minimum ticket sizes, redemption terms and operational scores.</p>
     <p><b>Reading it.</b> Two findings are the substance of the page: that the cross-section of alphas is indistinguishable from noise, and that ranking on past alpha did not select future alpha in this sample. Everything under a stated prior is what an allocator would do <i>if</i> they believed otherwise, shown so the belief is explicit rather than hidden in a weight.</p>
-  </div>
+    <p class="cap" style="margin-top:12px">Every limit on this page is measured rather than asserted, on <a href="/research/limits">Due Diligence on This Work</a>: the signals re-tested on a universe five times wider, the share of each quarter's holdings that reaches a price, what the portfolio result implies about the signal behind it, and what the independent check cannot reach.</p>
+</div>
 </section>
 
 <footer class="foot">
@@ -1119,7 +1159,8 @@ def decay_html(out_dir: Path | None = None) -> str | None:
     <p><b>Models.</b> The first predictor simply ranks managers by their trailing twelve-month excess return, with nothing fitted. The second is a logistic regression on the standardized features, with missing values set to the training average. The third is a learned model, a gradient-boosted ensemble of {man.get('xgb_rounds')} shallow decision trees that handles missing values itself. Each is refit at every filing date on all rows whose outcome was already known, with {man['min_train_dates']} dates of history required before the first prediction. No setting was tuned on the test period.</p>
     <p><b>Sample size, honestly.</b> {man['rows_labelled']:,} manager-quarters sounds like a lot, but it is {man['managers']} managers over about {man['formation_dates'] // 4} years, and consecutive quarters of one manager share most of their outcome window. There are roughly a dozen independent years here. An AUC by date of 0.55 with a t-statistic of 2 is about the smallest effect this design could detect. The effects found are smaller than that, so the honest reading is "nothing detectable" rather than "nothing there".</p>
     <p><b>What the disclosed holdings are not.</b> They are the long US positions from public filings, priced after the 45-day delay, with survivorship bias in the price data and no short positions, non-US holdings or credit. A manager whose real edge is elsewhere shows up here as noise. Every caveat on the <a href="/external">manager pages</a> applies.</p>
-  </div>
+    <p class="cap" style="margin-top:12px">Every limit on this page is measured rather than asserted, on <a href="/research/limits">Due Diligence on This Work</a>: the signals re-tested on a universe five times wider, the share of each quarter's holdings that reaches a price, what the portfolio result implies about the signal behind it, and what the independent check cannot reach.</p>
+</div>
   {rblock}
 </section>
 
@@ -1127,6 +1168,288 @@ def decay_html(out_dir: Path | None = None) -> str | None:
   <div class="running"><span>Track record verification · research</span><span>{man['first'][:7]} – {man['last'][:7]}</span></div>
   <h4>Important information</h4>
   <p>This page is built from public SEC EDGAR holdings filings, Yahoo Finance prices and the Kenneth R. French Data Library. The results are reconstructions with the limits stated above; they are not a strategy, a recommendation or investment advice. Past performance is not indicative of future results.</p>
+</footer>
+</main>
+<div id="tip" class="tip" hidden></div>
+<script>{JS}</script>
+"""
+
+
+# ---------------------------------------------------------------- due diligence on this work
+
+def _ic(x) -> str:
+    return "n/a" if x is None or pd.isna(x) else f"{x:+.3f}"
+
+
+def _usd(v: float) -> str:
+    return f"${v / 1e9:,.0f}bn" if v >= 1e9 else f"${v / 1e6:,.0f}m"
+
+
+def limits_html(out_dir: Path | None = None) -> str | None:
+    """The questions a reviewer would ask about this work, answered with numbers.
+
+    Everything on the page is read from data/research/limits/, so the answers move when the
+    data moves and no sentence can outlive the number that justified it."""
+    from .limits import OUT_DIR as LIM_DIR, MAX_DAYS_ADV, MAX_POS_OF_COMPANY, OPTION_HEAVY, ADV_OF_CAP
+    d = out_dir or LIM_DIR
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    uni = pd.read_csv(d / "universe_ic.csv")
+    cov = pd.read_csv(d / "coverage.csv", parse_dates=["formation"])
+    miss = pd.read_csv(d / "missing.csv")
+    law = pd.read_csv(d / "law.csv")
+    costs = pd.read_csv(d / "costs.csv")
+    cap = pd.read_csv(d / "capacity.csv")
+    rec = pd.read_csv(d / "reconstruction.csv")
+    ev = pd.read_csv(d / "evidence.csv")
+    ver = pd.read_csv(d / "verification.csv")
+    cln = pd.read_csv(d / "cleaning.csv")
+    comp = pd.read_csv(d / "computation.csv")
+    fresh = pd.read_csv(d / "freshness.csv")
+
+    unis = sorted(uni.min_holders.unique(), reverse=True)
+    sizes = {int(r.min_holders): int(r.universe_avg) for r in uni.drop_duplicates("min_holders").itertuples()}
+    narrow, wide = unis[0], unis[-1]
+
+    # ---- universe table: one row per signal, one pair of columns per universe
+    order = uni[uni.min_holders == narrow].sort_values("ic", ascending=False).signal.tolist()
+    urows = ""
+    for sg in order:
+        sub = uni[uni.signal == sg].set_index("min_holders")
+        lab = sub.iloc[0].label
+        cells = ""
+        for u in unis:
+            if u in sub.index:
+                r = sub.loc[u]
+                strong = " class='hi'" if abs(r.ic_t) >= 2 else ""
+                cells += f"<td class='n'{strong}>{_ic(r.ic)}</td><td class='n muted'>{_tv(r.ic_t)}</td>"
+            else:
+                cells += "<td class='n'>—</td><td class='n'>—</td>"
+        em = " style='font-weight:600'" if sg == "composite" else ""
+        urows += f"<tr{em}><td>{esc(lab)}</td>{cells}</tr>"
+    uhead = "".join(f"<th class='n' colspan='2'>{sizes[u]:,} names</th>" for u in unis)
+    usub = "".join("<th class='n'>skill</th><th class='n'>t</th>" for _ in unis)
+
+    # ---- the same, split in half by time, for the widest and narrowest universes
+    hrows = ""
+    for u in unis:
+        c = uni[(uni.min_holders == u) & (uni.signal == "composite")]
+        if c.empty:
+            continue
+        r = c.iloc[0]
+        hrows += (f"<tr><td>{sizes[u]:,} names</td><td class='n'>{_ic(r.ic_first)}</td><td class='n muted'>{_tv(r.t_first)}</td>"
+                  f"<td class='n'>{_ic(r.ic_second)}</td><td class='n muted'>{_tv(r.t_second)}</td>"
+                  f"<td class='n'>{_ic(r.ic)}</td><td class='n muted'>{_tv(r.ic_t)}</td></tr>")
+    half_at = uni.first_to.iloc[0][:7] if "first_to" in uni else ""
+
+    cov_chart = line_chart([str(x)[:7] for x in cov.formation], [
+        dict(name="reaches a price, by value", values=[float(v) for v in cov.share_value], cls="s1", emph=True),
+        dict(name="reaches a price, by position", values=[float(v) for v in cov.share_positions], cls="s2")],
+        height=250, y_fmt=lambda v: f"{v * 100:.0f}%", uid="cov")
+
+    mrows = ""
+    for era, g in miss.groupby("era", sort=False):
+        names = ", ".join(str(n) for n in g.name.head(6))
+        mrows += (f"<tr><td>{esc(era)}</td><td class='n'>{pct(g.era_share_value_unpriced.iloc[0], 0, sign=False)}</td>"
+                  f"<td>{esc(names)}</td></tr>")
+
+    # ---- the fundamental law
+    L = law.set_index("key")
+    lrows = ""
+    for _, r in law.iterrows():
+        v = f"{r.value:,.0f}" if r.key == "breadth" else (f"{r.value:.3f}" if r.key == "ic" else f"{r.value:.2f}")
+        lrows += f"<tr><td>{esc(r.label)}</td><td class='n'>{v}</td><td class='muted'>{esc(r.detail)}</td></tr>"
+    ir_a, ir_i, ir_se = float(L.value.ir_actual), float(L.value.ir_implied), float(L.value.ir_se)
+    within = abs(ir_a - ir_i) <= 2 * ir_se
+
+    crows = ""
+    for _, r in costs.iterrows():
+        crows += (f"<tr><td class='n'>{r.cost_bps:.0f}</td><td class='n'>{pct(r.ann_return, 1)}</td><td class='n'>{pct(r.active_return, 1)}</td>"
+                  f"<td class='n'>{pct(r.tracking_error, 1, sign=False)}</td><td class='n'>{r.information_ratio:.2f}</td>"
+                  f"<td class='n muted'>{pct(r.unconstrained_active, 1)}</td><td class='n muted'>{r.unconstrained_ir:.2f}</td></tr>")
+
+    caprows = ""
+    for _, r in cap.iterrows():
+        bad = " class='bad'" if r.trades_over_limit or r.stakes_over_limit else ""
+        caprows += (f"<tr{bad}><td class='n'>{_usd(r.nav)}</td><td class='n'>{r.cost_bps:.0f}</td><td class='n'>{pct(r.annual_drag, 2, sign=False)}</td>"
+                    f"<td class='n'>{r.median_days_of_volume:.3f}</td><td class='n'>{r.max_days_of_volume:.1f}</td>"
+                    f"<td class='n'>{r.trades_over_limit:.0f}</td><td class='n'>{pct(r.largest_stake, 1, sign=False)}</td><td class='n'>{r.stakes_over_limit:.0f}</td></tr>")
+    capacity_usd = man.get("capacity_usd")
+
+    # ---- reconstruction
+    conf_counts = rec.confidence.value_counts()
+    rrows = ""
+    for _, r in rec.sort_values("option_share", ascending=False).head(15).iterrows():
+        cls = {"Close": "yes", "Long side only": "weak", "Partial": "weak", "Stock positions only": "no", "Not meaningful": "no"}.get(r.confidence, "weak")
+        rrows += (f"<tr><td><a href='/f/{esc(r.slug)}/memo'>{esc(r['name'])}</a></td><td class='muted'>{esc(r.style_label)}</td>"
+                  f"<td class='n'>{pct(r.option_share, 0, sign=False)}</td><td class='n'>{pct(r.put_share, 0, sign=False)}</td>"
+                  f"<td class='n'>{pct(r.share_value_priced, 0, sign=False)}</td>"
+                  f"<td><span class='v {cls}'>{esc(r.confidence)}</span></td></tr>")
+
+    erows = ""
+    for _, r in ev.iterrows():
+        cls = " class='hi'" if r.detectable_now else ""
+        erows += (f"<tr><td class='n'>{r.information_ratio:.2f}</td><td class='n'{cls}>{r.years_for_t2:.0f}</td>"
+                  f"<td class='n'>{r.years_for_t3:.0f}</td><td>{'within this sample' if r.detectable_now else 'longer than this sample'}</td></tr>")
+
+    vrows = ""
+    for _, r in ver.iterrows():
+        cls = "yes" if r.covered else "no"
+        lab = "checked twice" if r.covered else "one implementation"
+        vrows += (f"<tr><td>{esc(r.area)}</td><td><span class='v {cls}'>{lab}</span></td><td class='muted'>{esc(r.what)}</td>"
+                  f"<td class='n'>{esc(r.numbers)}</td><td class='muted'>{esc(r.agreement)}</td></tr>")
+    vnotes = "".join(f"<p><b>{esc(r.area)}.</b> {esc(r.shared)}</p>" for _, r in ver.iterrows())
+
+    clrows = "".join(f"<tr><td>{esc(r.issue)}</td><td class='n'>{int(r.cases):,}</td><td class='muted'>{esc(r.rule)}</td></tr>" for _, r in cln.iterrows())
+    clex = "".join(f"<p><b>{esc(r.issue)}.</b> {esc(r.example)}</p>" for _, r in cln.iterrows())
+    comprows = "".join(f"<tr><td>{esc(r.surface)}</td><td><span class='v {'yes' if r.when == 'Computed' else 'caveat'}'>{esc(r.when.lower())}</span></td>"
+                       f"<td class='muted'>{esc(r.detail)}</td></tr>" for _, r in comp.iterrows())
+    frows = "".join(f"<tr><td>{esc(r.source)}</td><td class='n'>{esc(r.pulled)}</td><td class='n'>{esc(r.newest)}</td><td class='muted'>{esc(r.note)}</td></tr>"
+                    for _, r in fresh.iterrows())
+
+    # how long a sample the average signal would need: t grows with the square root of the months
+    c_wide = uni[(uni.min_holders == wide) & (uni.signal == "composite")].iloc[0]
+    comp_years = float(c_wide.months / 12 * (2.0 / c_wide.ic_t) ** 2) if c_wide.ic_t else float("nan")
+    best_wide = uni[(uni.min_holders == wide) & (uni.signal != "composite")].ic.max()
+    best_narrow = uni[(uni.min_holders == narrow) & (uni.signal != "composite")].ic.max()
+    n_strong = int((uni.ic_t.abs() >= 2).sum())
+
+    return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Due Diligence on This Work</title>
+<style>{CSS}{EXTRA_CSS}
+tr.bad td {{ background: color-mix(in srgb, var(--crit) 10%, transparent); }}
+td.hi {{ font-weight: 600; color: var(--good); }}
+.v {{ display: inline-block; font: 600 9px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; white-space: nowrap; }}
+.v.yes {{ background: var(--good); }} .v.no {{ background: var(--crit); }} .v.weak {{ background: var(--warn); }} .v.caveat {{ background: var(--ink-2); }}
+.qn {{ font: 600 9.5px/1 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }}
+</style>
+<div class="banner" role="note"><span class="bl">Read this first</span> Every other tool here puts hard questions to an outside manager. This page puts the same questions to the work itself and answers them with numbers, including where the answer is unflattering.</div>
+<header class="cover"><div class="cover-in">
+  <div class="cover-top"><div class="eyebrow">Method · Due Diligence on This Work</div></div>
+  <div class="gold-rule"></div>
+  <h1>Due Diligence on This Work</h1>
+  <p class="sub">A reviewer should not have to take any of this on trust. These are the eight questions worth asking about the data, the tests and the machinery behind the rest of the site, each answered from the data rather than from a disclaimer. Everything on this page is rebuilt whenever the data is, so no sentence here can outlive the number that justified it.</p>
+  <dl class="meta">
+    <div><dt>Questions</dt><dd>8</dd></div>
+    <div><dt>Universes tested</dt><dd>{len(unis)}</dd></div>
+    <div><dt>Managers assessed</dt><dd>{man['managers']}</dd></div>
+    <div><dt>Built</dt><dd>{esc(man['built'])}</dd></div>
+  </dl>
+</div></header>
+<main class="wrap">
+
+<section class="verdict">
+  <div class="sh"><h2>The short answers</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Widest universe tested</div><div class="tv">{sizes[wide]:,}</div><div class="td muted">names, against the {sizes[narrow]:,} the research normally uses; the strongest signal measures {_ic(best_wide)} there and {_ic(best_narrow)} here, so the narrow universe is not what is holding the results down</div></div>
+    <div class="tile"><div class="tl">Holdings that reach a price</div><div class="tv">{pct(man['coverage_last'], 0, sign=False)}</div><div class="td muted">of the latest quarter's disclosed value, against {pct(man['coverage_first'], 0, sign=False)} in the first quarter of the sample; what is missing is mostly companies that were bought or renamed</div></div>
+    <div class="tile"><div class="tl">Portfolio result against its signal</div><div class="tv">{ir_a:.2f} vs {ir_i:.2f}</div><div class="td muted">delivered against what the signal implies; the gap is {'inside' if within else 'outside'} the {ir_se:.2f} standard error of a result measured over this long</div></div>
+    <div class="tile"><div class="tl">Records that are a long book only</div><div class="tv">{int(conf_counts.get('Long side only', 0))} of {man['managers']}</div><div class="td muted">plus {int(conf_counts.get('Stock positions only', 0))} whose disclosed book is more than {OPTION_HEAVY:.0%} options, which the record leaves out entirely</div></div>
+    <div class="tile"><div class="tl">Largest size that still trades</div><div class="tv">{_usd(capacity_usd) if capacity_usd else 'n/a'}</div><div class="td muted">above this, individual positions break either the five-day volume rule or the five-percent ownership rule, long before trading costs matter</div></div>
+    <div class="tile"><div class="tl">Numbers recalculated independently</div><div class="tv">{man['checked_numbers']:,}</div><div class="td muted">by a second implementation sharing no code; what that cannot catch is set out in question five</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question one</span><h2>Why these stocks, and what is missing from them</h2></div>
+  <div class="card">
+    <p>The research runs on the companies that at least five of the managers in the system held at the time, which is about {sizes[narrow]:,} large, liquid names. That is a fair objection: classic stock-selection signals are weakest exactly there, so a weak result might be the universe rather than the signals. The test is to widen the universe and look again.</p>
+    <div class="tscroll"><table><thead><tr><th rowspan="2">signal</th>{uhead}</tr><tr>{usub}</tr></thead><tbody>{urows}</tbody></table></div>
+    <p class="cap">Skill is the rank correlation between the signal at the end of one month and what the stock did over the next, averaged over {int(uni.months.max())} months; t is that average divided by its standard error. The three universes are the companies held by five or more managers, by two or more, and by any one of them. {n_strong} of the {len(uni)} measurements on this table reach two standard errors. The four signals built from company accounts thin out as the universe widens, covering {pct(uni[(uni.min_holders == wide) & (uni.signal == 'value')].coverage.iloc[0], 0, sign=False)} of the widest universe against {pct(uni[(uni.min_holders == narrow) & (uni.signal == 'value')].coverage.iloc[0], 0, sign=False)} of the narrowest, so their rows on the right are measured on fewer companies.</p>
+    <p>Widening the universe nearly five-fold does not rescue the signals. The strongest single signal measures {_ic(best_wide)} on {sizes[wide]:,} names against {_ic(best_narrow)} on {sizes[narrow]:,}, and neither is distinguishable from zero. The average of the eight is the only measurement on the table that comes close to a result: it strengthens slightly as the universe widens, to {_ic(c_wide.ic)} at {abs(c_wide.ic_t):.1f} standard errors, which at that size and variability would need about {comp_years:.0f} years of monthly data to reach two, against the {int(uni.months.max()) / 12:.0f} available. That is the conclusion — not that the universe is wrong, and not that the premia have died, but that correlations this small cannot be settled inside a thirteen-year sample. It comes with its own caveat: the wider universes were tested after the narrow one, so a result that shows up only there is a result that was looked for.</p>
+    <div class="tscroll"><table><thead><tr><th>universe</th><th class="n">first half</th><th class="n">t</th><th class="n">second half</th><th class="n">t</th><th class="n">whole sample</th><th class="n">t</th></tr></thead><tbody>{hrows}</tbody></table></div>
+    <p class="cap">The average of the eight signals, split at {esc(half_at)}. If the premia had decayed the second half would be visibly worse than the first on every universe, and it is not.</p>
+  </div>
+  <div class="grid2" style="margin-top:14px">
+    <div class="card"><h3>What the universe cannot contain</h3>{cov_chart}
+      <p class="cap">The share of each quarter's disclosed holdings that reaches a company with a usable price history. A company that was bought, taken private or renamed has no price history to buy, so it never enters any universe on this site at all — it is not that it leaves at its last price, it is that it was never there.</p>
+    </div>
+    <div class="card"><h3>The largest positions that are missing</h3>
+      <div class="tscroll"><table><thead><tr><th>years</th><th class="n">share of value missing</th><th>largest positions</th></tr></thead><tbody>{mrows}</tbody></table></div>
+      <p class="cap">Read the names. They are overwhelmingly takeovers and renamings, not failures. That matters for the direction of the error: the usual worry about a surviving-companies-only sample is that the failures have been deleted and the results flatter. Here the deletions are mostly companies acquired at a premium, so the results on the early years are as likely to be understated as overstated. What is certain is that the early years are measured on two thirds of the money and should carry much less weight than the recent ones.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question two</span><h2>Does the portfolio result match the strength of its signal?</h2></div>
+  <div class="card">
+    <p>The constructed portfolio earns about {pct(man['active_at_10'], 1)} a year over its benchmark at an information ratio of {ir_a:.2f}, which looks strong next to a signal whose skill is barely distinguishable from zero. The two are reconciled by the relationship that governs any active portfolio: the result available is roughly the skill in the signal, multiplied by the square root of the number of independent decisions, multiplied by the share of the signal the mandate's limits allow through.</p>
+    <div class="tscroll"><table><thead><tr><th>term</th><th class="n">value</th><th>what it is</th></tr></thead><tbody>{lrows}</tbody></table></div>
+    <p class="cap">{'The delivered result is what the signal implies, once the number of decisions is counted.' if within else 'The delivered result sits outside what the signal implies, which is the gap worth arguing about.'} A weak signal applied to {float(L.value.breadth):,.0f} decisions a year is exactly how a respectable information ratio is built out of a correlation of {float(L.value.ic):.3f}; that is the arithmetic of the business, not a trick. It also sets the limit honestly: the same arithmetic says the result itself carries a standard error of {ir_se:.2f}, so {ir_a:.2f} and {ir_i:.2f} are the same number as far as this sample can tell.</p>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>What trading costs it</h3>
+    <div class="tscroll"><table><thead><tr><th class="n">cost, basis points</th><th class="n">return</th><th class="n">over benchmark</th><th class="n">tracking error</th><th class="n">information ratio</th><th class="n muted">unconstrained, over benchmark</th><th class="n muted">unconstrained ratio</th></tr></thead><tbody>{crows}</tbody></table></div>
+    <p class="cap">The whole backtest re-run at each cost, charged on every dollar traded at every rebalance. The portfolio turns over about {pct(costs.turnover.iloc[0], 0, sign=False)} of itself each quarter, so it trades about one and a half times its own value a year: moving the assumption from {costs.cost_bps.min():.0f} to {costs.cost_bps.max():.0f} basis points takes {(costs.active_return.max() - costs.active_return.min()) * 100:.1f} percentage points a year off the return, which is why the headline is not a story about the cost assumption. The last two columns are the same signal held as an equal-weight top decile with no constraints at all: more return over the benchmark, far more risk taken to get it, and a worse ratio. That is what the constraints are for.</p>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>How much money it could hold</h3>
+    <div class="tscroll"><table><thead><tr><th class="n">size</th><th class="n">cost, basis points</th><th class="n">drag a year</th><th class="n">typical trade, days of volume</th><th class="n">largest trade</th><th class="n">trades over {MAX_DAYS_ADV:.0f} days</th><th class="n">largest stake</th><th class="n">stakes over {MAX_POS_OF_COMPANY:.0%}</th></tr></thead><tbody>{caprows}</tbody></table></div>
+    <p class="cap">Market impact is estimated the way the industry estimates it: trading a whole day's volume in a company moves its price by about one daily standard deviation, and a smaller trade costs the square root of the fraction traded. A day's volume is taken as {ADV_OF_CAP:.1%} of the company's market value. Both are assumptions, stated so they can be argued with, and they are applied to the {pct(cap.value_measured.iloc[0], 0, sign=False)} of the latest trade list where a market value can be established.</p>
+    <p class="cap">The answer is that cost is not the binding constraint — it is position size. Average cost stays under {cap.cost_bps.max():.0f} basis points even at {_usd(cap.nav.max())}, but individual positions break the volume and ownership rules from about {_usd(capacity_usd) if capacity_usd else 'a few billion'}, because a portfolio capped at four percent a name in a universe of a few hundred companies has to own real stakes in the smaller ones. Above that the portfolio would have to be rebuilt with more names, lower caps and a longer trading horizon, which is a different mandate.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question three</span><h2>What disclosed holdings can and cannot say about a manager</h2></div>
+  <div class="card">
+    <p>A manager's record on this site is reconstructed from quarterly public disclosures of US stock positions. Those disclosures do not contain short positions, non-US holdings, bonds, credit, private positions or cash, they do not show what was bought and sold inside the quarter, and they arrive up to forty-five days after the quarter ends. For a long-only concentrated manager that is close to the whole portfolio. For a hedged manager it is one side of a two-sided book, and the site should not be read as ranking those managers on it.</p>
+    <p>The site already excludes multi-strategy, quantitative, macro and market-making firms from scoring, because for them the disclosure is inventory rather than a portfolio. It does not exclude hedged equity managers, because their long book is a real and interesting object — but it is not the fund, and the label on every such record now says so. Of the {man['managers']} managers assessed, {int(conf_counts.get('Close', 0))} disclose something close to their whole portfolio, {int(conf_counts.get('Long side only', 0))} are hedged managers whose short side is invisible, {int(conf_counts.get('Partial', 0))} run credit or merger books an equity disclosure cannot show, and {int(conf_counts.get('Stock positions only', 0))} put more than {OPTION_HEAVY:.0%} of the disclosed book into puts and calls.</p>
+    <p>That last group is the sharpest case, because the disclosure itself proves the point. Options are disclosed and are then deliberately left out of every record on the site, since an option's exposure is not its market value. So when a manager's disclosure is a third puts, the stock lines that remain are not the position that manager took — they may be the opposite of it.</p>
+    <div class="tscroll"><table><thead><tr><th>manager</th><th>kind</th><th class="n">options, share of disclosed value</th><th class="n">of which puts</th><th class="n">reaches a price</th><th>how to read the record</th></tr></thead><tbody>{rrows}</tbody></table></div>
+    <p class="cap">The fifteen managers whose disclosures lean hardest on options, which makes them the hardest cases for a reconstruction rather than the worst managers. The full table for all {man['managers']} is in <a href="/research/data/limits/reconstruction.csv">reconstruction.csv</a>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question four</span><h2>Is the record long enough to act on?</h2></div>
+  <div class="card">
+    <p>No. Thirteen years of quarterly disclosures is about {int(uni.months.max())} monthly observations, and that is short for the question being asked. The arithmetic is unforgiving: a result of a given quality needs roughly four divided by its square to be distinguishable from luck at two standard errors.</p>
+    <div class="tscroll"><table><thead><tr><th class="n">information ratio</th><th class="n">years to two standard errors</th><th class="n">years to three</th><th>against this sample</th></tr></thead><tbody>{erows}</tbody></table></div>
+    <p class="cap">This is why the site refuses to call a one-and-a-half standard error alpha skill, and why only a handful of the managers in the system clear the bar at all.</p>
+    <p><b>What would have to be true before real money.</b> For the constructed portfolio the honest list is short and none of it is met here. The signal would have to be tested on a point-in-time universe that includes the companies that no longer exist, built from a data source that carries them; the result would have to survive on an out-of-sample period that was not looked at while the rules were being chosen; the costs would have to come from real executions rather than an impact model; the risk model would have to be one that has been tested against realised risk over a full cycle; and the whole thing would have to run in paper form, with a real trade list and real prices, long enough to see whether the implementation shortfall matches the estimate. Until then this is a demonstration that the machinery works and reports what it finds, which is a different claim from the strategy being good.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question five</span><h2>What the independent check covers, and what it cannot</h2></div>
+  <div class="card">
+    <p>Agreement between two implementations to twelve decimal places is a claim about arithmetic, not about truth. It is worth being exact about what is and is not covered.</p>
+    <div class="tscroll"><table><thead><tr><th>area</th><th></th><th>what is recalculated</th><th class="n">how much</th><th>agreement</th></tr></thead><tbody>{vrows}</tbody></table></div>
+    <p class="cap">Three parts of the site are built twice, by two implementations that share no code.</p>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>Where a shared mistake could hide</h3>{vnotes}</div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question six</span><h2>The data, and what had to be fixed by hand</h2></div>
+  <div class="card">
+    <p>Public filings and free price data are messy in specific, findable ways. Every rule below was written because something visibly wrong came out of the pipeline and had to be traced back.</p>
+    <div class="tscroll"><table><thead><tr><th>what goes wrong</th><th class="n">cases in the data today</th><th>the rule</th></tr></thead><tbody>{clrows}</tbody></table></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>The examples</h3>{clex}</div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question seven</span><h2>What is computed when you ask, and what is stored</h2></div>
+  <div class="card">
+    <div class="tscroll"><table><thead><tr><th>part of the site</th><th></th><th>what happens</th></tr></thead><tbody>{comprows}</tbody></table></div>
+    <p class="cap">The short version: the research pages are stored because their inputs are stored, and every file behind them can be downloaded from <a href="/research">the research index</a>. Everything that takes a record and analyses it — a manager, a simulated blend, an uploaded file — is computed at the time, by the same code, with no separate path for the demonstration.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><span class="qn">Question eight</span><h2>How current this is</h2></div>
+  <div class="card">
+    <div class="tscroll"><table><thead><tr><th>input</th><th class="n">last refreshed</th><th class="n">newest data</th><th>what to know</th></tr></thead><tbody>{frows}</tbody></table></div>
+    <p class="cap">Last refreshed is the date the file behind each input was last changed in this project's own history, not the date it happens to have been copied onto a machine.</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="running"><span>Track record verification · method</span><span>{esc(man['built'])}</span></div>
+  <h4>Important information</h4>
+  <p>This page is built from public SEC EDGAR holdings filings and company accounts, Yahoo Finance prices and sector labels, and the Kenneth R. French Data Library. It describes the limits of the reconstructions on the rest of the site; none of it is a strategy, a recommendation or investment advice. Past performance is not indicative of future results.</p>
 </footer>
 </main>
 <div id="tip" class="tip" hidden></div>

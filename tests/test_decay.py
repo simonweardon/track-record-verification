@@ -98,11 +98,15 @@ def test_noise_scores_as_a_coin_flip_within_dates_despite_regimes():
 
 
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="R not installed")
-def test_r_twin_rebuilds_the_same_panel():
+def test_r_twin_rebuilds_the_same_panel(tmp_path):
     from trackrecord.decay import OUT_DIR
     if not (OUT_DIR / "panel.csv").exists() or not (OUT_DIR / "factors.csv").exists():
         pytest.skip("decay outputs not built")
-    out = D.compare_with_r(OUT_DIR, log=lambda *a: None)
+    # the R script writes panel_r.csv beside its inputs, so run it on a copy: a machine without
+    # R's xgboost would otherwise quietly overwrite the committed comparison with a thinner one
+    for f in ("panel.csv", "factors.csv"):
+        shutil.copy(OUT_DIR / f, tmp_path / f)
+    out = D.compare_with_r(tmp_path, log=lambda *a: None)
     if not out["available"] and "data.table" in str(out.get("reason", "")):
         pytest.skip("data.table not installed")
     assert out["available"], out

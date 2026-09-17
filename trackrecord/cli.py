@@ -329,6 +329,8 @@ def main(argv=None):
     dc = sub.add_parser("decay", help="manager decay model: 13F book and return features per manager-quarter, walk-forward persistence / logistic / xgboost, R twin -> data/research/decay")
     dc.add_argument("--no-r", action="store_true", help="skip the R twin")
     dc.set_defaults(fn=lambda a: (__import__("trackrecord.decay", fromlist=["build"]).build(run_r=not a.no_r), 0)[1])
+    lm = sub.add_parser("limits", help="due diligence on this work: universe robustness, coverage, cost and capacity, reconstruction quality, provenance -> data/research/limits")
+    lm.set_defaults(fn=lambda a: (__import__("trackrecord.limits", fromlist=["build"]).build(), 0)[1])
     cp = sub.add_parser("compact-pack", help="pack the EDGAR/price/factor caches into the committed data/reference/compact bundle")
     cp.set_defaults(fn=lambda a: (__import__("trackrecord.compact", fromlist=["pack"]).pack(), 0)[1])
     cu = sub.add_parser("compact-unpack", help="rebuild data/reference caches from the committed bundle (fresh clone)")

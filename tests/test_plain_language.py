@@ -36,7 +36,8 @@ def offenders(doc: str) -> list[str]:
 PAGES = {"/": lambda: home_html(S.page, 1, 1), "/active": lambda: area_html(S.page, "active"), "/external": S.directory_html,
          "/research": R.research_index_html, "/research/alpha-lab": R.alphalab_html, "/research/risk-model": R.riskmodel_html,
          "/research/construction": R.construction_html, "/research/r-verify": R.rverify_html, "/research/decay": R.decay_html,
-         "/research/fund-of-funds": R.fof_html, "/research/13f-signals": R.signals13f_html}
+         "/research/fund-of-funds": R.fof_html, "/research/13f-signals": R.signals13f_html,
+         "/research/limits": R.limits_html}
 
 
 @pytest.mark.parametrize("path", list(PAGES))

@@ -1,0 +1,43 @@
+{
+ "built": "2026-09-17",
+ "built_at": "2026-09-17 18:38",
+ "universes": {
+  "5": 352,
+  "2": 1171,
+  "1": 1722
+ },
+ "widest_universe": 1722,
+ "narrowest_universe": 352,
+ "best_ic_wide": 0.019390874593836697,
+ "best_ic_narrow": 0.022256775866593238,
+ "coverage_first": 0.6362444857174124,
+ "coverage_last": 0.9815994387522238,
+ "coverage_worst": 0.6337790142513063,
+ "coverage_worst_quarter": "2014-11-30",
+ "ir_actual": 0.7821580458135393,
+ "ir_implied": 0.5805893643282444,
+ "ir_se": 0.3169428005074329,
+ "ic": 0.02623945922560336,
+ "transfer": 0.5961166003357611,
+ "breakeven_cost_bps": null,
+ "cost_grid": [
+  0.0,
+  10.0,
+  25.0,
+  50.0,
+  100.0,
+  200.0
+ ],
+ "active_at_10": 0.0500590735810651,
+ "active_at_200": 0.0162177014492649,
+ "capacity_usd": 1000000000.0,
+ "managers": 90,
+ "long_short": 28,
+ "not_meaningful": 0,
+ "option_heavy": 17,
+ "close": 38,
+ "option_users": 34,
+ "checked_numbers": 4641,
+ "cleaning_cases": 1553,
+ "newest_filing": "2026-09-15"
+}

@@ -21,7 +21,22 @@ the context that is not in the code.
   xgboost → "learned model", linear composite → "simple average", R verification → "Independent Verification",
   13F signals → "Holdings Research", alpha lab → "Signal Research".
 
-## Status (Sept 16, 2026, night) — pick up here
+## Status (Sept 17, 2026) — pick up here
+**Due Diligence on This Work** (`trackrecord/limits.py`, `/research/limits`, card on the home page under "Before you trust
+any of it"): the eight objections a reviewer raises about the site, each answered with a computed number, all rebuilt by
+`python -m trackrecord limits` (~6 min) into `data/research/limits/`. Findings and the surfaces they changed are in the
+README section of the same name. Two things it changed elsewhere: (1) `construct.backtest` now records `transfer_coef`
+and `realized_ic` per rebalance (the fundamental-law reconciliation: IC 0.026 x TC 0.60 x sqrt(1,378) ⇒ implied IR 0.58
+vs realised 0.78, inside the 0.32 SE); (2) the `/external` screener carries a **how closely the record tracks the fund**
+chip and filter per manager, driven by `limits/reconstruction.csv` — 17 of 90 managers hold > 15% of the disclosed book
+in options, which the pipeline drops, so Elliott and Scion are labelled "stock positions only" next to their rank.
+Also fixed a site-wide mobile layout bug while checking the new page: `.grid2`/`.tiles` used a fixed `minmax(420px…)`
+and grid items kept `min-width:auto`, so a wide table held the whole page open. Now `minmax(min(420px,100%),1fr)` plus
+`min-width:0` on grid items — **every page fits at 390/768/1280 px**, which several did not before. 143 tests (4 of them need R, which is installed locally).
+Rebuild order after data changes: alpha-lab → risk-model; construct, fund-of-funds and limits are independent, but
+limits reads construction's trade list and the r-verify / decay manifests, so run it last.
+
+## Earlier status (Sept 16, 2026, night)
 Passive area removed entirely (Simon's call after the pandering audit: the 5% JD line was not worth a tab that read as
 built-for-the-JD). Gone: toolbar entry, home card, `/research/index-tracker`, `/live/passive/*`, `trackrecord/tracker.py`,
 `trackrecord/livebook.py`, `data/research/index-tracker/`, the `index-tracker` CLI command and the daily live-book scheduler.

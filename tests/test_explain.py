@@ -30,7 +30,7 @@ def test_annotate_adds_one_note_per_tile_and_is_idempotent():
 
 PAGES = [("/research/alpha-lab", R.alphalab_html), ("/research/risk-model", R.riskmodel_html), ("/research/construction", R.construction_html),
          ("/research/r-verify", R.rverify_html), ("/research/decay", R.decay_html), ("/research/fund-of-funds", R.fof_html),
-         ("/research/13f-signals", R.signals13f_html)]
+         ("/research/13f-signals", R.signals13f_html), ("/research/limits", R.limits_html)]
 
 
 @pytest.mark.parametrize("path,fn", PAGES, ids=[p for p, _ in PAGES])
@@ -46,12 +46,13 @@ def test_every_research_tile_has_a_note(path, fn):
 
 
 def test_every_card_stat_has_a_note():
-    for area, cards in tool_cards().items():
-        for c in cards:
-            for _, label in c["stats"]:
-                assert E.lookup(label, c["href"]), (c["href"], label)
+    from trackrecord.areas import method_card
+    cards = [c for cs in tool_cards().values() for c in cs] + [c for c in (method_card(),) if c]
+    for c in cards:
+        for _, label in c["stats"]:
+            assert E.lookup(label, c["href"]), (c["href"], label)
     doc = home_html(S.page, 1, 1)
-    assert doc.count("how hw") == sum(len(c["stats"]) for cs in tool_cards().values() for c in cs)
+    assert doc.count("how hw") == sum(len(c["stats"]) for c in cards)
     assert "<a class='rcard'" not in doc and "<div class='rcard'" in doc      # notes cannot live inside a link
 
 

@@ -124,6 +124,21 @@ def tool_cards() -> dict[str, list[dict]]:
     return cards
 
 
+def method_card() -> dict | None:
+    """The due-diligence-on-itself page, shown once the checks behind it have been built."""
+    m = _man("limits/manifest.json")
+    if not m.get("managers"):
+        return None
+    return dict(href="/research/limits", eyebrow="What would a reviewer object to?",
+                title="Due Diligence on This Work",
+                what="Every tool here puts hard questions to an outside manager. This page puts the same questions to the work itself: "
+                     "why this set of stocks, what is missing from it, whether the portfolio result matches the signal behind it, what disclosed "
+                     "holdings can and cannot say about a manager, and how current the data is. Each answer is a number, and the unflattering ones are kept.",
+                stats=[(f"{m.get('widest_universe', 0):,}", "widest set of stocks tested"),
+                       (f"{_num(m.get('coverage_last'), 0):.0%}", "of holdings reach a price"),
+                       (f"{m.get('long_short', 0)} of {m.get('managers', 0)}", "records that are a long book only")])
+
+
 CARD_CSS = EXPLAIN_CSS + """<style>
 .rcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:14px;margin:6px 0 10px}
 .rcard{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:18px 20px;text-decoration:none;color:var(--ink)}
@@ -162,6 +177,11 @@ def home_html(page, n_managers: int, n_scorable: int) -> str:
                     f"<span class='n'>{len(cards[k])} tool{'s' if len(cards[k]) != 1 else ''} &rarr;</span></a>" for k, (name, href, blurb) in AREAS.items() if cards[k])
     sections = "".join(f"<h2 data-n='{html.escape(name)}' id='{k}'>{html.escape(name)}</h2><p class='note'>{html.escape(blurb)}</p><div class='rcards'>{cards_html(cards[k])}</div>"
                        for k, (name, href, blurb) in AREAS.items() if cards[k])
+    method = method_card()
+    if method:
+        sections += ("<h2 data-n='Method' id='method'>Before you trust any of it</h2>"
+                     "<p class='note'>The same scrutiny the rest of the site applies to other people's records, applied to this one.</p>"
+                     f"<div class='rcards'>{cards_html([method])}</div>")
     return page("Global Equity — quantitative portfolio management", CARD_CSS + f"""<div class="banner"><b>Public data.</b> Every tool runs on public information: managers' quarterly holdings filings, listed funds' prices and the standard academic market factors. Nothing here is investment advice.</div>
 <header class="cover"><div class="cover-in"><div class="eyebrow">Quantitative portfolio management · global equity</div><div class="rule"></div><h1>The work of a portfolio manager,<br>as working software</h1>
 <p class="sub">One tool for each part of the job: running an active stock portfolio and evaluating outside managers. Everything is built on public data and reports what it finds, including when the finding is nothing.</p>

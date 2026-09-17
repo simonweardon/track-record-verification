@@ -199,8 +199,17 @@ def backtest(c: Constraints = Constraints(), out_dir: Path = OUT_DIR, log=print)
         te = ex_ante_te(w, bench, cov)
         act = (w.reindex(uni).fillna(0) - bench)
         sec_act = act.groupby(sec).sum()
+        # transfer coefficient: how much of the signal survives the constraints.  Grinold's refined law
+        # says IR = TC x IC x sqrt(breadth); TC is the cross-sectional correlation between the active
+        # weights the optimiser actually took and the signal it was given.
+        tc = float(np.corrcoef(act.values, alpha.reindex(act.index).values)[0, 1]) if act.std() > 0 else np.nan
+        # realized IC: does this quarter's signal rank the names by what they then did?
+        hold = rets.loc[(rets.index > F) & (rets.index <= end), [t for t in uni if t in rets.columns]]
+        fwd = (1 + hold).prod(min_count=1) - 1 if len(hold) else pd.Series(dtype=float)
+        pair = pd.DataFrame({"a": alpha, "f": fwd}).dropna()
+        ic = float(pair.a.rank().corr(pair.f.rank())) if len(pair) >= 30 else np.nan
         row = dict(formation=F.date(), universe=len(uni), names=info["names"], turnover=info["turnover"], turnover_budget=info["turnover_budget"],
-                   active_share=info["active_share"],
+                   active_share=info["active_share"], transfer_coef=tc, realized_ic=ic,
                    relaxed=info["relaxed"], cost_drag=info["turnover"] * 2 * c.cost_bps / 1e4, ex_ante_te=te,
                    expected_alpha=info["expected_alpha"], bench_alpha=info["bench_alpha"], max_active=float(act.abs().max()),
                    max_sector_active=float(sec_act.abs().max()), sum_abs_active=float(act.abs().sum()), n_constraints=info["n_constraints"],
@@ -270,7 +279,11 @@ def _summary(R: pd.DataFrame, rb: pd.DataFrame, c: Constraints) -> pd.DataFrame:
                          information_ratio=ir if key != "benchmark" else np.nan, hit_rate=float((active > 0).mean()) if key != "benchmark" else np.nan,
                          avg_names=float(rb.names.mean()) if key == "portfolio" else (float(rb.unconstrained_names.mean()) if key == "unconstrained" else np.nan),
                          avg_turnover=float(rb.turnover.mean()) if key == "portfolio" else (float(rb.unconstrained_turnover.mean()) if key == "unconstrained" else np.nan),
-                         avg_ex_ante_te=float(rb.ex_ante_te.mean()) if key == "portfolio" else np.nan))
+                         avg_ex_ante_te=float(rb.ex_ante_te.mean()) if key == "portfolio" else np.nan,
+                         transfer_coef=float(rb.transfer_coef.mean()) if key == "portfolio" else np.nan,
+                         realized_ic=float(rb.realized_ic.mean()) if key == "portfolio" else np.nan,
+                         breadth=float(rb.universe.mean() * 4) if key == "portfolio" else np.nan,
+                         ir_implied=float(rb.transfer_coef.mean() * rb.realized_ic.mean() * np.sqrt(rb.universe.mean() * 4)) if key == "portfolio" else np.nan))
     return pd.DataFrame(rows)
 
 

@@ -511,7 +511,7 @@ def me_html(uid: str, msg: str = "", err: bool = False) -> str:
 <table class="recs"><thead><tr><th>record</th><th>status</th><th class="n"></th></tr></thead><tbody>{rows or '<tr><td colspan=3>nothing uploaded yet</td></tr>'}</tbody></table>
 <h2 data-n="Section 02">Upload a record</h2>
 <div class="shape">
-<div style="grid-column:1/-1;border-color:var(--gold)"><b>Statement PDFs — best</b>Upload the monthly or annual statements themselves, straight from the custodian's website (Fidelity, Schwab, Vanguard, Robinhood, IBKR…). The account summary each one prints — beginning value, additions, subtractions, change in value, ending value — is read from every file, chained, and checked, so periods can come out <i>verified</i>. Text PDFs only for now: scanned paper shows as "no text layer" and needs the template route. After upload you get a per-file report of what was found and what wasn't.
+<div style="grid-column:1/-1;border-color:var(--gold)"><b>Statement PDFs — best</b>Upload the monthly or annual statements themselves, straight from the custodian's website (Fidelity, Schwab, Vanguard, Robinhood, IBKR…). The account summary each one prints — beginning value, additions, subtractions, change in value, ending value — is read from every file, chained, and checked, so periods can come out <i>verified</i>. Text PDFs only for now: scanned paper shows as "no text layer" and needs the template route. Statements that print an opening and a closing balance side by side, as Robinhood's do, are read as well as the ones that print a labelled line per number. Where the statement lists each transfer with its date, those dates are used, so deposits and withdrawals are not mistaken for performance. After upload you get a per-file report of what was found and what wasn't. A transaction or activity export, the kind Robinhood generates under Reports and statements, cannot be used: it lists trades and transfers but never what the account was worth, and that value is what a return is computed from.
 <div style="margin-top:10px">{EXAMPLES["pdf"]}</div></div>
 <div><b>Returns</b>One row per month or year: <code>date, return</code>. Return as a decimal (0.012) or a percent (1.2). <a href="/templates/returns.csv">template</a>. Nothing to reconcile against → every period shows as <i>unverified</i>.
 <div style="margin-top:10px">{EXAMPLES["returns"]}</div></div>
@@ -851,8 +851,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not self._same_origin():
             return self._html(page("Blocked", "<main class='wrap'><h1>Blocked</h1><p>Cross-site request.</p></main>"), 403)
         length = int(self.headers.get("Content-Length", "0") or 0)
-        if length > 6 * UP.MAX_BYTES:
-            return self._html(page("Too large", "<main class='wrap'><h1>Too large</h1><p>Uploads are limited to 5 MB per file.</p></main>"), 413)
+        if length > UP.MAX_TOTAL:
+            return self._html(page("Too large", f"<main class='wrap'><h1>Too large</h1><p>One upload can carry {UP.MAX_TOTAL // (1024 * 1024)} MB in total, and no single file may be over {UP.MAX_BYTES // (1024 * 1024)} MB. A monthly statement is normally well under a megabyte, so twenty years of them still fit. If yours do not, upload the most recent years now and the earlier ones as a second record.</p><p style='display:flex;gap:10px'><a class='btn' href='/me'>My records</a></p></main>"), 413)
         body = self.rfile.read(length)
         ctype = self.headers.get("Content-Type", "")
         if ctype.startswith("multipart/form-data"):
@@ -1034,8 +1034,8 @@ class Handler(SimpleHTTPRequestHandler):
                     return self._html(not_found_html(u.path), 404)
                 import csv as _csv
                 rows_ = list(_csv.DictReader(rp.open()))
-                cols = ["file", "period_start", "period_end", "account_last4", "beginning_value", "stated_deposits", "stated_withdrawals", "stated_pnl", "ending_value", "missing", "error"]
-                trs = "".join("<tr>" + "".join(f"<td class='{'n' if c not in ('file', 'missing', 'error') else ''}'>{html.escape(str(r.get(c, '') or ''))}</td>" for c in cols) + "</tr>" for r in rows_)
+                cols = ["file", "period_start", "period_end", "account_last4", "beginning_value", "stated_deposits", "stated_withdrawals", "transfers", "stated_pnl", "ending_value", "missing", "notes", "error"]
+                trs = "".join("<tr>" + "".join(f"<td class='{'n' if c not in ('file', 'missing', 'notes', 'error') else ''}'>{html.escape(str(r.get(c, '') or ''))}</td>" for c in cols) + "</tr>" for r in rows_)
                 return self._html(page("PDF report", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Private records</div><div class="rule"></div><h1>What was read from each PDF</h1>
 <p class="sub">A blank cell means the label was not found on that statement; the pipeline leaves it blank rather than guessing. Skipped files say why.</p></div></header>
 <main class="wrap"><div style="overflow-x:auto"><table><thead><tr>{''.join(f'<th>{c.replace("_", " ")}</th>' for c in cols)}</tr></thead><tbody>{trs}</tbody></table></div>

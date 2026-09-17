@@ -21,7 +21,21 @@ the context that is not in the code.
   xgboost → "learned model", linear composite → "simple average", R verification → "Independent Verification",
   13F signals → "Holdings Research", alpha lab → "Signal Research".
 
-## Status (Sept 16, 2026, night) — pick up here
+## Status (Sept 17, 2026) — pick up here
+Robinhood uploads fixed (Simon reported they did not work). Two failures, both real: (1) Robinhood's monthly statement
+PDFs print a portfolio-summary *table* — Opening Balance / Closing Balance columns, a row per asset type, a Total row —
+not the labelled line per number the parser looked for, so every file was skipped and the upload errored out;
+`pdfstatements.py` now detects such a heading (a line naming both columns and carrying no money amounts), reads the
+total row (or sums the rows when there is no total), and lets the table win over the label, which also fixes Schwab-style
+statements where reading the label took the *opening* figure as the ending value. (2) Robinhood prints no deposit or
+withdrawal totals, only a dated activity list, so `parse_cash_transfers` takes the dated transfers from it (trades,
+dividends, interest and fees excluded) — used over printed totals only when the two agree, so the list also checks the
+summary. Verified end to end through the server: thirteen Robinhood-shaped statements → 13/13 periods *verified* on the
+chain check, dated flows, dashboard built. Also: a broker transaction export (Robinhood's activity CSV) is recognised
+and refused with the reason and what to upload instead; `_find_col` matches "Activity Date"-style headings; upload cap
+is now 40 MB per upload (was a confusing 30 MB "5 MB per file" message). 137 tests.
+
+## Earlier status (Sept 16, 2026, night)
 Passive area removed entirely (Simon's call after the pandering audit: the 5% JD line was not worth a tab that read as
 built-for-the-JD). Gone: toolbar entry, home card, `/research/index-tracker`, `/live/passive/*`, `trackrecord/tracker.py`,
 `trackrecord/livebook.py`, `data/research/index-tracker/`, the `index-tracker` CLI command and the daily live-book scheduler.

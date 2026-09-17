@@ -184,9 +184,21 @@ on Railway a mounted volume so it survives deploys). Set `SESSION_SECRET` in pro
 password reset yet.
 
 **Statement PDFs** (`pdfstatements.py`): text PDFs from a custodian's website are read by label — period, account,
-beginning value, additions, subtractions, change in value, ending value — into statements.csv (+ mid-period flows);
-a per-file report says what was found and what wasn't. Scans (no text layer) are refused with a reason; OCR is not
-automated. This is the only upload route that can reach *verified*.
+beginning value, additions, subtractions, change in value, ending value — into statements.csv (+ flows); a per-file
+report says what was found and what wasn't. Scans (no text layer) are refused with a reason; OCR is not automated.
+This is the only upload route that can reach *verified*.
+
+Two statement layouts are read. Fidelity and Vanguard print one labelled number per line. Robinhood and Schwab print a
+small table whose two columns are the opening and the closing balance, with a row per asset type and a total row: the
+column headings say which side is which, and the total row gives the beginning and ending value. Reading only the label
+would take the *opening* figure off such a row, so the table wins wherever one is found. Flows are placed mid-period
+when the statement prints period totals only; where the activity list dates each cash transfer — Robinhood prints no
+transfer totals at all, only the list — those dates are used instead, and a dated list is trusted over printed totals
+only when the two agree, so the list doubles as a check on the summary.
+
+A broker's *transaction* export (Robinhood's "Reports and statements" CSV: activity date, trans code, quantity, price,
+amount) is recognised and refused with the reason: it lists trades and transfers but never the account's value, which
+is what a return is computed from. The monthly statements are the route.
 
 **Brokerage APIs**: Fidelity and Robinhood have no public customer API; the legitimate path is an aggregator (Plaid /
 Akoya), which needs a developer account and reaches back only ~24 months — useful for ongoing verification, not for

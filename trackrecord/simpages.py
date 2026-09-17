@@ -13,8 +13,17 @@ from .dashboard import CSS as DASH_CSS, JS as DASH_JS, diverging_bars, esc, line
 from .simulate import OUT, SIMS, SLEEVES, Targets, candidates, residual_correlation, stats_of
 
 def _dash_rules() -> str:
+    """The chart and tile rules from the dashboard stylesheet, top level only: a line
+    nested inside a block (dark mode, the phone media query) would land here without its
+    @media wrapper and apply at every width."""
     keep = (".chart", ".k ", ".k.", ".tip", ".tiles", ".tile", ".tl", ".tv", ".td", ".sv", ".of", ".legend", ".grid2", ".cap", ".muted", ".tscroll")
-    return "\n".join(l for l in DASH_CSS.splitlines() if l.strip().startswith(keep))
+    out, depth = [], 0
+    for line in DASH_CSS.splitlines():
+        stripped = line.strip()
+        if depth == 0 and stripped.startswith(keep):
+            out.append(line)
+        depth += stripped.count("{") - stripped.count("}")
+    return "\n".join(out)
 
 
 SIM_CSS = """<style>:root{--accent:var(--navy);--accent-l:var(--gold);--accent-wash:rgba(27,42,65,.07);--dim:var(--muted);--dim-strong:var(--ink2);--s3:#5f7a5e;--pos:var(--navy);--neg:var(--crit);--hair:var(--line);--ink-2:var(--ink2);--surface-2:var(--page);--cover-ink:var(--coverink);--good-wash:#e3e9dd;--warn:var(--gold)}
@@ -38,6 +47,23 @@ SIM_CSS = """<style>:root{--accent:var(--navy);--accent-l:var(--gold);--accent-w
 .tools2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0}.tools2 input[type=search]{font:14px var(--serif);padding:7px 10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);flex:1;min-width:200px}
 .fee{display:flex;flex-wrap:wrap;gap:14px;align-items:end}.fee label{display:grid;gap:4px;font:600 9px/1.2 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
 .fee input,.fee select{font:14px var(--sans);padding:6px 8px;border:1px solid var(--line);background:var(--page);color:var(--ink)}
+/* phones: one slider per row, thumbs big enough to drag, and 16px in every field so
+   iOS does not zoom the page in when one is focused. */
+@media(max-width:720px){
+/* a panel whose min-content is wider than the phone would otherwise stretch the
+   grid column and drag the page sideways; the wide tables inside scroll instead */
+.sim-grid>*,.panel>*,.sliders>*,.row>*,.sim-grid,.panel{min-width:0}
+.panel{padding:16px 14px}
+.sliders{grid-template-columns:1fr;gap:16px}
+.sl input[type=range]{height:32px}
+.styles label{padding:4px 0}
+.btn2{padding:13px 18px}
+.tools2 input[type=search]{min-width:0;width:100%;font-size:16px;padding:10px 12px}
+.pick input[type=number]{width:72px;font-size:16px;padding:8px 6px}
+.fee input,.fee select{font-size:16px;padding:9px 8px}
+.fee label{flex:1 1 140px}
+.chk input,.styles input,.pick input[type=checkbox],.pick input[type=radio]{width:20px;height:20px}
+}
 </style>"""
 
 

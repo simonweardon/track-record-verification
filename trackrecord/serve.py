@@ -291,14 +291,31 @@ NAV_CSS = """<style>
 .tr-nav{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
 .tr-nav a,.tr-nav button{display:inline-flex;align-items:center;gap:6px;font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--navy,#1b2a41);background:transparent;color:var(--navy,#1b2a41);text-decoration:none;cursor:pointer}
 .tr-nav a.home,.tr-nav a.on{background:var(--navy,#1b2a41);color:var(--cover-ink,#e8e4da)}
-@media(max-width:640px){.tr-nav{padding:8px 16px}.tr-nav a,.tr-nav button{padding:7px 10px;letter-spacing:.12em}}
 .tr-sub{display:flex;gap:14px;align-items:center;padding:6px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif}
 .tr-sub a{font:600 13px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--cover-ink,#e8e4da);background:var(--navy,#1b2a41);padding:14px 26px;text-decoration:none;border-left:4px solid var(--gold-l,#c9b48a)}
 .tr-sub{padding:10px 32px}
 .tr-sub .crumb,.tr-nav .crumb{margin-left:auto;font:600 9px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--muted,#a09883)}
 @media(prefers-color-scheme:dark){.tr-sub a{background:var(--gold-l,#c9b48a);color:#1b2a40}}
 @media(prefers-color-scheme:dark){.tr-nav a,.tr-nav button{border-color:var(--gold-l,#c9b48a);color:var(--gold-l,#c9b48a)}.tr-nav a.home,.tr-nav a.on{background:var(--gold-l,#c9b48a);color:#1b2a40}}
+/* On a phone the six tools wrapped onto three sticky rows and ate an eighth of the
+   screen on every page. One row that scrolls sideways instead, with targets big
+   enough to hit: the bar stays 44px tall wherever you are on the page. */
+@media(max-width:720px){
+.tr-nav{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:6px 12px;gap:6px}
+.tr-nav::-webkit-scrollbar{display:none}
+.tr-nav a,.tr-nav button{flex:0 0 auto;padding:11px 12px;letter-spacing:.1em;min-height:40px}
+.tr-sub{padding:8px 16px;flex-wrap:wrap;gap:10px}
+.tr-sub a{padding:12px 18px;font-size:12px;letter-spacing:.12em}
+.tr-sub .crumb,.tr-nav .crumb{margin-left:0;flex-basis:100%}
+}
 </style>"""
+
+# The bar scrolls sideways on a phone, so the tool you are looking at can start off-screen.
+# Nudge it into view horizontally — never vertically, which would jump the page.
+NAV_JS = """<script>
+(function(){var n=document.querySelector('.tr-nav'),o=n&&n.querySelector('a.on');
+if(!n||!o)return;var pad=14;if(o.offsetLeft+o.offsetWidth>n.clientWidth)n.scrollLeft=o.offsetLeft-pad;})();
+</script>"""
 
 
 TOOLS = [("Home", "/"), ("Active", "/active"), ("Manager Analysis", "/external"), ("Simulation", "/simulate"), ("My records", "/me")]
@@ -326,7 +343,8 @@ def toolbar(current: str = "", extra: tuple[str, str] | None = None, crumb: str 
     live = live_areas()
     links = "".join(f'<a class="{"on" if href == current else ""}" href="{href}">{label}</a>'
                     for label, href in TOOLS if href not in AREA_OF or AREA_OF[href] in live)
-    bar = ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>' + links + '</div>')
+    bar = ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>' + links + '</div>'
+           + NAV_JS)
     if extra or crumb:
         bar += ('<div class="tr-sub">' + (f'<a href="{html.escape(extra[1], quote=True)}">{html.escape(extra[0])} &rarr;</a>' if extra else '')
                 + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
@@ -555,6 +573,19 @@ table{{border-collapse:collapse;width:100%;font-size:14px}}th{{text-align:left;f
 .banner{{background:#e4dfd2;color:#1b2a41;border-bottom:1px solid #d3ccbb;padding:8px 32px;font-size:12.5px}}.banner b{{font:600 9.5px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;margin-right:12px}}
 .status{{display:inline-block;font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--line);color:var(--ink2)}}pre{{background:var(--surface);border:1px solid var(--line);padding:12px;font-size:12px;overflow-x:auto}}.err{{color:var(--crit)}}
 a{{color:var(--navy)}}.foot{{margin-top:40px;padding-top:14px;border-top:1px solid var(--navy);color:var(--ink2);font-size:12px;max-width:120ch}}
+/* phones: narrower gutters, a cover that does not fill the screen on its own, and
+   16px form text — anything smaller makes iOS Safari zoom in on focus and leaves
+   the page scrolled sideways. */
+@media(max-width:720px){{
+html{{-webkit-text-size-adjust:100%;text-size-adjust:100%}}
+.cover-in{{padding:30px 16px 26px}}.wrap{{padding:22px 16px 48px}}.banner{{padding:8px 16px}}
+h1{{font-size:32px}}.cover .sub{{font-size:15px}}h2{{font-size:20px}}
+.note,.foot,.msg{{max-width:none}}
+table{{font-size:13.5px}}th,td{{padding-left:6px;padding-right:6px}}
+.btn{{padding:12px 16px}}
+input,select,textarea,button{{font-size:16px}}
+.form{{max-width:none}}.form input,.form select{{padding:11px 12px}}
+}}
 </style></head><body>{body}</body></html>"""
 
 
@@ -683,7 +714,21 @@ th.sort.on::after{border-top-color:var(--gold)}th.sort.on.asc::after{border-top:
 #tbl td:last-child{white-space:nowrap}
 a.memo{font:600 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);text-decoration:none;margin-right:14px;vertical-align:middle}
 a.memo:hover{text-decoration:underline}
-@media(max-width:640px){.filters{gap:10px}.filters .dlbtn{margin-left:0;width:100%}}
+/* phones: the screener is a column. Inputs at 16px so iOS does not zoom the page in
+   on focus; the table keeps a real width and scrolls inside .tw rather than
+   squeezing each manager's name onto four lines. */
+@media(max-width:720px){
+.filters{gap:10px;padding:12px}.filters .dlbtn{margin-left:0;width:100%;padding:13px 14px}
+.filters label{width:100%}.filters select{width:100%;font-size:16px;padding:10px 8px}
+.filters .chk{width:auto;padding:11px 0}.filters .chk input{width:20px;height:20px}
+.filters .lnk{padding:12px 2px}
+.tools input{min-width:0;width:100%;font-size:16px;padding:11px 12px}
+.count{margin-left:0;width:100%}
+.cards{grid-template-columns:1fr}
+#tbl{min-width:620px}#tbl td:first-child{min-width:190px}
+.stats{gap:16px 28px;margin-top:22px}.stats dd{font-size:24px}
+.cta .big{padding:16px 18px}.cta .big .t{font-size:20px}
+}
 </style>"""
     js = """<script>
 (function(){const q=document.getElementById('q'),rows=[...document.querySelectorAll('#tbl tbody tr')],cnt=document.getElementById('cnt'),tb=document.querySelector('#tbl tbody');

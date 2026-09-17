@@ -45,9 +45,18 @@ def test_every_chart_is_wrapped_in_a_scrollable_box():
         assert svg.count("<div") == svg.count("</div>")
 
 
-def test_the_phone_rules_stop_a_grid_item_widening_the_page():
+def test_a_long_value_cannot_stretch_its_grid_track():
+    # not phone-only: one nowrap value in a tile pushed a 844px tablet sideways too
+    rule = D.CSS[D.CSS.index(".wrap > *, section > *"):]
+    rule = rule[:rule.index("}") + 1]
+    for cls in (".tiles > *", ".tile > *", ".card > *", ".two > *", ".grid2 > *"):
+        assert cls in rule, cls
+    assert "min-width: 0" in rule
+    assert "white-space: nowrap" not in D.CSS[D.CSS.index(".tv.small"):D.CSS.index(".tv.small") + 80]
+
+
+def test_the_phone_rules_collapse_the_multi_column_tracks():
     block = _mobile_block(D.CSS)
-    assert "min-width: 0" in block
     for cls in (".two", ".grid2", ".tiles", ".verdict .top"):
         assert cls in block, cls
     # multi-column tracks with a 300-420px minimum can never fit a 390px screen

@@ -1060,6 +1060,11 @@ h3 { font: 700 10px/1.3 var(--sans); margin: 0 0 12px; color: var(--navy); text-
 .chip.public::before, .chip.inference::before { background: transparent; border: 1px solid var(--muted); }
 .card { background: var(--surface); border: 1px solid var(--line); padding: 22px 24px; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; }
+/* A grid or flex item takes its min-content as an automatic minimum, so a single
+   unbreakable value stretches its track and drags the whole page sideways. Nothing
+   laid out here needs that minimum, at any width. */
+.wrap > *, section > *, .card > *, .two > *, .grid2 > *, .tiles > *, .tile > *,
+.verdict .top > *, .hero > *, .kv > *, .findings > * { min-width: 0; }
 .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; margin-top: 20px; }
 /* verdict */
 .verdict { gap: 14px; }
@@ -1072,7 +1077,7 @@ h3 { font: 700 10px/1.3 var(--sans); margin: 0 0 12px; color: var(--navy); text-
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 .tile { background: var(--surface); border: 1px solid var(--line); padding: 16px 18px; display: grid; gap: 5px; align-content: start; }
 .tv { font: 400 30px/1.1 var(--serif); letter-spacing: -.01em; color: var(--navy); }
-.tv.small { font-size: 24px; white-space: nowrap; }
+.tv.small { font-size: 24px; }   /* never nowrap: a long 'a → b' would stretch its track */
 .td { font-size: 12.5px; color: var(--ink-2); }
 .td.bad { color: var(--crit); } .td.good { color: var(--good); }
 .arrow { color: var(--muted); }
@@ -1178,8 +1183,6 @@ ol.stocks li.drag svg.strip .held { fill: var(--crit); }
    fit, so they collapse to one column; and a chart scaled to a third of its drawing
    width takes its labels with it, so charts scroll inside .chartbox instead. */
 @media (max-width: 720px) {
-  .wrap > *, section > *, .card > *, .two > *, .grid2 > *, .tiles > *, .verdict .top > *,
-  .kv > *, .findings > *, .hero > *, .tile > * { min-width: 0; }
   .two, .grid2, .tiles, .kv, .findings, .verdict .top { grid-template-columns: 1fr; }
   .two { gap: 20px; }
   .wrap { padding: 8px 16px 48px; gap: 32px; }

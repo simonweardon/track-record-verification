@@ -9,19 +9,16 @@ custodian statements, then decompose and statistically test it.
 An external-manager due-diligence engine, applied the same way to every record it is given: reconcile
 the statements, compute time-weighted returns, remove what the market and known factors explain, simulate
 how often luck alone does as well, test stability, score, and write the memo. It runs today on public
-data — 108 prominent managers reconstructed from their SEC 13F filings, listed funds, and a synthetic
-dataset with a known injected alpha that the pipeline must recover — so that every method is exercised
-before a real record is loaded. Alongside it sit three research notes that use the same universe:
-whether the disclosed books carry a tradable signal, an LP portfolio constructor that turns a signal into
-a trade list under a mandate's constraints (solved in Python and in R with Rglpk), and an R reproduction of
-every headline statistic. The findings are reported whichever way they come out; most of them are negative,
-and the page says so.
+data: 108 prominent managers reconstructed from their publicly disclosed holdings, listed funds, and a
+synthetic dataset with a known injected alpha that the pipeline must recover, so that every method is
+exercised before a real record is loaded. Alongside it sit research notes on the same universe: whether
+the disclosed holdings carry a tradable signal, which stock characteristics predict returns, a factor risk
+model, a portfolio constructor that turns a signal into a trade list under a mandate's constraints, a
+manager decay model, a fund-of-funds allocator, and an independent recalculation of every headline
+statistic. The findings are reported whichever way they come out; most of them are negative, and the
+page says so.
 
-**How it was built.** Designed and directed by Simon Weardon, with Claude Code (Anthropic) as pair
-programmer: the methodology, the evidence tiers, the data-quality rules (what counts as verified, when a
-month is dropped rather than bridged, why a 13F clone is not the fund) and the checks in the test suite
-are the author's decisions; much of the code was written with the model and reviewed line by line. The
-R reproduction exists so that no headline number rests on a single implementation.
+Built by Simon Weardon. The independent verification exists so that no headline number rests on a single implementation.
 
 ## Status
 | phase | state |
@@ -102,10 +99,8 @@ lag the names just sold; the one apparent anomaly (least-crowded names) sits exa
 survivorship bias lives and is reported as unreliable.
 
 ## The site, by job area
-- **Passive** — `index-tracker`: a cap-weighted index built to a stated rulebook (US-domestic filers held by ≥ 5 managers,
-  point-in-time shares × split-adjusted close), replicated in full and by optimised sampling under the risk model
-  (40 / 80 / 150 names → TE 1.9 / 1.0 / 0.5% vs predicted 1.85 / 0.93 / 0.42%), with the Daily Portfolio Status
-  Worksheet, cash-flow slice and reconstitution trade list. `/research/index-tracker`.
+Every computed number on the site — research-note tiles, memo and dashboard tiles, the stats on the home cards — carries a **How & why** toggle: how it was calculated (inputs, formula, the function in the code) and why it is on the page (the decision it informs). The notes live in `trackrecord/explain.py`; a test fails if a number is missing one.
+
 - **Active** — `alpha-lab`: eight point-in-time signals (prices + SEC XBRL fundamentals), ICs, deciles, equal-weight
   linear composite vs walk-forward xgboost (finding: tree ≈ line); `risk-model`: Barra-style fundamental factor
   model (market + 8 styles + 12 industries, EWMA covariance, specific risk, bias statistic ≈ 1.1); `construct`

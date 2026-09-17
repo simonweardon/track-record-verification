@@ -54,7 +54,7 @@ def _log(line: str) -> None:
 
 
 def _run(args: list[str]) -> None:
-    _log(f"$ python -m trackrecord {' '.join(args)}")
+    _log(f"running {args[0]} …")
     t0 = time.time()
     r = subprocess.run([sys.executable, "-m", "trackrecord", *args], cwd=ROOT, capture_output=True, text=True)
     tail = (r.stdout + r.stderr).strip().splitlines()[-3:]
@@ -126,7 +126,7 @@ def warm_funds() -> None:
 
 
 def _run_job(job: dict, args: list[str]) -> None:
-    job["log"].append(f"$ python -m trackrecord {' '.join(args)}")
+    job["log"].append(f"running {args[0]} …")
     r = subprocess.run([sys.executable, "-m", "trackrecord", *args], cwd=ROOT, capture_output=True, text=True)
     tail = (r.stdout + r.stderr).strip().splitlines()[-4:]
     job["log"].extend("  " + t for t in tail)
@@ -142,7 +142,7 @@ def build_ticker(ticker: str) -> None:
         _run_job(job, ["fetch-ticker", "--ticker", ticker, "--out", raw])
         job["phase"] = "building statements"
         _run_job(job, ["ticker-placeholder", "--ticker", ticker, "--raw", raw, "--out", f"data/tickers/{ticker}"])
-        job["phase"] = "running phases 1–4 (about 30 s)"
+        job["phase"] = "analysing the record (about 30 seconds)"
         _run_job(job, ["report", "--data", f"data/tickers/{ticker}", "--out", f"output/t/{ticker}", "--grid", "M", "--placeholder"])
         job["phase"] = "ready"
     except Exception as e:
@@ -201,7 +201,7 @@ def fund_index() -> list[dict]:
 def build_fund(slug: str) -> None:
     job = JOBS["fund:" + slug]
     try:
-        job["phase"] = "running phases 1–4 on the 13F clone (about 30 s)"
+        job["phase"] = "analysing the disclosed holdings (about 30 seconds)"
         _run_job(job, ["report", "--data", f"data/funds/{slug}", "--out", f"output/funds/{slug}", "--grid", "M", "--placeholder",
                        "--n-boot", "1500", "--n-cohort", "3000"])
         job["phase"] = "ready"
@@ -287,76 +287,6 @@ def _f(v, fmt):
     return fmt.format(v)
 
 
-def managers_html() -> str:
-    rows = fund_index()
-    by_style = {}
-    for r in rows:
-        by_style.setdefault(r.get("style", ""), []).append(r)
-    def sc(v):
-        try: v = float(v)
-        except (TypeError, ValueError): return ""
-        c = "g" if v >= 70 else ("m" if v >= 45 else "b")
-        return f'<span class="sc {c}">{v:.0f}</span>'
-    sections = []
-    order = ["conc", "act", "ls", "event", "fo", "multi", "macro"]
-    for st in order + [k for k in by_style if k not in order]:
-        if st not in by_style: continue
-        name, note = STYLES.get(st, (st, ""))
-        items = sorted(by_style[st], key=lambda r: -(float(r["wealth"]) if r.get("wealth") not in (None, "") else -1))
-        trs = ""
-        for r in items:
-            if r.get("status") == "ok":
-                link = f"<a href='/f/{r['slug']}/'>{html.escape(r['name'])}</a>"
-                span = f"{(r.get('first') or '')[:7]} – {(r.get('last') or '')[:7]} · {r.get('months') or ''} mo · {_f(r.get('coverage'), '{:.0%}')} priced"
-                cells = f"<td class='n'>{_f(r.get('excess'), '{:+.1%}')}</td><td class='n'>{sc(r.get('alpha_maxing'))}</td><td class='n'>{sc(r.get('wealth'))}</td>"
-            else:
-                link = html.escape(r["name"]); span = f"<span class='err'>not scorable: {html.escape(str(r.get('months') or 0))} months of filings (need 36)</span>"
-                cells = "<td></td><td></td><td></td>"
-            trs += f"<tr><td>{link}<br><span class='sub2'>{html.escape(r.get('manager') or '')} · {span}</span></td>{cells}</tr>"
-        sections.append(f"<h2>{html.escape(name)}</h2><p class='sub'>{html.escape(note)}</p><table><thead><tr><th>manager</th><th class='n'>excess vs market /yr</th><th class='n'>alpha-maxing</th><th class='n'>wealth-mgmt</th></tr></thead><tbody>{trs}</tbody></table>")
-    return page("Managers", f"""<h1>Managers</h1><p class="sub">{len(rows)} prominent funds and family offices, each represented by a <b>13F long-only clone</b> of its disclosed US holdings (SEC EDGAR, structured filings from 2013), rebalanced when each filing becomes public.</p>
-<div class="banner"><b>A clone is not the fund.</b> 13F filings show US long positions only, 45 days late — no shorts, options, cash, leverage or non-US holdings. For concentrated long-biased managers the clone tracks the real book; for multi-strategy, quant and macro shops it is not meaningful, and those sections say so. Every number here is a reconstruction.</div>
-<p><a href="/leaderboard">Leaderboard</a> · <a href="/">Berkshire (stock)</a> · <a href="/status">All outputs</a></p>
-{''.join(sections)}
-<p class="sub" style="margin-top:24px"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr). Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, so managers compare directly with each other and with the listed vehicles. Click a manager to build its full dashboard (about 30 s the first time).</p>""")
-
-
-def leaderboard_rows() -> list[dict]:
-    """Every analyzed portfolio with its two scores, from the scores.csv files on disk."""
-    import csv
-    rows = []
-    cands = [("synthetic", OUT / "synthetic")] + \
-            [(p.name, p) for p in sorted((OUT / "t").glob("*")) if p.is_dir()]
-    for key, d in cands:
-        f = d / "phase4" / "scores.csv"
-        if not f.exists():
-            continue
-        am = wm = None
-        with f.open() as fh:
-            for r in csv.DictReader(fh):
-                if r["score"] == "Alpha-maxing score": am = float(r["value"]); ex = float(r["input"])
-                if r["score"] == "Wealth-management score" and r["component"] == "TOTAL": wm = float(r["value"])
-        label = key
-        meta = ROOT / "data" / ("tickers/" + key if d.parent.name == "t" else key) / "meta.json"
-        if meta.exists():
-            try:
-                import json; label = json.loads(meta.read_text()).get("name", key)
-            except Exception:
-                pass
-        elif key == "brk": label = "Berkshire Hathaway (BRK-A)"
-        elif key == "synthetic": label = "Synthetic placeholder accounts"
-        rows.append(dict(key=key, href=f"/{'t/' if d.parent.name == 't' else ''}{key}/dashboard.html", label=label,
-                         alpha=am, wealth=wm, excess=ex if am is not None else None))
-    for r in fund_index():
-        if r.get("status") != "ok" or r.get("wealth") in (None, ""):
-            continue
-        rows.append(dict(key=r["slug"], href=f"/f/{r['slug']}/", label=f"{r['name']} — 13F clone",
-                         alpha=float(r["alpha_maxing"]), wealth=float(r["wealth"]), excess=float(r["excess"]) if r.get("excess") not in (None, "") else None,
-                         note=r.get("style_name", "")))
-    rows.sort(key=lambda r: -(r["wealth"] or 0))
-    return rows
-
-
 NAV_CSS = """<style>
 .tr-nav{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 32px;background:var(--surface,#fdfcf9);border-bottom:1px solid var(--line,#e4dfd2);font:13px "Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:var(--ink-2,#6b7078)}
 .tr-nav a,.tr-nav button{display:inline-flex;align-items:center;gap:6px;font:600 10px "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--navy,#1b2a41);background:transparent;color:var(--navy,#1b2a41);text-decoration:none;cursor:pointer}
@@ -371,8 +301,8 @@ NAV_CSS = """<style>
 </style>"""
 
 
-TOOLS = [("Home", "/"), ("Passive", "/research/index-tracker"), ("Active", "/active"), ("Manager Analysis", "/external"), ("Simulation", "/simulate"), ("My records", "/me")]
-AREA_OF = {"/research/index-tracker": "passive", "/active": "active", "/external": "external"}
+TOOLS = [("Home", "/"), ("Active", "/active"), ("Manager Analysis", "/external"), ("Simulation", "/simulate"), ("My records", "/me")]
+AREA_OF = {"/active": "active", "/external": "external"}
 
 
 _AREAS_CACHE = {"t": 0.0, "live": set()}
@@ -669,8 +599,8 @@ def directory_html() -> str:
         ok = r.get("status") == "ok"
         nm = r.get("style") in NOT_MEANINGFUL
         frows.append(dict(key=r["slug"], href=f"/f/{r['slug']}/", mgr=r.get("manager") or r["name"], fund=r["name"], style=r.get("style_name") or "", nm=nm,
-                          tag=(f"13F clone · {(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} priced" if ok
-                               else f"not scorable yet — {r.get('months') or 0} months of usable filings (36 needed)"),
+                          tag=(f"disclosed holdings · {(r.get('first') or '')[:4]}–{(r.get('last') or '')[:4]} · {_f(r.get('coverage'), '{:.0%}')} priced" if ok
+                               else f"not scorable yet: {r.get('months') or 0} months of usable filings, and 36 are needed"),
                           alpha=r.get("alpha_maxing"), wealth=r.get("wealth"), excess=r.get("excess"), t=r.get("ff3_t"),
                           months=r.get("months"), memo=f"/f/{r['slug']}/memo", ok=ok))
     n_ok = sum(1 for r in frows if r["ok"])
@@ -684,7 +614,7 @@ def directory_html() -> str:
         search = html.escape(f"{r['mgr']} {r['fund']} {r.get('style', '')} {kind}".lower(), quote=True)
         style_key = html.escape((r.get("style") or ("Listed vehicle" if kind == "listed" else "")).lower(), quote=True)
         if nm and r["ok"]:
-            cells = "<td colspan='3' class='n'><span class='sub2' style='color:var(--muted)'>clone not meaningful for this strategy — actual returns are private</span></td>"
+            cells = "<td colspan='3' class='n'><span class='sub2' style='color:var(--muted)'>The disclosed holdings are not meaningful for this strategy, and the actual returns are private.</span></td>"
             w = a = -2; e = -99
             t = None
         else:
@@ -703,8 +633,8 @@ def directory_html() -> str:
     ordered = sorted(frows, key=lambda r: (1 if r.get("nm") else 0, -(num(r["wealth"]) if num(r["wealth"]) is not None else -1), r["mgr"]))
     table = "".join(row(r, "listed") for r in listed) + "".join(row(r, "hedge fund") for r in ordered)
     # ---- featured
-    feat_keys = [("berkshire-13f", "Warren Buffett", "Berkshire Hathaway holdings — 13F clone"), ("appaloosa", "David Tepper", "Appaloosa — 13F clone"),
-                 ("atreides", "Gavin Baker", "Atreides — 13F clone"), ("FCNTX", "Will Danoff", "Fidelity Contrafund — listed")]
+    feat_keys = [("berkshire-13f", "Warren Buffett", "Berkshire Hathaway — disclosed holdings"), ("appaloosa", "David Tepper", "Appaloosa — disclosed holdings"),
+                 ("atreides", "Gavin Baker", "Atreides — disclosed holdings"), ("FCNTX", "Will Danoff", "Fidelity Contrafund — listed fund")]
     by_key = {r["key"]: r for r in listed + frows}
     cards = ""
     for k, who, what in feat_keys:
@@ -786,7 +716,7 @@ apply();})();
 </script>"""
     from .areas import area_html
     screener = f"""<h2 data-n="All managers" id="all">Screen every manager in the system</h2>
-<p class="note">Listed vehicles are actual returns (share price, distributions reinvested). Hedge funds and family offices are <b>13F long-only clones</b>: their disclosed US holdings at disclosed weights, rebalanced when each quarterly filing becomes public — a reconstruction, not the fund. No shorts, options, cash, leverage or non-US holdings; entered ~45 days late; months with too little of the book priced are left out and never bridged. Concentrated, activist, long-short and long-only clones track the real book. For multi-strategy, quant, macro and market-making firms a 13F is trading inventory, not a portfolio, so no score is shown. Press <b>Analyze</b> for the full dashboard, <b>Memo</b> for the due-diligence memo.</p>
+<p class="note">Listed funds are shown with their actual returns. Hedge funds and family offices are shown through their <b>disclosed holdings</b>, the US stocks each manager reports owning every quarter, which is a reconstruction rather than the fund itself. Where a firm's filing is trading inventory rather than a portfolio, no score is shown. Press <b>Analyze</b> for the full dashboard or <b>Memo</b> for the due-diligence memo.</p>
 <div class="tools"><input id="q" placeholder="Search a manager, fund or strategy — e.g. Tepper, activist, quant" autocomplete="off"><span class="count" id="cnt"></span></div>
 <div class="filters">
   <label>Evidence of alpha <select id="f-t">
@@ -802,7 +732,7 @@ apply();})();
   <button type="button" id="dl" class="dlbtn">Download CSV</button>
 </div>
 <div class="tw"><table id="tbl">{head}<tbody>{table}</tbody></table></div>
-<div class="foot"><b>Scores.</b> Alpha-maxing = 50 + 10 × excess return over the US market (%/yr), return only. Wealth-management = skill evidence 30% + risk-adjusted return 25% + downside protection 25% + consistency over rolling 5-year windows 20%. Fixed maps, comparable across every row. Benchmark and factors: Kenneth R. French Data Library; prices: Yahoo Finance; holdings: SEC EDGAR. Past performance is not indicative of future results; nothing here is investment advice.</div>
+<div class="foot"><b>Scores.</b> The alpha-maxing score is 50 plus 10 times the excess return over the US market in percent per year, and looks at return only. The wealth-management score combines evidence of skill (30%), risk-adjusted return (25%), downside protection (25%) and consistency across rolling five-year windows (20%). Both use fixed scales, so every row is comparable. Benchmark and factors: Kenneth R. French Data Library. Prices: Yahoo Finance. Holdings: SEC EDGAR. Past performance is not indicative of future results, and nothing here is investment advice.</div>
 {js}"""
     return area_html(page, "external", extra_body=screener, extra_head=extra_css)
 
@@ -857,110 +787,6 @@ def not_found_html(path: str) -> str:
     return page("Not found", f"""<header class="cover"><div class="cover-in"><div class="eyebrow">Independent performance verification</div><div class="rule"></div><h1>Nothing here</h1>
 <p class="sub">There is no page at <code style="color:var(--goldl)">{html.escape(path)}</code>. Every manager in the system is one click from the home page.</p></div></header>
 <main class="wrap"><p style="display:flex;gap:10px"><a class="btn" href="/">Home</a><a class="btn" href="javascript:history.back()" style="background:transparent;color:var(--navy);border:1px solid var(--navy)">&larr; Back</a></p></main>""")
-
-
-def _research_cards() -> tuple[str, dict]:
-    """Cards for the research tools, with their headline numbers read from the committed CSVs.
-
-    Every number shown is read back from data/research/, so a rebuild cannot leave stale
-    claims on the home page; a tool whose data is missing is simply left out."""
-    import csv as _csv
-    R = ROOT / "data" / "research"
-
-    def rows(path, key=None):
-        f = R / path
-        if not f.exists():
-            return {}
-        with f.open() as fh:
-            rs = list(_csv.DictReader(fh))
-        return {r[key]: r for r in rs} if key else rs
-
-    def man(path):
-        f = R / path
-        try:
-            return json.loads(f.read_text()) if f.exists() else {}
-        except Exception:
-            return {}
-
-    def fnum(x, default=None):
-        try:
-            return float(x)
-        except (TypeError, ValueError):
-            return default
-
-    cards, have = [], {}
-
-    sig, sigman = rows("13f-signals/summary.csv", "key"), man("13f-signals/manifest.json")
-    if sig and sigman:
-        best = sig.get("BEST1", {})
-        t = fnum(best.get("carhart_t"))
-        verdict = ("no edge survives the 45-day lag" if t is None or abs(t) < 2
-                   else "a spread that survives the lag")
-        cards.append(dict(href="/research/13f-signals", eyebrow="Signal research",
-                          title="Do the disclosed books carry a signal?",
-                          what=f"Best ideas, crowding and fresh buys from every filing, formed into quarterly portfolios and tested as Carhart spreads. Finding: {verdict}.",
-                          stats=[(f"{sigman.get('managers', '')}", "managers"),
-                                 (f"{sigman.get('quarters', '')}", "quarters"),
-                                 (f"{fnum(sigman.get('positions'), 0):,.0f}", "positions")]))
-        have["signals"] = True
-
-    con, conman = rows("construction/summary.csv", "key"), man("construction/manifest.json")
-    if con and conman:
-        P = con.get("portfolio", {})
-        cards.append(dict(href="/research/construction", eyebrow="Portfolio construction",
-                          title="From a signal to a trade list",
-                          what="A linear program turns alpha scores into target weights under name caps, sector and active bands and a turnover budget, then into the tickets a trader would receive. Solved in Python and again in R.",
-                          stats=[(f"{fnum(P.get('active_return'), 0) * 100:+.1f}%", "active return /yr"),
-                                 (f"{fnum(P.get('information_ratio'), 0):.2f}", "information ratio"),
-                                 (f"{conman.get('rebalances', '')}", "rebalances")]))
-        have["construction"] = True
-
-    rv = man("r-verify/manifest.json")
-    if rv.get("managers"):
-        cards.append(dict(href="/research/r-verify", eyebrow="Verification",
-                          title="The same alphas, recomputed in R",
-                          what="Every headline number is recomputed from the aligned returns by an independent R implementation \u2014 the Newey-West sandwich written out by hand \u2014 and compared with what Python reported.",
-                          stats=[(f"{rv.get('managers')}", "managers"),
-                                 (f"{rv.get('checks', 0):,}", "numbers checked"),
-                                 (f"{rv.get('max_abs_diff', 0):.0e}", "largest difference")]))
-        have["rverify"] = True
-
-    cards.append(dict(href="/f/appaloosa/memo", eyebrow="Due diligence",
-                      title="A memo on any manager",
-                      what="Verdict, alpha with its confidence interval, factor loadings and rolling drift, the replication test, risks, and the questions to put to the manager at the next quarterly meeting \u2014 every sentence generated from that manager's numbers.",
-                      stats=[("91", "managers covered"), ("1", "click from any row"), ("0", "hand-written prose")]))
-    have["memo"] = True
-
-    out = ""
-    for c in cards:
-        st = "".join(f"<div><span class='v'>{html.escape(str(v))}</span><span class='l'>{html.escape(l)}</span></div>"
-                     for v, l in c["stats"])
-        out += (f"<a class='rcard' href=\"{c['href']}\"><div class='eyeb'>{html.escape(c['eyebrow'])}</div>"
-                f"<div class='rt'>{html.escape(c['title'])}</div><div class='rw'>{c['what']}</div>"
-                f"<div class='rs'>{st}</div><div class='go'>Open &rarr;</div></a>")
-    return out, have
-
-
-def leaderboard_html() -> str:
-    rows = leaderboard_rows()
-    def sc(v):
-        if v is None: return ""
-        c = "g" if v >= 70 else ("m" if v >= 45 else "b")
-        return f'<span class="sc {c}">{v:.0f}</span>'
-    def row(r):
-        ex = "" if r["excess"] is None else f"{r['excess'] * 100:+.2f}%"
-        return (f"<tr><td><a href='{r['href']}'>{html.escape(r['label'])}</a><br><span style='color:#8a93a0;font-size:12px'>{html.escape(r.get('note') or r['key'])}</span></td>"
-                f"<td class='n'>{ex}</td><td class='n'>{sc(r['alpha'])}</td><td class='n'>{sc(r['wealth'])}</td></tr>")
-    body = "".join(row(r) for r in rows)
-    famous = "".join(f"<li><a href='/analyze?ticker={t}'>{t}</a> — {html.escape(n)}</li>" for t, n in FAMOUS)
-    return page("Leaderboard", f"""<h1>Leaderboard</h1><p class="sub">Every portfolio analyzed so far, scored on fixed 0–100 maps so they compare directly.</p>
-<div class="banner"><b>All placeholder / public data.</b> Nothing here is the record under verification.</div>
-<form action="/analyze" method="get"><input name="ticker" placeholder="Enter a ticker — fund, ETF or stock (Yahoo format, e.g. FCNTX, BRK-A)" required pattern="[A-Za-z0-9.\-]{{1,12}}"><button>Analyze</button></form>
-<table><thead><tr><th>portfolio</th><th class="n">excess vs market /yr</th><th class="n">alpha-maxing</th><th class="n">wealth-mgmt</th></tr></thead><tbody>{body or '<tr><td colspan=4>nothing analyzed yet</td></tr>'}</tbody></table>
-<p><a href="/managers"><b>All managers by strategy →</b></a></p>
-<h3>Listed vehicles with a real public record</h3><ul>{famous}</ul>
-<p class="sub"><b>Hedge funds</b> appear as 13F clones (US long positions only, 45 days late — a reconstruction, not the fund's return). Multi-strategy, quant and macro managers are listed on the Managers page but their clones are not meaningful and are flagged.</p>
-<p class="sub"><b>Alpha-maxing</b> = 50 + 10 × excess return over the US market (%/yr), return only. <b>Wealth-management</b> = skill evidence (30%) + risk-adjusted return (25%) + downside protection (25%) + consistency across rolling 5-year windows (20%). Full breakdown on each dashboard.</p>""")
 
 
 def index_html() -> str:
@@ -1175,8 +1001,6 @@ class Handler(SimpleHTTPRequestHandler):
             return self._html(home_html(page, len(fi) + n_listed, n_ok + n_listed))
         if u.path in ("/external", "/managers", "/leaderboard"):
             return self._html(directory_html())
-        if u.path == "/passive":                       # no landing page: Passive is the running book
-            return self._redirect("/research/index-tracker")
         if u.path == "/active":
             from .areas import area_html
             return self._html(area_html(page, "active"))
@@ -1252,19 +1076,19 @@ class Handler(SimpleHTTPRequestHandler):
             from .research_pages import signals13f_html
             doc = signals13f_html()
             if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord signals13f</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Manager Analysis · 13F Signal Research", current="/external")))
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
+            return self._html(with_nav(doc, nav_html("Manager Analysis · Holdings Research", current="/external")))
         if u.path == "/research/decay":
             from .research_pages import decay_html
             doc = decay_html()
             if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord decay</code>.</p></main>"), 404)
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Manager Analysis · Manager Decay Model", current="/external")))
         if u.path == "/research/fund-of-funds":
             from .research_pages import fof_html
             doc = fof_html()
             if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord fund-of-funds</code>.</p></main>"), 404)
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Manager Analysis · Fund of Funds", current="/external")))
         if u.path == "/simulate":
             from .simpages import simulate_html, compare_block
@@ -1299,50 +1123,30 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._html(with_nav(doc, nav_html("Simulation · Due Diligence Memo", extra=("Simulation results", f"/sim/{sid}/"), current="/simulate")))
             from .simpages import sim_summary_html
             return self._html(sim_summary_html(page, sid, out, data))
-        if u.path == "/live/passive/refresh":
-            from . import livebook
-            if not livebook.STATE["running"] and time.time() - livebook.STATE["last_run"] > 600:
-                threading.Thread(target=_live_once, daemon=True).start()
-            return self._redirect("/research/index-tracker#dpsw")
-        if u.path.startswith("/live/passive/"):
-            from .livebook import OUT_DIR as LIVE_DIR
-            name = u.path.rsplit("/", 1)[1]
-            f = LIVE_DIR / name
-            if re.match(r"^[a-z0-9_]+\.(csv|json)$", name) and f.exists():
-                b = f.read_bytes(); self.send_response(200); self.send_header("Content-Type", "text/csv; charset=utf-8" if name.endswith(".csv") else "application/json")
-                self.send_header("Content-Disposition", f"attachment; filename={name}"); self.send_header("Cache-Control", "no-store")
-                self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
-            return self._html(not_found_html(u.path), 404)
-        if u.path == "/research/index-tracker":
-            from .research_pages import tracker_html
-            doc = tracker_html()
-            if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord index-tracker</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Passive · Index Tracking", current="/research/index-tracker")))
         if u.path == "/research/risk-model":
             from .research_pages import riskmodel_html
             doc = riskmodel_html()
             if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord risk-model</code>.</p></main>"), 404)
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Active · Factor Risk Model", current="/active")))
         if u.path == "/research/alpha-lab":
             from .research_pages import alphalab_html
             doc = alphalab_html()
             if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Not built</h1><p>Run <code>python -m trackrecord alpha-lab</code>.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Active · Alpha Model Lab", current="/active")))
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
+            return self._html(with_nav(doc, nav_html("Active · Signal Research", current="/active")))
         if u.path == "/research/construction":
             from .research_pages import construction_html
             doc = construction_html()
             if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord construct</code>.</p></main>"), 404)
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
             return self._html(with_nav(doc, nav_html("Active · Portfolio Construction", current="/active")))
         if u.path == "/research/r-verify":
             from .research_pages import rverify_html
             doc = rverify_html()
             if doc is None:
-                return self._html(page("Not built", "<main class='wrap'><h1>Research note not built</h1><p>Run <code>python -m trackrecord r-verify</code> where R and data.table are installed.</p></main>"), 404)
-            return self._html(with_nav(doc, nav_html("Active \u00b7 R Verification", current="/active")))
+                return self._html(page("Not built", "<main class='wrap'><h1>Not built yet</h1><p>This page has not been built on this server yet.</p></main>"), 404)
+            return self._html(with_nav(doc, nav_html("Active \u00b7 Independent Verification", current="/active")))
         if u.path.startswith("/research/r-verify/") and u.path.endswith(".csv"):
             from .rverify import OUT_DIR as RV_DIR
             f = RV_DIR / u.path.rsplit("/", 1)[1]
@@ -1416,7 +1220,7 @@ class Handler(SimpleHTTPRequestHandler):
                 extra = None
                 if parts[0] == "funds":
                     try:
-                        import json as _j; crumb = _j.loads((FUNDS_ROOT / parts[1] / "meta.json").read_text()).get("name", parts[1]) + " — 13F clone"
+                        import json as _j; crumb = _j.loads((FUNDS_ROOT / parts[1] / "meta.json").read_text()).get("name", parts[1]) + " — disclosed holdings"
                     except Exception:
                         crumb = parts[1]
                     extra = ("Generate due-diligence memo", f"/f/{parts[1]}/memo")
@@ -1470,7 +1274,8 @@ class Handler(SimpleHTTPRequestHandler):
         return super().send_error(code, message, explain)
 
     def _html(self, doc: str, code: int = 200):
-        body = doc.encode("utf-8")
+        from .explain import annotate
+        body = annotate(doc, urlparse(self.path).path).encode("utf-8")   # a "How & why" note under every tile
         self.send_response(code); self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", str(len(body)))
         self.end_headers(); self.wfile.write(body)
@@ -1489,26 +1294,6 @@ class Handler(SimpleHTTPRequestHandler):
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
 
-def _live_once() -> None:
-    from . import livebook
-    try:
-        livebook.STATE["running"] = True; livebook.refresh(_log)
-    except Exception as e:
-        livebook.STATE["error"] = str(e); _log(f"live book refresh failed: {e}")
-    finally:
-        livebook.STATE["running"] = False
-
-
-def live_passive_scheduler() -> None:
-    """Daily refresh of the simulated passive book (LIVE_REFRESH_HOURS, default 24; 0 disables)."""
-    hours = float(os.environ.get("LIVE_REFRESH_HOURS", "24"))
-    if hours <= 0:
-        return
-    from . import livebook
-    time.sleep(20)                                    # needs only the committed live_inputs and network, not the manager warm-up
-    livebook.loop(hours, log=_log)
-
-
 def main(port: int | None = None, build: bool = True) -> None:
     OUT.mkdir(exist_ok=True)
     port = port or int(os.environ.get("PORT", "8080"))
@@ -1516,7 +1301,6 @@ def main(port: int | None = None, build: bool = True) -> None:
         threading.Thread(target=build_all, daemon=True).start()
     else:
         STATE["phase"] = "ready"; STATE["done"] = True
-    threading.Thread(target=live_passive_scheduler, daemon=True).start()
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"serving {OUT} on 0.0.0.0:{port}" + (" (password protected)" if os.environ.get("DASHBOARD_PASSWORD") else " (no password — placeholder only)"), flush=True)
     srv.serve_forever()

@@ -1,2 +1,2 @@
 account_id,label,owner_type,discretionary,strategy,benchmark,notes
-PERSHING_SQUARE,Pershing Square — 13F clone,principal,Y,default,US_MKT,13F long-only clone; not the fund's return
+PERSHING_SQUARE,Pershing Square — disclosed holdings,principal,Y,default,US_MKT,reconstructed from disclosed holdings; not the fund's return

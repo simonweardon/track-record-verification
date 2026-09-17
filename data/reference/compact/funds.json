@@ -1255,7 +1255,7 @@
  },
  {
   "slug": "berkshire-13f",
-  "name": "Berkshire Hathaway (13F holdings)",
+  "name": "Berkshire Hathaway (disclosed holdings)",
   "manager": "Warren Buffett",
   "style": "conc",
   "filers": [
@@ -1270,7 +1270,7 @@
  },
  {
   "slug": "markel-13f",
-  "name": "Markel (13F holdings)",
+  "name": "Markel (disclosed holdings)",
   "manager": "Tom Gayner",
   "style": "conc",
   "filers": [
@@ -1285,7 +1285,7 @@
  },
  {
   "slug": "fairfax-13f",
-  "name": "Fairfax Financial (13F holdings)",
+  "name": "Fairfax Financial (disclosed holdings)",
   "manager": "Prem Watsa",
   "style": "conc",
   "filers": [

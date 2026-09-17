@@ -1,9 +1,8 @@
-"""The site organised the way the job is: three areas, one tool per responsibility.
+"""The site organised the way the job is: two areas, one tool per responsibility.
 
-    Passive            index tracking, daily portfolio status, rebalance trade lists
-    Active             alpha model lab, risk model, portfolio construction, verification in R
-    External managers  manager verification and screening, due-diligence memos, 13F signal
-                       research, fund-of-funds construction
+    Active             signal research, risk model, portfolio construction, independent verification
+    External managers  manager verification and screening, due-diligence memos, holdings
+                       research, manager decay model, fund-of-funds construction
 
 Every card's numbers are read from the committed CSVs under data/research/ (or the
 leaderboard), so nothing on these pages can go stale, and a tool whose data is missing
@@ -16,19 +15,18 @@ import html
 import json
 from pathlib import Path
 
+from .explain import CSS as EXPLAIN_CSS
+
 ROOT = Path(__file__).resolve().parents[1]
 R = ROOT / "data" / "research"
 
 AREAS = {
-    "passive": ("Passive portfolios", "/research/index-tracker",
-                "Run an index-tracking portfolio the way the desk does: replicate the benchmark with a subset of names, "
-                "keep tracking error and cash where the mandate says, and produce the day's status sheet and trade list."),
     "active": ("Active portfolios", "/active",
-               "Build and run a quantitative equity portfolio: research the signals, model the risk, construct the "
-               "portfolio under the mandate's constraints, and prove every number twice."),
+               "These tools build and run a stock portfolio: find what predicts returns, measure the risk, "
+               "turn the signal into trades within the mandate's limits, and check every number."),
     "external": ("Manager Analysis", "/external",
-                 "Evaluate outside managers the way a manager-research team does: verify the record, separate skill from "
-                 "exposure, test it against luck, write the memo — and combine the ones that pass into a fund of funds."),
+                 "These tools evaluate outside managers: verify each record, separate skill from market exposure, "
+                 "test it against luck, write the memo, and combine the managers that pass into a fund of funds."),
 }
 
 
@@ -58,85 +56,75 @@ def _num(x, d=None):
 
 def tool_cards() -> dict[str, list[dict]]:
     """Live tools by area.  Each: href, eyebrow, title, what, stats [(value, label)]."""
-    cards = {"passive": [], "active": [], "external": []}
+    from .explain import plain
+    cards = {"active": [], "external": []}
 
     # ---- active
     lab, labman = _rows("alpha-lab/summary.csv", "signal"), _man("alpha-lab/manifest.json")
     if lab and labman:
-        best = max(lab.values(), key=lambda r: _num(r.get("ic_t"), -99))
+        best = max((r for k, r in lab.items() if k not in ("linear", "xgboost")), key=lambda r: _num(r.get("ic_t"), -99))
         xg = lab.get("xgboost", {}); lin = lab.get("linear", {})
-        cards["active"].append(dict(href="/research/alpha-lab", eyebrow="Which signals predict returns — and does a tree model beat a line?",
-            title="Alpha Model Lab",
-            what=f"Value, momentum, quality, low-volatility and size signals from prices and SEC filings, ranked every quarter across {labman.get('universe_avg', '')} names; "
-                 f"information coefficients, decile spreads, and a walk-forward gradient-boosted model (xgboost) against a linear composite.",
-            stats=[(f"{_num(best.get('ic_mean'), 0):+.3f}", f"best IC · {best.get('label', best.get('signal', ''))}"),
-                   (f"{_num(xg.get('ic_mean'), 0):+.3f}", "xgboost IC, walk-forward"), (f"{_num(lin.get('ic_mean'), 0):+.3f}", "linear composite IC")]))
-    risk, riskman = _man("risk-model/manifest.json"), None
+        cards["active"].append(dict(href="/research/alpha-lab", eyebrow="Which stock characteristics predict next month's return?",
+            title="Signal Research",
+            what=f"Eight stock characteristics, such as value, momentum and profitability, are tested for whether they predicted next month's return across about {labman.get('universe_avg', '')} stocks. "
+                 f"A model that learns from all eight is compared with a simple average of them.",
+            stats=[(f"{_num(best.get('ic_mean'), 0):+.3f}", f"strongest single signal: {plain(best.get('label', best.get('signal', ''))).split(' (')[0]}"),
+                   (f"{_num(xg.get('ic_mean'), 0):+.3f}", "learned model"), (f"{_num(lin.get('ic_mean'), 0):+.3f}", "simple average")]))
+    risk = _man("risk-model/manifest.json")
     if risk.get("factors"):
-        cards["active"].append(dict(href="/research/risk-model", eyebrow="A fundamental factor risk model, Barra-style",
+        cards["active"].append(dict(href="/research/risk-model", eyebrow="How much risk is a portfolio taking, and where does it come from?",
             title="Factor Risk Model",
-            what="Monthly cross-sectional regressions of stock returns on style exposures and industries give a factor covariance and specific risk; "
-                 "any portfolio decomposes into factor and stock-specific risk, with a predicted tracking error to check against what happened.",
+            what="A risk model explains each stock's monthly return by its exposure to the market, to eight styles and to its industry. "
+                 "It predicts how much any portfolio will move, splits that risk into what comes from those exposures and what is specific to the stocks held, and is tested against what actually happened.",
             stats=[(f"{risk.get('factors')}", "factors"), (f"{risk.get('industries')}", "industries"),
-                   (f"{_num(risk.get('r2_avg'), 0):.0%}", "avg cross-sectional R²")]))
+                   (f"{_num(risk.get('r2_avg'), 0):.0%}", "of monthly returns explained")]))
     con, conman = _rows("construction/summary.csv", "key"), _man("construction/manifest.json")
     if con and conman:
         P = con.get("portfolio", {})
-        cards["active"].append(dict(href="/research/construction", eyebrow="From a signal to a trade list",
+        cards["active"].append(dict(href="/research/construction", eyebrow="How does a signal become a list of trades?",
             title="Portfolio Construction",
-            what="A linear program turns alpha scores into target weights under name caps, sector and active bands, an active-share cap and a turnover budget, "
-                 "then into the tickets a trader would receive. Solved in Python (HiGHS) and again in R (Rglpk).",
-            stats=[(f"{_num(P.get('active_return'), 0) * 100:+.1f}%", "active return /yr"), (f"{_num(P.get('information_ratio'), 0):.2f}", "information ratio"),
+            what="An optimiser turns the signal into target weights that respect the mandate's limits on position size, sector tilts and turnover, and then into the list of trades a dealer would receive. "
+                 "The page shows what those limits cost and what the portfolio delivered.",
+            stats=[(f"{_num(P.get('active_return'), 0) * 100:+.1f}%", "active return per year"), (f"{_num(P.get('information_ratio'), 0):.2f}", "information ratio"),
                    (f"{conman.get('rebalances', '')}", "rebalances")]))
     rv = _man("r-verify/manifest.json")
     if rv.get("managers"):
-        cards["active"].append(dict(href="/research/r-verify", eyebrow="The same statistics, recomputed in R",
-            title="R Verification",
-            what="Every headline number — alphas, Newey–West t-statistics, loadings, Sharpe, drawdown, scores — is recomputed from the aligned returns by an "
-                 "independent R implementation with data.table and compared with what Python reported.",
+        cards["active"].append(dict(href="/research/r-verify", eyebrow="Are the numbers right?",
+            title="Independent Verification",
+            what="Every headline number on the site was recalculated a second time by a separate implementation written from scratch, and the two sets of results were compared. "
+                 "They agree to the limit of computer precision.",
             stats=[(f"{rv.get('managers')}", "managers"), (f"{rv.get('checks', 0):,}", "numbers checked"), (f"{rv.get('max_abs_diff', 0):.0e}", "largest difference")]))
-
-    # ---- passive
-    idx = _man("index-tracker/manifest.json")
-    if idx.get("benchmark"):
-        cards["passive"].append(dict(href="/research/index-tracker", eyebrow=f"Replicate {idx['benchmark']} with fewer names, and run it daily",
-            title="Index Tracking — live book",
-            what="Optimised sampling: hold a subset of the index that minimises predicted tracking error under the risk model, rebalance on the benchmark's "
-                 "reconstitution, and keep cash within the mandate. Daily Portfolio Status Worksheet and rebalance trade list included.",
-            stats=[(f"{idx.get('names_held')}", f"of {idx.get('names_index')} names"), (f"{_num(idx.get('te_realized'), 0):.2%}", "realized tracking error"),
-                   (f"{_num(idx.get('turnover'), 0):.0%}", "turnover /yr")]))
 
     # ---- external
     sig, sigman = _rows("13f-signals/summary.csv", "key"), _man("13f-signals/manifest.json")
     if sig and sigman:
         t = _num(sig.get("BEST1", {}).get("carhart_t"))
-        cards["external"].append(dict(href="/research/13f-signals", eyebrow="Trading on 13F disclosures",
-            title="13F Signal Research",
-            what=f"Best ideas, crowding and fresh buys from every filing, formed into quarterly portfolios and tested as Carhart spreads. "
-                 f"Finding: {'no edge survives the 45-day lag' if t is None or abs(t) < 2 else 'a spread that survives the lag'}.",
+        cards["external"].append(dict(href="/research/13f-signals", eyebrow="Can you make money by copying what the best managers own?",
+            title="Holdings Research",
+            what=f"Every manager's public quarterly holdings are turned into portfolios of their biggest positions, their most crowded stocks and their newest purchases, and tested for whether they beat the market. "
+                 f"{'The finding is that nothing survives the 45-day delay before the holdings become public.' if t is None or abs(t) < 2 else 'The finding is that one spread survives the 45-day delay before the holdings become public.'}",
             stats=[(f"{sigman.get('managers', '')}", "managers"), (f"{sigman.get('quarters', '')}", "quarters"), (f"{_num(sigman.get('positions'), 0):,.0f}", "positions")]))
     dec, decman = _rows("decay/summary.csv", "model"), _man("decay/manifest.json")
     if dec and decman.get("managers"):
         xg, lg, ps = dec.get("xgboost", {}), dec.get("logistic", {}), dec.get("persist", {})
         best_t = max(_num(r.get("auc_cs_t"), 0) for r in dec.values())
-        cards["external"].append(dict(href="/research/decay", eyebrow="Can the filings say who will lag next year?",
+        cards["external"].append(dict(href="/research/decay", eyebrow="Can a manager's filings say who will lag next year?",
             title="Manager Decay Model",
-            what=f"Concentration, turnover, crowding, what was bought and sold, and how the last year went, for {decman['managers']} managers at every filing date; "
-                 f"last year's laggards, a logistic regression and xgboost, all walk-forward with a twelve-month embargo. "
-                 f"Finding: {'nothing detectable' if best_t < 2 else 'a weak signal'} — and a worked example of how a leaky backtest would say otherwise.",
-            stats=[(f"{_num(xg.get('auc_cs_mean'), 0.5):.3f}", "xgboost AUC by date"), (f"{_num(lg.get('auc_cs_mean'), 0.5):.3f}", "logistic AUC"),
-                   (f"{_num(ps.get('auc_cs_mean'), 0.5):.3f}", "persistence AUC")]))
+            what=f"For {decman['managers']} managers at every quarterly filing, the portfolio's concentration, turnover, crowding, recent trades and recent performance are used to predict who will trail the market over the next twelve months. "
+                 f"{'The finding is that nothing detectable predicts it, and the page shows how a carelessly built test would claim otherwise.' if best_t < 2 else 'The finding is a weak signal, and the page shows how a carelessly built test would overstate it.'}",
+            stats=[(f"{_num(xg.get('auc_cs_mean'), 0.5):.3f}", "learned model"), (f"{_num(lg.get('auc_cs_mean'), 0.5):.3f}", "regression"),
+                   (f"{_num(ps.get('auc_cs_mean'), 0.5):.3f}", "last year's laggards")]))
     fof = _man("fund-of-funds/manifest.json")
     if fof.get("managers"):
-        cards["external"].append(dict(href="/research/fund-of-funds", eyebrow="Allocating across managers",
+        cards["external"].append(dict(href="/research/fund-of-funds", eyebrow="How should money be split across the managers that pass?",
             title="Fund of Funds",
-            what="Shrink each manager's alpha toward zero in proportion to its noise, estimate the correlation of their active returns, and allocate: "
-                 "how many managers diversification actually rewards, and what the blend's expected information ratio is.",
-            stats=[(f"{fof.get('managers')}", "candidates"), (f"{fof.get('selected')}", "selected"), (f"{_num(fof.get('ir_blend'), 0):.2f}", "blend IR, shrunk")]))
+            what="Each manager's measured skill is discounted for how noisy its estimate is, the managers' returns are checked for overlap, and the money is allocated to the combination with the best expected result. "
+                 "The page shows how many managers diversification actually rewards.",
+            stats=[(f"{fof.get('managers')}", "candidates"), (f"{fof.get('selected')}", "selected"), (f"{_num(fof.get('ir_blend'), 0):.2f}", "expected information ratio")]))
     return cards
 
 
-CARD_CSS = """<style>
+CARD_CSS = EXPLAIN_CSS + """<style>
 .rcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:14px;margin:6px 0 10px}
 .rcard{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:18px 20px;text-decoration:none;color:var(--ink)}
 .rcard .eyeb{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
@@ -145,6 +133,8 @@ CARD_CSS = """<style>
 .rcard .rs{display:flex;gap:18px;margin:14px 0 0;flex-wrap:wrap}.rcard .rs div{display:grid;gap:3px}
 .rcard .rs .v{font:600 16px/1 var(--sans);color:var(--navy)}
 .rcard .rs .l{font:600 8.5px/1.2 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.rcard{position:relative}.rcard .rt a{color:inherit;text-decoration:none}.rcard .rt a::after{content:"";position:absolute;inset:0}
+.rcard .rs div{position:relative;z-index:1}.rcard .rs div:has(details[open]){flex-basis:100%}.rcard details.how{margin-top:6px}.rcard details.how .howb{font-size:12.5px}
 .rcard .go{margin-top:14px;font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
 .rcard:hover{border-color:var(--gold)}
 .areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:14px;margin:26px 0 0}
@@ -156,11 +146,12 @@ CARD_CSS = """<style>
 
 
 def cards_html(cards: list[dict]) -> str:
+    from .explain import note_html
     out = ""
     for c in cards:
-        st = "".join(f"<div><span class='v'>{html.escape(str(v))}</span><span class='l'>{html.escape(l)}</span></div>" for v, l in c["stats"])
-        out += (f"<a class='rcard' href=\"{c['href']}\"><div class='eyeb'>{html.escape(c['eyebrow'])}</div><div class='rt'>{html.escape(c['title'])}</div>"
-                f"<div class='rw'>{c['what']}</div><div class='rs'>{st}</div></a>")
+        st = "".join(f"<div><span class='v'>{html.escape(str(v))}</span><span class='l'>{html.escape(l)}</span>{note_html(l, c['href'])}</div>" for v, l in c["stats"])
+        out += (f"<div class='rcard'><div class='eyeb'>{html.escape(c['eyebrow'])}</div><div class='rt'><a href=\"{c['href']}\">{html.escape(c['title'])}</a></div>"
+                f"<div class='rw'>{c['what']}</div><div class='rs'>{st}</div></div>")
     return out
 
 
@@ -168,17 +159,17 @@ def home_html(page, n_managers: int, n_scorable: int) -> str:
     cards = tool_cards()
     n_tools = sum(len(v) for v in cards.values())
     areas = "".join(f"<a class='area' href='{href}'><span class='t'>{html.escape(name)}</span><span class='s'>{html.escape(blurb)}</span>"
-                    f"<span class='n'>{'open the live book' if k == 'passive' else str(len(cards[k])) + ' tool' + ('s' if len(cards[k]) != 1 else '')} &rarr;</span></a>" for k, (name, href, blurb) in AREAS.items() if cards[k])
+                    f"<span class='n'>{len(cards[k])} tool{'s' if len(cards[k]) != 1 else ''} &rarr;</span></a>" for k, (name, href, blurb) in AREAS.items() if cards[k])
     sections = "".join(f"<h2 data-n='{html.escape(name)}' id='{k}'>{html.escape(name)}</h2><p class='note'>{html.escape(blurb)}</p><div class='rcards'>{cards_html(cards[k])}</div>"
                        for k, (name, href, blurb) in AREAS.items() if cards[k])
-    return page("Global Equity — quantitative portfolio management", CARD_CSS + f"""<div class="banner"><b>Public data</b> SEC 13F reconstructions, listed funds and Ken French factors, used to exercise every tool. Nothing here is investment advice.</div>
+    return page("Global Equity — quantitative portfolio management", CARD_CSS + f"""<div class="banner"><b>Public data.</b> Every tool runs on public information: managers' quarterly holdings filings, listed funds' prices and the standard academic market factors. Nothing here is investment advice.</div>
 <header class="cover"><div class="cover-in"><div class="eyebrow">Quantitative portfolio management · global equity</div><div class="rule"></div><h1>The work of a portfolio manager,<br>as working software</h1>
-<p class="sub">Passive index portfolios, active quantitative portfolios, and the evaluation of external managers — one tool for each responsibility, built on public data and honest about what it finds.</p>
+<p class="sub">One tool for each part of the job: running an active stock portfolio and evaluating outside managers. Everything is built on public data and reports what it finds, including when the finding is nothing.</p>
 <div class="areas">{areas}</div>
-<dl class="stats"><div><dt>Tools</dt><dd>{n_tools}</dd></div><div><dt>Managers in the system</dt><dd>{n_managers}</dd></div><div><dt>Scorable today</dt><dd>{n_scorable}</dd></div><div><dt>Implementations</dt><dd>Python · R</dd></div></dl>
+<dl class="stats"><div><dt>Tools</dt><dd>{n_tools}</dd></div><div><dt>Managers in the system</dt><dd>{n_managers}</dd></div><div><dt>Scorable today</dt><dd>{n_scorable}</dd></div></dl>
 </div></header>
 <main class="wrap">{sections}
-<div class="foot">Built by Simon Weardon with Claude Code as pair programmer; methodology, data-quality rules and verification are the author's. Benchmark and factors: Kenneth R. French Data Library; prices and sectors: Yahoo Finance; holdings and fundamentals: SEC EDGAR. Past performance is not indicative of future results; nothing here is investment advice.</div>
+<div class="foot">Built by Simon Weardon. Benchmark and factors: Kenneth R. French Data Library. Prices and sectors: Yahoo Finance. Holdings and company accounts: SEC EDGAR. Past performance is not indicative of future results, and nothing here is investment advice.</div>
 </main>""", is_home=True)
 
 

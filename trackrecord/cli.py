@@ -135,11 +135,11 @@ def cmd_report(a):
         import json
         m = json.loads((Path(a.data) / "meta.json").read_text())
         if "style_name" in m:                      # 13F clone
-            label = f"{m['name']} — 13F long-only clone ({m.get('manager', '')})"
+            label = f"{m['name']} — disclosed holdings ({m.get('manager', '')})"
             if not a.placeholder_note:
-                note = (f"an SEC 13F clone of {m['name']}'s disclosed US long positions ({m.get('first', '')[:4]}–{m.get('last', '')[:4]}, "
-                        f"rebalanced at each filing, {m.get('avg_coverage', 0):.0%} of value priced). A reconstruction, not the fund's return: "
-                        f"no shorts, options, cash, leverage or non-US holdings, entered ~45 days late. {m.get('style_note', '')}")
+                note = (f"a reconstruction of {m['name']}'s publicly disclosed US holdings ({m.get('first', '')[:4]}–{m.get('last', '')[:4]}, "
+                        f"rebalanced at each filing, {m.get('avg_coverage', 0):.0%} of value priced). It is not the fund's own return: "
+                        f"the filings leave out short positions, options, cash, borrowing and non-US holdings, and arrive about 45 days late. {m.get('style_note', '')}")
         else:
             label = f"{m.get('name', '')} ({m.get('ticker', '')}), public price series"
         if not a.placeholder_note and "style_name" not in m:
@@ -324,8 +324,6 @@ def main(argv=None):
     al.set_defaults(fn=lambda a: (__import__("trackrecord.alphalab", fromlist=["build"]).build(), 0)[1])
     rm = sub.add_parser("risk-model", help="fundamental factor risk model: factor returns, covariance, specific risk, decompositions, bias test -> data/research/risk-model")
     rm.set_defaults(fn=lambda a: (__import__("trackrecord.riskmodel", fromlist=["build"]).build(), 0)[1])
-    it = sub.add_parser("index-tracker", help="passive: cap-weighted universe index, optimised-sampling replication under the risk model, DPSW, trade list -> data/research/index-tracker")
-    it.set_defaults(fn=lambda a: (__import__("trackrecord.tracker", fromlist=["build"]).build(), 0)[1])
     ff = sub.add_parser("fund-of-funds", help="external managers: alpha shrinkage, residual correlations, max-IR allocation, diversification curve, out-of-sample test -> data/research/fund-of-funds")
     ff.set_defaults(fn=lambda a: (__import__("trackrecord.fof", fromlist=["build"]).build(), 0)[1])
     dc = sub.add_parser("decay", help="manager decay model: 13F book and return features per manager-quarter, walk-forward persistence / logistic / xgboost, R twin -> data/research/decay")

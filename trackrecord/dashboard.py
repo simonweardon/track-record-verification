@@ -711,7 +711,7 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
             lis = "".join(row(x, "win") for _, x in winners.iterrows()) + "".join(row(x, "drag") for _, x in drags.iterrows())
             top_names = ", ".join(f"{esc(x['name'])} ({x.share_of_outperformance:.0%})" for _, x in ct.head(5).iterrows() if not pd.isna(x.share_of_outperformance))
             if tot_act > 0:
-                lead = (f"Over {esc(win_first)}–{esc(win_last)} the clone beat the market by <b>{tot_act * 100:+.0f} percentage points</b> in total. "
+                lead = (f"Over {esc(win_first)}–{esc(win_last)} the disclosed holdings beat the market by <b>{tot_act * 100:+.0f} percentage points</b> in total. "
                         f"<b>{n80} of the {n_all} names ever held produced 80% of that outperformance</b>; the top five — {top_names} — made {top5:.0%} of it.")
                 lead = lead.replace("<b>1 of the", "<b>Just 1 of the")
             else:
@@ -720,7 +720,7 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
                         f"but the losers cost {neg * 100:.0f} pp.")
             holdings_html = f"""
 <section>
-  <div class="sh"><h2>The stocks behind the outperformance</h2>{chip("estimated", "13F clone")}</div>
+  <div class="sh"><h2>The stocks behind the outperformance</h2>{chip("estimated", "disclosed holdings")}</div>
   <div class="card">
     <p class="cap" style="max-width:none;font-size:15px;margin:0 0 16px">{lead}</p>
     <div class="tiles" style="margin-bottom:18px">
@@ -731,9 +731,9 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
     </div>
     <div class="tlaxis"><span class="lbl">Held when</span>{axis}</div>
     <ol class="stocks">{lis}</ol>
-    <p class="cap">The ten names that added most over the market, then the three that cost most. The share is each name's contribution to the excess return over the US market as a fraction of all positive contributions; the timeline marks every month the clone held the name, darker where the position was larger. Window: {esc(win_first)} to {esc(win_last)} — 13F data is structured only from 2013, so earlier holdings are not observable.</p>
+    <p class="cap">The ten names that added most over the market, then the three that cost most. The share is each name's contribution to the excess return over the US market as a fraction of all positive contributions; the timeline marks every month the name was held, darker where the position was larger. The window is {esc(win_first)} to {esc(win_last)}, because structured holdings filings exist only from 2013, so earlier holdings are not observable.</p>
     {explain("Almost every great record rests on a handful of names. This list answers 'which ones, and when?' <b>Share of the outperformance</b> is how much of the manager's beating-the-market this stock delivered: 60% means that without it, more than half the edge disappears. A stock that simply rose with the market shows near zero here even if it made money — this is about what the manager did <i>better</i> than the index. The timeline shows when it was held and how big it was.",
-              "For every month in the scored window, each holding's active contribution is its beginning-of-month weight (after drift within the quarter) × (its return − the US market's return). Summed over months, the active contributions of all holdings add up exactly to the sum of the clone's monthly excess returns over the market. Share = a winner's active contribution ÷ the sum of all winners' active contributions; the cumulative share in rank order gives 'names for 50% / 80%'. The gross figure is weight × return without subtracting the market. Weights are the 13F clone's (disclosed top-60, rebalanced at each filing), so this describes the reconstruction, not the fund's actual trades.")}
+              "For every month in the scored window, each holding's active contribution is its beginning-of-month weight (after drift within the quarter) × (its return − the US market's return). Summed over months, the active contributions of all holdings add up exactly to the sum of the portfolio's monthly excess returns over the market. Share = a winner's active contribution ÷ the sum of all winners' active contributions; the cumulative share in rank order gives 'names for 50% / 80%'. The gross figure is weight × return without subtracting the market. Weights are those of the disclosed holdings (the top 60 positions, rebalanced at each filing), so this describes the reconstruction, not the fund's actual trades.")}
   </div>
 </section>
 """
@@ -967,8 +967,9 @@ def build_dashboard(out_dir: str | Path, claimed: float | None = None, placehold
 <div id="tip" class="tip" hidden></div>
 <script>{JS}</script>
 """
+    from .explain import annotate
     path = out / "dashboard.html"
-    path.write_text(page)
+    path.write_text(annotate(page, "dashboard"))         # "How & why" under the tiles that lack a note
     return path
 
 
@@ -1110,6 +1111,9 @@ details.how[open] summary::before { transform: rotate(45deg); }
 details.how summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .howb { margin-top: 8px; padding: 12px 16px; background: var(--surface-2); border-left: 2px solid var(--gold); color: var(--ink); line-height: 1.6; max-width: 90ch; font-size: 13.5px; }
 .howb b { color: var(--navy); }
+.howb p { margin: 0 0 6px; }
+.tile:has(details.hw[open]) { grid-column: 1 / -1; }   /* an opened note gets the whole row */
+.howb p:last-child { margin-bottom: 0; }
 .tile .exp { margin-top: 8px; gap: 2px 14px; }
 /* stocks behind the outperformance */
 ol.stocks { list-style: none; margin: 0; padding: 0; }

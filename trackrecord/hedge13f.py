@@ -422,7 +422,7 @@ def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.D
     val = 1_000_000.0
     st_rows, fl_rows = [], []
     first = r.index.min()
-    st_rows.append(dict(statement_id=f"{acct}_{first.to_period('M')}", account_id=acct, custodian="SEC 13F clone (EDGAR + Yahoo Finance)",
+    st_rows.append(dict(statement_id=f"{acct}_{first.to_period('M')}", account_id=acct, custodian="Disclosed holdings (SEC EDGAR + Yahoo Finance)",
                         period_start=first.to_period("M").start_time.date(), period_end=first.date(), ending_value=round(val, 2),
                         source_file="hedge13f", source_pages="", notes="notional $1m invested at the first rebalance"))
     fl_rows.append(dict(account_id=acct, date=first.date(), amount=round(val, 2), flow_type="deposit",
@@ -432,7 +432,7 @@ def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.D
         if pd.isna(x):
             continue                       # hole -> no statement that month; Phase 1 reports the gap
         val = val * (1 + x)
-        st_rows.append(dict(statement_id=f"{acct}_{m.to_period('M')}", account_id=acct, custodian="SEC 13F clone (EDGAR + Yahoo Finance)",
+        st_rows.append(dict(statement_id=f"{acct}_{m.to_period('M')}", account_id=acct, custodian="Disclosed holdings (SEC EDGAR + Yahoo Finance)",
                             period_start=m.to_period("M").start_time.date(), period_end=m.date(), ending_value=round(val, 2),
                             source_file="hedge13f", source_pages="", notes=f"priced coverage {cov[m]:.0%}"))
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -443,8 +443,8 @@ def write_fund_dataset(fund: dict, ret: pd.Series, cov: pd.Series, summary: pd.D
     pd.DataFrame(fl_rows).to_csv(out_dir / "flows.csv", index=False)
     pd.DataFrame(columns=["statement_id", "account_id", "as_of_date", "identifier", "description", "asset_class", "quantity",
                           "price", "market_value", "weight_pct"]).to_csv(out_dir / "positions.csv", index=False)
-    pd.DataFrame([dict(account_id=acct, label=f"{fund['name']} — 13F clone", owner_type="principal", discretionary="Y",
-                       strategy="default", benchmark="US_MKT", notes="13F long-only clone; not the fund's return")]).to_csv(out_dir / "accounts.csv", index=False)
+    pd.DataFrame([dict(account_id=acct, label=f"{fund['name']} — disclosed holdings", owner_type="principal", discretionary="Y",
+                       strategy="default", benchmark="US_MKT", notes="reconstructed from disclosed holdings; not the fund's return")]).to_csv(out_dir / "accounts.csv", index=False)
     summary.to_csv(out_dir / "filings.csv", index=False)
     if contrib is not None and weights is not None:
         ct, tl = contribution_table(contrib, weights, ret.index[ret.index > first], names or {}, rm)

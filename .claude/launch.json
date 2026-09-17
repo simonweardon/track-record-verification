@@ -4,8 +4,9 @@
     {
       "name": "site",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["-m", "trackrecord", "serve", "--no-build", "--port", "8765"],
-      "port": 8765
+      "runtimeArgs": ["-m", "trackrecord", "serve", "--no-build"],
+      "port": 8765,
+      "autoPort": true
     }
   ]
 }

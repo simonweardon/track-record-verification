@@ -62,14 +62,17 @@ def tool_cards() -> dict[str, list[dict]]:
     # ---- active
     lab, labman = _rows("alpha-lab/summary.csv", "signal"), _man("alpha-lab/manifest.json")
     if lab and labman:
-        best = max((r for k, r in lab.items() if k not in ("linear", "xgboost")), key=lambda r: _num(r.get("ic_t"), -99))
-        xg = lab.get("xgboost", {}); lin = lab.get("linear", {})
+        tested = {k: r for k, r in lab.items() if k not in ("linear", "xgboost")}
+        best = max(tested.values(), key=lambda r: _num(r.get("spread_t"), -99))
+        kept = [r for r in tested.values() if _num(r.get("spread_t"), 0) >= 2]
+        hh = labman.get("head_to_head", {})
         cards["active"].append(dict(href="/research/alpha-lab", eyebrow="Which stock characteristics predict next month's return?",
             title="Signal Research",
             what=f"Eight stock characteristics, such as value, momentum and profitability, are tested for whether they predicted next month's return across about {labman.get('universe_avg', '')} stocks. "
-                 f"A model that learns from all eight is compared with a simple average of them.",
-            stats=[(f"{_num(best.get('ic_mean'), 0):+.3f}", f"strongest single signal: {plain(best.get('label', best.get('signal', ''))).split(' (')[0]}"),
-                   (f"{_num(xg.get('ic_mean'), 0):+.3f}", "learned model"), (f"{_num(lin.get('ic_mean'), 0):+.3f}", "simple average")]))
+                 f"One of them survives the test, and it is the signal the portfolio on the construction page trades.",
+            stats=[(f"{len(kept)} of {len(tested)}", "signals with evidence behind them"),
+                   (f"{_num(best.get('spread_ann'), 0) * 100:+.1f}%", f"best signal, {plain(best.get('label', best.get('signal', ''))).split(' (')[0].lower()}: top tenth minus bottom tenth a year"),
+                   (f"{_num(hh.get('ic_diff_t'), 0):+.1f}", "learned model versus simple average")]))
     risk = _man("risk-model/manifest.json")
     if risk.get("factors"):
         cards["active"].append(dict(href="/research/risk-model", eyebrow="How much risk is a portfolio taking, and where does it come from?",

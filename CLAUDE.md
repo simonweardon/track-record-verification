@@ -21,7 +21,21 @@ the context that is not in the code.
   xgboost → "learned model", linear composite → "simple average", R verification → "Independent Verification",
   13F signals → "Holdings Research", alpha lab → "Signal Research".
 
-## Status (Sept 17, 2026) — pick up here
+## Status (Sept 17, 2026, later) — pick up here
+Signal Research reframed after Simon asked whether the alpha lab adds anything. Answer, on the numbers: it is load-bearing
+(`riskmodel.py` imports `build_panel` and `SIGNALS` — the eight point-in-time z-scores *are* the risk model's style
+exposures, so it cannot be deleted), but its advertised headline — learned model vs simple average — was a dead heat
+(ic_diff_t 0.09, 53% of months) and duplicated the lesson `decay.py` already teaches better. Meanwhile the one real
+result was being thrown away: of the eight signals only momentum's decile spread clears t ≥ 2 (2.12, +14.3%/yr; on the
+IC *nothing* clears 2, momentum peaks at 1.47 — the page now says both), and the construction page was disclaiming its
+own choice ("chosen because it is transparent ... not because it is good"). So: the lab page leads with the selection,
+the horse race moved to a later section titled "Does learning add anything?", the construction page and its method note
+now cite the evidence via `_signal_evidence()` (read from the committed CSV so the claim cannot drift), and the Active
+card shows "1 of 8 signals with evidence behind them". Also corrected a false claim: the latest-ranking table said it
+"feeds Portfolio Construction" — construction rebuilds the same momentum definition itself and reads none of the lab's
+CSVs. 143 tests.
+
+## Earlier status (Sept 17, 2026)
 Robinhood uploads fixed (Simon reported they did not work). Two failures, both real: (1) Robinhood's monthly statement
 PDFs print a portfolio-summary *table* — Opening Balance / Closing Balance columns, a row per asset type, a Total row —
 not the labelled line per number the parser looked for, so every file was skipped and the upload errored out;

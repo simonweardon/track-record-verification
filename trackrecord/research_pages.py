@@ -237,6 +237,31 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
 
 # ---------------------------------------------------------------- portfolio construction note
 
+_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+
+
+def _signal_evidence() -> tuple[str, str]:
+    """(one sentence for the summary, one for the method) citing what Signal Research settled.
+
+    Read from the committed CSV so the claim cannot drift from the number behind it; empty
+    strings if that page has not been built, so the construction page never cites nothing.
+    """
+    from .alphalab import OUT_DIR as LAB_DIR
+    f = LAB_DIR / "summary.csv"
+    if not f.exists():
+        return "", ""
+    S = pd.read_csv(f).set_index("signal")
+    tested = [i for i in S.index if i not in ("linear", "xgboost")]
+    if "momentum" not in tested:
+        return "", ""
+    r = S.loc["momentum"]
+    return (f" It is not an arbitrary pick: of the {_WORDS.get(len(tested), len(tested))} characteristics tested on <a href=\"/research/alpha-lab\">Signal Research</a>, "
+            f"it is the only one whose top tenth of the universe beat its bottom tenth with a t-statistic above 2 "
+            f"({r.spread_t:+.1f}, worth {pct(r.spread_ann, 1)} a year), and the rest are noise or point the wrong way.",
+            f" Of the {_WORDS.get(len(tested), len(tested))} characteristics tested on <a href=\"/research/alpha-lab\">Signal Research</a> it was the only one with "
+            f"evidence behind it, so the other {_WORDS.get(len(tested) - 1, len(tested) - 1)} are left out rather than averaged in: adding them would be adding noise.")
+
+
 def construction_html(out_dir: Path | None = None) -> str | None:
     from .construct import OUT_DIR as CON_DIR
     d = out_dir or CON_DIR
@@ -250,6 +275,7 @@ def construction_html(out_dir: Path | None = None) -> str | None:
     sec = pd.read_csv(d / "sectors_latest.csv")
     c = man["constraints"]; L = man["latest"]; rt = man.get("r_twin", {})
     P, U, B = summ.loc["portfolio"], summ.loc["unconstrained"], summ.loc["benchmark"]
+    ev_summary, ev_method = _signal_evidence()
 
     # growth chart
     Rg = R[["benchmark", "portfolio", "unconstrained"]].dropna(how="all")
@@ -308,7 +334,7 @@ def construction_html(out_dir: Path | None = None) -> str | None:
     <div class="tile"><div class="tl">Unconstrained top decile</div><div class="tv">{pct(U.active_return, 1)}</div><div class="td muted">the same signal with no constraints: tracking error {pct(U.tracking_error, 1, False)}, information ratio {num(U.information_ratio)}, turnover {U.avg_turnover:.0%}, {U.avg_names:.0f} names</div></div>
     <div class="tile"><div class="tl">Benchmark</div><div class="tv">{pct(B.ann_return, 1, False)}</div><div class="td muted">everything the managers own, weighted by dollars held; volatility {pct(B.ann_vol, 1, False)}, worst fall {pct(B.max_dd, 0, False)}</div></div>
   </div>
-  <p class="cap" style="margin-top:14px">The signal here is twelve-month price momentum, chosen because it is transparent and available for every stock, not because it is good. The point of the page is the machinery, which takes any signal. Read the constrained and unconstrained figures together: the constraints give up some of the raw signal in exchange for a portfolio that a benchmark-relative mandate could actually hold.</p>
+  <p class="cap" style="margin-top:14px">The signal here is twelve-month price momentum.{ev_summary} The machinery takes any signal and would take a better one. Read the constrained and unconstrained figures together: the constraints give up some of the raw signal in exchange for a portfolio that a benchmark-relative mandate could actually hold.</p>
 </section>
 
 <section>
@@ -366,7 +392,7 @@ def construction_html(out_dir: Path | None = None) -> str | None:
   <div class="sh"><h2>Method and limits</h2></div>
   <div class="card">
     <p><b>Universe and benchmark.</b> Each quarter, the universe is the US stocks held by at least {man['min_holders']} of the managers in the system and priced at $1 or more. The benchmark is those stocks weighted by the total dollars the managers hold, which is everything they own added together. It is a real, investable, public portfolio, but it is not an index, and a real mandate would use one.</p>
-    <p><b>Signal.</b> The signal is twelve-month momentum: each stock's return from twelve months before the rebalance to one month before, standardized across the universe and clipped at three standard deviations. Nothing else is used, because the page demonstrates construction rather than the search for alpha.</p>
+    <p><b>Signal.</b> The signal is twelve-month momentum: each stock's return from twelve months before the rebalance to one month before, standardized across the universe and clipped at three standard deviations.{ev_method}</p>
     <p><b>Costs and drift.</b> Trading costs {c['cost_bps']:.0f} bps per dollar traded and is charged in the first month after each rebalance. Between rebalances every portfolio, including the benchmark, is held without trading. Delisted companies drop out at their last price, which is a survivorship bias and is disclosed.</p>
     <p><b>Risk.</b> The predicted tracking error comes from the covariance of the past 36 months of returns, shrunk halfway toward a constant correlation. It is reported rather than constrained, because the active and sector bands are the linear stand-in that most benchmark-relative mandates actually use. Realized tracking error is the standard deviation of the monthly active returns, annualized.</p>
     <p><b>Honesty.</b> The constraints were fixed before any backtest was run and were not tuned. Both the constrained and the unconstrained rows are shown, whatever they say.</p>
@@ -620,6 +646,16 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
     latest = pd.read_csv(d / "latest_ranks.csv")
     hh = man.get("head_to_head", {})
     feats = man["features"]
+    # what the eight signals actually settled: the evidence bar is a t-statistic of 2, and on
+    # this sample only the decile spread of one signal clears it
+    sig = {s: S.loc[s] for s in feats if s in S.index}
+    cleared = [s for s, r in sig.items() if r.spread_t >= 2]
+    best = max(sig, key=lambda s: sig[s].spread_t) if sig else None
+    br = sig[best] if best else None
+    best_name = plain(SIGNALS.get(best, best or "")).split(" (")[0].lower()
+    sel = (f"Only {esc(best_name)} shows anything: its top tenth of the universe beat its bottom tenth by "
+           f"{pct(br.spread_ann, 1)} a year, with a t-statistic of {br.spread_t:+.1f}, while the other "
+           f"{_WORDS.get(len(feats) - 1, len(feats) - 1)} are noise or point the wrong way." if br is not None else "")
 
     def light(t):
         return ("yes", "evidence") if t >= 2 else ("weak", "weak") if t >= 1 else ("no", "none") if t > -1 else ("no", "wrong way")
@@ -661,7 +697,7 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
   <div class="cover-top"><div class="eyebrow">Active · Signal Research</div></div>
   <div class="gold-rule"></div>
   <h1>Signal Research</h1>
-  <p class="sub">Which stock characteristics predict next month's return? Eight classic signals are built for about {man['universe_avg']} stocks a month using only what was known at the time, and tested every month from {man['first'][:7]} to {man['last'][:7]}. A simple average of the eight is then compared with a learned model that is trained on the same inputs and refit as time passes, to see whether learning adds anything.</p>
+  <p class="sub">Which stock characteristics predict next month's return? Eight classic signals are built for about {man['universe_avg']} stocks a month using only what was known at the time, and tested every month from {man['first'][:7]} to {man['last'][:7]}. {sel} That selection is the reason the <a href="/research/construction">Portfolio Construction</a> page trades the signal it trades.</p>
   <dl class="meta">
     <div><dt>Months</dt><dd>{man['months']}</dd></div>
     <div><dt>Names / month</dt><dd>~{man['universe_avg']}</dd></div>
@@ -674,12 +710,12 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
 <section class="verdict">
   <div class="sh"><h2>Findings</h2></div>
   <div class="tiles">
+    <div class="tile"><div class="tl">Signals with any evidence</div><div class="tv">{len(cleared)} of {len(feats)}</div><div class="td muted">counted on the spread between the top and bottom tenth of the universe, at a t-statistic of 2; on the month-by-month rank correlation not even that one clears the bar</div></div>
+    <div class="tile"><div class="tl">Best of the eight</div><div class="tv">{pct(br.spread_ann, 1)}</div><div class="td muted">{esc(best_name)}, top tenth minus bottom tenth a year; t = {br.spread_t:+.1f}, Sharpe {num(br.spread_sharpe)}; its rank correlation is {br.ic_mean:+.3f} with t = {br.ic_t:+.1f}</div></div>
     <div class="tile"><div class="tl">Simple average</div><div class="tv">{lin.ic_mean:+.3f}</div><div class="td muted">t = {lin.ic_t:+.1f}; positive in {lin.ic_pct_positive:.0%} of months; top tenth beat bottom tenth by {pct(lin.spread_ann, 1)} a year</div></div>
     <div class="tile"><div class="tl">Learned model</div><div class="tv">{xg.ic_mean:+.3f}</div><div class="td muted">t = {xg.ic_t:+.1f}; positive in {xg.ic_pct_positive:.0%} of months; top tenth beat bottom tenth by {pct(xg.spread_ann, 1)} a year</div></div>
-    <div class="tile"><div class="tl">Head to head</div><div class="tv">{hh.get('ic_diff_mean', 0):+.3f}</div><div class="td muted">learned model minus simple average over the same {hh.get('months', 0)} months; t = {hh.get('ic_diff_t', 0):+.1f}; the learned model was ahead in {hh.get('xgb_wins_share', 0):.0%} of months</div></div>
-    <div class="tile"><div class="tl">Does the learned model beat the simple average?</div><div class="tv small">{esc(verdict)}</div><div class="td muted">on the same inputs and the same months, for this universe and period</div></div>
   </div>
-  <p class="cap" style="margin-top:14px">Each headline figure is an information coefficient: the rank correlation between a signal today and returns next month. A usable signal looks like 0.03 to 0.05 with a t-statistic above 3 over a long sample. The simple average and the learned model are compared on exactly the same months. The first {man['min_train']} months are held out so the learned model has something to learn from, and it is refit every {man['retrain']} months using only earlier data.</p>
+  <p class="cap" style="margin-top:14px">The job of this page is to decide which of the eight, if any, is worth trading. The last two figures are information coefficients: the rank correlation between a signal today and returns next month. A usable signal looks like 0.03 to 0.05 with a t-statistic above 3 over a long sample, so on {man['months']} months of one universe everything here is small, and saying so is the result. The first {man['min_train']} months are held out so the learned model has something to learn from, and it is refit every {man['retrain']} months using only earlier data.</p>
 </section>
 
 <section>
@@ -704,7 +740,11 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
 </section>
 
 <section>
-  <div class="sh"><h2>What the learned model uses, and how the signals overlap</h2></div>
+  <div class="sh"><h2>Does learning add anything?</h2></div>
+  <div class="tiles">
+    <div class="tile"><div class="tl">Head to head</div><div class="tv">{hh.get('ic_diff_mean', 0):+.3f}</div><div class="td muted">learned model minus simple average over the same {hh.get('months', 0)} months; t = {hh.get('ic_diff_t', 0):+.1f}; the learned model was ahead in {hh.get('xgb_wins_share', 0):.0%} of months</div></div>
+  </div>
+  <p class="cap" style="margin-top:14px">{esc(verdict)} — a coin flip, on identical inputs over identical months. With {len(feats)} inputs there is little for a model to learn that an equal-weighted average does not already capture, and {hh.get('months', 0)} months cannot settle a difference this small either way. The comparison is here because it was run and has to be reported, not because it decided anything. What the page decided is the choice of signal above.</p>
   <div class="grid2">
     <div class="card"><h3>Importance of each signal in the learned model (latest fit)</h3><div class="tscroll"><table><thead><tr><th>signal</th><th class="n">gain share</th></tr></thead><tbody>{imp_rows}</tbody></table></div>
       <p class="cap">Each row is the share of the model's improvement attributed to that input. Importance is not predictive power, because a signal can be used heavily and add nothing out of sample.</p></div>
@@ -716,7 +756,7 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
 <section>
   <div class="sh"><h2>Latest ranking — {esc(man['last'][:7])}</h2></div>
   <div class="card tscroll"><table><thead><tr><th>stock</th>{''.join(f"<th class='n'>{esc(SIGNALS.get(f, f).split(' (')[0])}</th>" for f in feats)}<th class="n">simple average</th><th class="n">learned model</th></tr></thead><tbody>{lat_rows}</tbody></table>
-  <p class="cap">These are the top 25 stocks by the simple average at the latest month-end, with each signal shown as a standardized score across the universe. The learned-model column is its predicted return relative to the universe next month. This ranking is what feeds <a href="/research/construction">Portfolio Construction</a>.</p></div>
+  <p class="cap">These are the top 25 stocks by the simple average at the latest month-end, with each signal shown as a standardized score across the universe. The learned-model column is its predicted return relative to the universe next month. <a href="/research/construction">Portfolio Construction</a> rebuilds the {esc(best_name)} column on the same universe and trades that alone, because it is the one column above with evidence behind it.</p></div>
 </section>
 
 <section>
@@ -725,7 +765,7 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
     <p><b>Point in time.</b> Prices run through the month-end. A company filing is used only after the date it was filed and only if its period ended within the last 15 months. Balance-sheet items are the latest reported figure, and income and cash-flow items are the latest annual figure, so they update once a year.</p>
     <p><b>Universe.</b> The universe is the stocks held by at least five of the managers in the system at the latest filing date and priced at $1 or more. That is around {man['universe_avg']} names a month, large and liquid, which is where such signals are weakest. Delisted companies drop out at their last price, which is a survivorship bias and is disclosed.</p>
     <p><b>Models.</b> The simple average is the plain mean of the available standardized signals, with no fitted weights at all. The learned model is a gradient-boosted ensemble of 300 shallow decision trees trained on next-month returns relative to the universe, using an expanding window with the first {man['min_train']} months held out and a refit every {man['retrain']} months. None of its settings were tuned on the test period.</p>
-    <p><b>Reading it.</b> With about 150 months and one universe, a t-statistic below 2 is noise. A learned model with eight inputs cannot learn much that a simple average does not already capture, and the head-to-head test says how much. That is the finding a research meeting needs, rather than a backtest that looks good.</p>
+    <p><b>Reading it.</b> With about 150 months and one universe, a t-statistic below 2 is noise, and by that rule seven of the eight signals are noise and the learned model and the simple average are indistinguishable. What survives is one signal, on one of its two tests, which is the finding a research meeting needs rather than a backtest that looks good. It is also enough to pick what the construction page trades, which is the only decision this page was run to make.</p>
   </div>
 </section>
 

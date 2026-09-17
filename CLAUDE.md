@@ -14,13 +14,35 @@ the context that is not in the code.
   preferred (data.table, Rglpk, xgboost)**, SQL, Barra/FactSet. Every feature should map to a JD line.
 - Frame the project as an **external-manager due-diligence engine**. Keep negative results and caveats
   visible (only 5 of 89 clones have FF3 alpha t>2; clones ≠ funds; 45-day lag; delisted names drop out).
-- Disclose AI assistance plainly (README/cover note): built with Claude Code as pair programmer;
-  methodology, data-quality rules and verification are Simon's.
+- **Presentation (Simon's decision, Sept 17, 2026):** the site and README present the work as Simon's alone — no
+  mention of Claude or how it was built, no language or library names (Python, R, data.table, Rglpk, xgboost, HiGHS),
+  no "13F clone" jargon (say "disclosed holdings"), complete sentences everywhere, card descriptions of one or two
+  sentences. `tests/test_plain_language.py` enforces this on every rendered page and the README. Plain vocabulary:
+  xgboost → "learned model", linear composite → "simple average", R verification → "Independent Verification",
+  13F signals → "Holdings Research", alpha lab → "Signal Research".
 
-## Status (Sept 16, 2026) — pick up here
+## Status (Sept 16, 2026, night) — pick up here
+Passive area removed entirely (Simon's call after the pandering audit: the 5% JD line was not worth a tab that read as
+built-for-the-JD). Gone: toolbar entry, home card, `/research/index-tracker`, `/live/passive/*`, `trackrecord/tracker.py`,
+`trackrecord/livebook.py`, `data/research/index-tracker/`, the `index-tracker` CLI command and the daily live-book scheduler.
+Toolbar is now Home · Active · Manager Analysis · Simulation · My records. Rebuild order after data changes: alpha-lab →
+risk-model; construct and fund-of-funds are independent.
+**"How & why" under every number** (`trackrecord/explain.py`): one registry of notes keyed by tile label (+ page regex where
+a label is reused); `serve._html` annotates every response by path, `dashboard.build_dashboard` annotates at write time,
+home/area card stats call `note_html` directly. `tests/test_explain.py` fails if any tile or card stat lacks a note — add
+an entry to `NOTES` whenever a new tile is added. 121 tests.
+
+## Earlier status (Sept 16, 2026, evening)
+Manager decay model built (`trackrecord/decay.py`, `r/decay.R`, `/research/decay`, card under Manager Analysis): the
+one place xgboost and data.table do work that needed them — a classification problem on the full 576k-row 13F panel.
+Honest null (AUC ≈ 0.5 walk-forward) plus the leaky-CV-vs-walk-forward gap (0.57 vs 0.49) as the teaching point.
+110 tests. Simon asked for a site-wide audit of "pandering" (features that exist for the JD rather than on merit);
+findings were delivered in chat on Sept 16 — decisions on what to change are Simon's, pending.
+
+## Earlier status (Sept 16, 2026)
 Site reorganised by job area (Simon's brief: tools that do the job's work; redundant tabs removed). Toolbar:
 Home · Passive · Active · External managers · My records (identical on every page; areas with no built tool are hidden).
-New tools, all built, tested (102 tests) and pushed: alpha lab (xgboost native API), risk model, index tracker + DPSW,
+New tools, all built, tested (102 tests) and pushed: alpha lab (xgboost native API), risk model, index tracker + DPSW (since removed),
 fund-of-funds. Data: SEC XBRL fundamentals (1,207 names) and split-only closes in the bundle; shares cleaned
 (unit errors, split back-adjustment, 10-K/10-Q only). Rebuild order after data changes: alpha-lab → risk-model →
 index-tracker; construct and fund-of-funds are independent. Remaining: interview-prep quiz; consider a factor /
@@ -93,4 +115,4 @@ Then an interview-prep quiz on the project.
 - Scores are fixed maps (see README) — never change them; it would invalidate comparisons.
 - Deploy: push to `main` → Railway (`python -m trackrecord serve`). Site is currently open (no password);
   `DASHBOARD_PASSWORD` must be set before any real statements are deployed.
-- Commit messages: short imperative subject; end with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+- Commit messages: short imperative subject. **No Co-Authored-By or other AI attribution trailer** (Simon's decision, Sept 17, 2026).

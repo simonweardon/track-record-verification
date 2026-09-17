@@ -12,15 +12,19 @@ from trackrecord.research_pages import research_index_html
 
 
 def test_research_cards_read_their_numbers_from_the_data():
-    html, have = S._research_cards()
-    assert "memo" in have                                  # the memo card never depends on a build
-    assert html.count("class='rcard'") == len(have)
-    for slug in have:
-        if slug == "memo":
-            continue
-        assert f"/research/{ {'signals': '13f-signals', 'construction': 'construction', 'rverify': 'r-verify'}[slug] }".replace(" ", "") in html
-    # a card only claims a number it could read: no empty stat values
-    assert "<span class='v'></span>" not in html
+    from trackrecord.areas import tool_cards, cards_html
+    cards = tool_cards()
+    assert cards["active"] and cards["external"]
+    for area in cards.values():
+        for c in area:
+            assert c["href"].startswith("/research/") and c["stats"], c["href"]
+            # a card only claims a number it could read: no empty or unreadable stat values
+            assert all(str(v).strip() not in ("", "nan", "None") for v, _ in c["stats"]), (c["href"], c["stats"])
+            # one or two complete sentences, no fragments
+            what = c["what"].strip()
+            assert what.endswith(".") and 1 <= what.count(". ") + 1 <= 3, what
+    html = cards_html(cards["active"])
+    assert html.count("class='rcard'") == len(cards["active"])
 
 
 def test_home_page_rows_carry_the_screener_attributes():

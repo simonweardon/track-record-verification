@@ -1,2 +1,2 @@
 account_id,label,owner_type,discretionary,strategy,benchmark,notes
-ENGAGED,Engaged Capital — 13F clone,principal,Y,default,US_MKT,13F long-only clone; not the fund's return
+ENGAGED,Engaged Capital — disclosed holdings,principal,Y,default,US_MKT,reconstructed from disclosed holdings; not the fund's return

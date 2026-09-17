@@ -88,7 +88,7 @@ def build_memo(out_dir: Path, data_dir: Path, label: str | None = None) -> str |
     filings = _read(data_dir / "filings.csv"); contrib = _read(data_dir / "contributions.csv")
     name = label or meta.get("name") or out_dir.name
     manager = meta.get("manager", ""); style_name = meta.get("style_name", ""); style_note = meta.get("style_note", "")
-    is_clone = "13F" in (meta.get("style_note", "") + str(comp.get("custodian", ""))) or (data_dir / "filings.csv").exists()
+    is_clone = "isclosed holdings" in str(comp.get("custodian", "")) or "style_name" in meta or (data_dir / "filings.csv").exists()
 
     us = regs[regs.factor_set == "US"].set_index("model")
     ff3, capm, car, ff5 = us.loc["FF3"], us.loc["CAPM"], us.loc["Carhart4"], (us.loc["FF5"] if "FF5" in us.index else None)
@@ -213,18 +213,17 @@ def build_memo(out_dir: Path, data_dir: Path, label: str | None = None) -> str |
     rep_te = float(ff3.resid_sd_annual)
     net_line = (f" A client paying 0.5% and 20% above a high-water mark would have kept {pct(net_ann, 1, False)}/yr — {'ahead of' if net_ann > ann_b else 'behind'} the index." if net_ann is not None else "")
     summary = (f"{esc(name)}{' (' + esc(manager) + ')' if manager else ''}, {esc(style_name.lower()) if style_name else 'the record'}, "
-               f"{'as seen through its disclosed US long book — a 13F clone, not the fund — ' if is_clone else ''}returned <b>{pct(ann_p, 1, False)}</b> a year over {first}–{last} "
+               f"{'as seen through its disclosed US holdings rather than the fund itself, ' if is_clone else ''}returned <b>{pct(ann_p, 1, False)}</b> a year over {first}–{last} "
                f"against <b>{pct(ann_b, 1, False)}</b> for the market, an excess of {pct(ann_p - ann_b, 1)}. After removing what market, size and value exposure explain, the alpha is "
                f"<b>{pct(ff3.alpha_annual, 1)}</b>/yr with a 95% range of {pct(ff3.ci_low_annual, 1)} to {pct(ff3.ci_high_annual, 1)} (t = {ff3.t:+.2f}"
                + (f", bootstrap p = {p_boot:.2f}" if p_boot is not None else "") + ")"
                + (f"; {coh_share:.0%} of simulated zero-skill managers with the same exposures did as well" if coh_share is not None else "") + ". "
                f"Verdict: <b>{v_lab}</b>.{net_line}")
-    claimed = ("The return series is reconstructed from SEC 13F-HR filings and Yahoo Finance prices: the disclosed US long positions at disclosed weights, "
-               "bought at the end of the month each filing became public and held with drift until the next. Nothing in it is the fund's own statement of "
-               "returns, so every period is marked <i>unverified</i> by the pipeline — the correct label for a reconstruction. " if is_clone else
+    claimed = ("The return series is reconstructed from the manager's public quarterly holdings filings and public prices: the disclosed US positions at their disclosed weights, "
+               "bought at the end of the month each filing became public and held until the next. Nothing in it is the fund's own statement of "
+               "returns, so every period is marked <i>unverified</i>, which is the correct label for a reconstruction. " if is_clone else
                "Returns are computed from the source statements listed in the coverage report; periods carry the evidence tier the reconciliation assigned. ")
-    clone_caveat = ("The clone sees the long US book only, 45 days late; the fund's actual net return may differ materially, in either direction. "
-                    "Request the fund's audited series before any decision." if is_clone else "")
+    clone_caveat = ("This is a reconstruction from disclosed holdings, so the fund's actual return may differ. Request the fund's audited returns before any decision." if is_clone else "")
     fil_txt = (f"{fil['n_filings']} filings from {fil['first_period']} to {fil['last_period']}; {fil['cov_avg']:.0%} of disclosed value priced on average "
                f"({fil['cov_last']:.0%} in the latest), {fil['n_med']:.0f} names in a typical filing. " if fil else "")
     drop_txt = f"{meta['dropped_months']} months dropped for insufficient priced coverage; " if meta.get("dropped_months") else ""
@@ -245,7 +244,7 @@ def build_memo(out_dir: Path, data_dir: Path, label: str | None = None) -> str |
 .kv {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px }} .kv .tile .tv {{ font-size: 26px }}
 @media print {{ .tr-nav, .banner, details.how {{ display: none !important }} .cover {{ -webkit-print-color-adjust: exact; print-color-adjust: exact }} section {{ break-inside: avoid }} }}
 </style>
-<div class="banner" role="note"><span class="bl">{'Illustrative data' if is_clone else 'Memo'}</span> {'A 13F long-only clone of the disclosed US book — a reconstruction, not the fund. ' if is_clone else ''}Generated from the pipeline's outputs; every figure links back to a table on the dashboard.</div>
+<div class="banner" role="note"><span class="bl">{'Illustrative data' if is_clone else 'Memo'}</span> {'Built from the manager&#39;s disclosed holdings, not the fund itself. ' if is_clone else ''}Every figure in it links back to a table on the dashboard.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Manager Analysis · Due Diligence Memo</div></div>
   <div class="gold-rule"></div>
@@ -326,7 +325,7 @@ def build_memo(out_dir: Path, data_dir: Path, label: str | None = None) -> str |
 <footer class="foot">
   <div class="running"><span>Due-diligence memorandum · {esc(name)}</span><span>{esc(first)} – {esc(last)}</span></div>
   <h4>Important information</h4>
-  <p>Assembled automatically from the verification pipeline (COMPOSITE_RULES.md; phases 2–4). {'Built on public SEC EDGAR filings and Yahoo Finance prices; a reconstruction of the disclosed long book, not the fund. ' if is_clone else ''}Factor data: Kenneth R. French Data Library. Statistical results are in-sample; the confidence interval, not the point estimate, is the claim. Not investment advice.</p>
+  <p>This memo was assembled automatically from the verification results. {'It is built from public filings and prices and describes the disclosed holdings rather than the fund. ' if is_clone else ''}Factor data come from the Kenneth R. French Data Library. The statistical results are in-sample, and the confidence interval rather than the point estimate is the claim. This is not investment advice.</p>
 </footer>
 </main>
 <div id="tip" class="tip" hidden></div>

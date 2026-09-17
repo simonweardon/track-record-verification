@@ -4,15 +4,15 @@ long-only clone can mean.  CIKs are resolved by resolve_universe() and
 verified against actual 13F-HR filing counts, then cached in funds.json."""
 
 STYLES = {
-    "ls":     ("Long/short equity", "Clone tracks the long book; shorts and hedges are invisible."),
-    "conc":   ("Concentrated long / value", "Clone is close to the real book — few positions, low turnover."),
-    "act":    ("Activist", "Clone is close; positions are large, public and long-held."),
-    "event":  ("Event-driven / credit", "Clone misses the credit and arbitrage book — partial at best."),
-    "multi":  ("Multi-strategy / quant", "Clone is NOT meaningful: thousands of hedged positions, derivatives, high turnover."),
-    "macro":  ("Global macro", "Clone is NOT meaningful: the book is futures, FX and rates, not US stocks."),
-    "fo":     ("Family office", "Clone tracks the disclosed US long book of a closed fund."),
-    "lo":     ("Long-only asset manager", "Clone tracks the book well — long-only, diversified, low turnover."),
-    "mm":     ("Market maker", "Clone is NOT meaningful: a 13F here is trading inventory, hedged and 45 days stale, not a portfolio."),
+    "ls":     ("Long/short equity", "The disclosed holdings track the long positions; short positions and hedges are invisible."),
+    "conc":   ("Concentrated long / value", "The disclosed holdings are close to the real portfolio, with few positions and low turnover."),
+    "act":    ("Activist", "The disclosed holdings are close to the real portfolio, because the positions are large, public and long-held."),
+    "event":  ("Event-driven / credit", "The disclosed holdings miss the credit and arbitrage positions, so they are partial at best."),
+    "multi":  ("Multi-strategy / quant", "The disclosed holdings are not meaningful: thousands of hedged positions, derivatives and high turnover."),
+    "macro":  ("Global macro", "The disclosed holdings are not meaningful: the portfolio is futures, currencies and rates, not US stocks."),
+    "fo":     ("Family office", "The disclosed holdings track the US long positions of a closed fund."),
+    "lo":     ("Long-only asset manager", "The disclosed holdings track the portfolio well, because it is long-only, diversified and low-turnover."),
+    "mm":     ("Market maker", "The disclosed holdings are not meaningful: for a market maker the filing is trading inventory, hedged and 45 days stale, not a portfolio."),
 }
 
 FUNDS = [
@@ -95,9 +95,9 @@ FUNDS = [
     dict(slug="engaged", name="Engaged Capital", manager="Glenn Welling", style="act", search=["ENGAGED CAPITAL"]),
     dict(slug="tiger-management", name="Tiger Management (Robertson)", manager="Julian Robertson (family office)", style="fo", search=["TIGER MANAGEMENT LLC", "TIGER MANAGEMENT L L C"]),
     dict(slug="blue-ridge", name="Blue Ridge Capital (closed 2017)", manager="John Griffin", style="ls", search=["BLUE RIDGE CAPITAL"]),
-    dict(slug="berkshire-13f", name="Berkshire Hathaway (13F holdings)", manager="Warren Buffett", style="conc", search=["BERKSHIRE HATHAWAY INC"]),
-    dict(slug="markel-13f", name="Markel (13F holdings)", manager="Tom Gayner", style="conc", search=["MARKEL CORP", "MARKEL GROUP INC"]),
-    dict(slug="fairfax-13f", name="Fairfax Financial (13F holdings)", manager="Prem Watsa", style="conc", search=["FAIRFAX FINANCIAL HOLDINGS"]),
+    dict(slug="berkshire-13f", name="Berkshire Hathaway (disclosed holdings)", manager="Warren Buffett", style="conc", search=["BERKSHIRE HATHAWAY INC"]),
+    dict(slug="markel-13f", name="Markel (disclosed holdings)", manager="Tom Gayner", style="conc", search=["MARKEL CORP", "MARKEL GROUP INC"]),
+    dict(slug="fairfax-13f", name="Fairfax Financial (disclosed holdings)", manager="Prem Watsa", style="conc", search=["FAIRFAX FINANCIAL HOLDINGS"]),
     dict(slug="gardner-russo", name="Gardner Russo & Quinn", manager="Tom Russo", style="conc", search=["GARDNER RUSSO & QUINN", "GARDNER RUSSO & GARDNER"]),
     dict(slug="semper-augustus", name="Semper Augustus", manager="Chris Bloomstran", style="conc", search=["SEMPER AUGUSTUS INVESTMENTS GROUP"]),
     dict(slug="giverny", name="Giverny Capital", manager="François Rochon", style="conc", search=["GIVERNY CAPITAL"]),

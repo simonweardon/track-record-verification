@@ -9,19 +9,16 @@ custodian statements, then decompose and statistically test it.
 An external-manager due-diligence engine, applied the same way to every record it is given: reconcile
 the statements, compute time-weighted returns, remove what the market and known factors explain, simulate
 how often luck alone does as well, test stability, score, and write the memo. It runs today on public
-data — 108 prominent managers reconstructed from their SEC 13F filings, listed funds, and a synthetic
-dataset with a known injected alpha that the pipeline must recover — so that every method is exercised
-before a real record is loaded. Alongside it sit three research notes that use the same universe:
-whether the disclosed books carry a tradable signal, an LP portfolio constructor that turns a signal into
-a trade list under a mandate's constraints (solved in Python and in R with Rglpk), and an R reproduction of
-every headline statistic. The findings are reported whichever way they come out; most of them are negative,
-and the page says so.
+data: 108 prominent managers reconstructed from their publicly disclosed holdings, listed funds, and a
+synthetic dataset with a known injected alpha that the pipeline must recover, so that every method is
+exercised before a real record is loaded. Alongside it sit research notes on the same universe: whether
+the disclosed holdings carry a tradable signal, which stock characteristics predict returns, a factor risk
+model, a portfolio constructor that turns a signal into a trade list under a mandate's constraints, a
+manager decay model, a fund-of-funds allocator, and an independent recalculation of every headline
+statistic. The findings are reported whichever way they come out; most of them are negative, and the
+page says so.
 
-**How it was built.** Designed and directed by Simon Weardon, with Claude Code (Anthropic) as pair
-programmer: the methodology, the evidence tiers, the data-quality rules (what counts as verified, when a
-month is dropped rather than bridged, why a 13F clone is not the fund) and the checks in the test suite
-are the author's decisions; much of the code was written with the model and reviewed line by line. The
-R reproduction exists so that no headline number rests on a single implementation.
+Built by Simon Weardon. The independent verification exists so that no headline number rests on a single implementation.
 
 ## Status
 | phase | state |
@@ -66,9 +63,11 @@ trackrecord/   schema.py     the normalized tables (statements, flows, positions
                construct.py  LP portfolio construction (HiGHS) with trade list, active-share/sector/turnover constraints, ex-ante TE; backtest of a demo mandate
                memo.py       due-diligence memo per manager, assembled from phases 2–4 (/f/<slug>/memo)
                rverify.py    runs the R reproduction over every manager and writes the agreement → data/research/r-verify
+               decay.py      manager decay model: 13F book + return features per manager-quarter, walk-forward persistence / logistic / xgboost → data/research/decay
                research_pages.py  research notes rendered from those CSVs (/research/13f-signals, /research/construction, /research/r-verify)
 r/             construct.R   the same LP in R (data.table + Rglpk); checked against the Python solve in tests and on every build
                verify.R      the headline statistics recomputed in R (data.table, HAC by hand); checked against Python in tests and over all 91 managers
+               decay.R       the decay-model panel rebuilt from the raw filings and statements with data.table, and the walk-forward re-run with glm and xgboost; compared with Python on every build
                compact.py    the committed ~15 MB bundle of every cache a fresh clone needs (compact-pack / compact-unpack)
                fund_universe.py  the ~108 managers, search names and style tags
                serve.py      HTTP server: dashboards, /managers, /f/<slug>/, /analyze?ticker=, /leaderboard, /status
@@ -100,18 +99,22 @@ lag the names just sold; the one apparent anomaly (least-crowded names) sits exa
 survivorship bias lives and is reported as unreliable.
 
 ## The site, by job area
-- **Passive** — `index-tracker`: a cap-weighted index built to a stated rulebook (US-domestic filers held by ≥ 5 managers,
-  point-in-time shares × split-adjusted close), replicated in full and by optimised sampling under the risk model
-  (40 / 80 / 150 names → TE 1.9 / 1.0 / 0.5% vs predicted 1.85 / 0.93 / 0.42%), with the Daily Portfolio Status
-  Worksheet, cash-flow slice and reconstitution trade list. `/research/index-tracker`.
+Every computed number on the site — research-note tiles, memo and dashboard tiles, the stats on the home cards — carries a **How & why** toggle: how it was calculated (inputs, formula, the function in the code) and why it is on the page (the decision it informs). The notes live in `trackrecord/explain.py`; a test fails if a number is missing one.
+
 - **Active** — `alpha-lab`: eight point-in-time signals (prices + SEC XBRL fundamentals), ICs, deciles, equal-weight
   linear composite vs walk-forward xgboost (finding: tree ≈ line); `risk-model`: Barra-style fundamental factor
   model (market + 8 styles + 12 industries, EWMA covariance, specific risk, bias statistic ≈ 1.1); `construct`
   (below); `r-verify` (below). `/research/alpha-lab`, `/research/risk-model`.
 - **External managers** — the verification pipeline and screener, per-manager memos, `signals13f` (13F signal
-  research), and `fund-of-funds`: empirical-Bayes alpha shrinkage (τ comes out at 0 — the cross-section of alphas
-  is noise), allocations under stated priors, diversification curve, and a true out-of-sample selection test.
-  `/external`, `/research/13f-signals`, `/research/fund-of-funds`.
+  research), `fund-of-funds`: empirical-Bayes alpha shrinkage (τ comes out at 0 — the cross-section of alphas
+  is noise), allocations under stated priors, diversification curve, and a true out-of-sample selection test;
+  and `decay`: does anything in a manager's current filings (concentration, turnover, crowding, what was bought
+  and sold, the last year's result) predict lagging the market over the next twelve months? 72 managers ×
+  48 formation dates; persistence, logistic and xgboost, walk-forward with a twelve-month embargo and scored
+  within each date. Finding: cross-sectional AUC 0.49–0.52, nothing detectable — and a leave-managers-out
+  cross-validation of the same model reports 0.57, which is the size of the regime leak a careless backtest
+  carries. `r/decay.R` rebuilds the panel with data.table (2,432 rows × 17 columns, largest difference 4e-10).
+  `/external`, `/research/13f-signals`, `/research/fund-of-funds`, `/research/decay`.
 
 ## Portfolio construction: from signal to trade list
 `python -m trackrecord construct` runs a demonstration mandate: universe = names held by ≥ 5 managers each quarter,
@@ -137,7 +140,7 @@ manager table underneath is a **screener**: filter the universe by evidence of a
 t-statistic on the FF3 intercept: t ≥ 2, ≥ 1, ≥ 0, or negative), by style, and by track length, combine that
 with the search box, and take the filtered set away with **Download CSV** (slug, manager, fund, style, months,
 excess return, FF3 t and both scores). Every row also links straight to that manager's due-diligence memo.
-`/research` indexes all three notes and every CSV they are generated from, each row saying what is in the
+`/research` indexes the notes and every CSV they are generated from, each row saying what is in the
 file; the files are served read-only from `data/research/` under `/research/data/<note>/<file>.csv`.
 
 ## R reproduction of the headline numbers

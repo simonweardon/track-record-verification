@@ -1,2 +1,2 @@
 account_id,label,owner_type,discretionary,strategy,benchmark,notes
-KINGDON,Kingdon Capital — 13F clone,principal,Y,default,US_MKT,13F long-only clone; not the fund's return
+KINGDON,Kingdon Capital — disclosed holdings,principal,Y,default,US_MKT,reconstructed from disclosed holdings; not the fund's return

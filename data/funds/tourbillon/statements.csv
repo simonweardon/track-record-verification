@@ -1,0 +1,37 @@
+statement_id,account_id,custodian,period_start,period_end,ending_value,beginning_value,stated_deposits,stated_withdrawals,stated_income,stated_fees,stated_pnl,stated_return_pct,source_file,source_pages,notes
+TOURBILLON_2014-12,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2014-12-01,2014-12-31,1000000.0,,,,,,,,hedge13f,,notional $1m invested at the first rebalance
+TOURBILLON_2015-01,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-01-01,2015-01-31,975852.78,,,,,,,,hedge13f,,priced coverage 60%
+TOURBILLON_2015-02,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-02-01,2015-02-28,1043693.14,,,,,,,,hedge13f,,priced coverage 60%
+TOURBILLON_2015-03,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-03-01,2015-03-31,1069758.88,,,,,,,,hedge13f,,priced coverage 64%
+TOURBILLON_2015-04,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-04-01,2015-04-30,1081599.47,,,,,,,,hedge13f,,priced coverage 64%
+TOURBILLON_2015-05,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-05-01,2015-05-31,1196414.59,,,,,,,,hedge13f,,priced coverage 64%
+TOURBILLON_2015-06,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-06-01,2015-06-30,1171005.54,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2015-07,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-07-01,2015-07-31,1222996.52,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2015-08,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-08-01,2015-08-31,1175356.43,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2015-09,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-09-01,2015-09-30,1106703.25,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2015-10,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-10-01,2015-10-31,1257253.37,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2015-11,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-11-01,2015-11-30,1301220.48,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2015-12,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2015-12-01,2015-12-31,1241155.15,,,,,,,,hedge13f,,priced coverage 65%
+TOURBILLON_2016-01,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-01-01,2016-01-31,1092362.6,,,,,,,,hedge13f,,priced coverage 65%
+TOURBILLON_2016-02,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-02-01,2016-02-29,1091164.32,,,,,,,,hedge13f,,priced coverage 65%
+TOURBILLON_2016-03,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-03-01,2016-03-31,1171548.11,,,,,,,,hedge13f,,priced coverage 74%
+TOURBILLON_2016-04,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-04-01,2016-04-30,1215318.34,,,,,,,,hedge13f,,priced coverage 74%
+TOURBILLON_2016-05,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-05-01,2016-05-31,1240853.26,,,,,,,,hedge13f,,priced coverage 74%
+TOURBILLON_2016-06,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-06-01,2016-06-30,1249987.85,,,,,,,,hedge13f,,priced coverage 81%
+TOURBILLON_2016-07,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-07-01,2016-07-31,1333772.44,,,,,,,,hedge13f,,priced coverage 81%
+TOURBILLON_2016-08,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-08-01,2016-08-31,1352620.13,,,,,,,,hedge13f,,priced coverage 81%
+TOURBILLON_2016-09,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-09-01,2016-09-30,1360467.2,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2016-10,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-10-01,2016-10-31,1338085.6,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2016-11,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-11-01,2016-11-30,1382505.15,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2016-12,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2016-12-01,2016-12-31,1365637.21,,,,,,,,hedge13f,,priced coverage 76%
+TOURBILLON_2017-01,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-01-01,2017-01-31,1417834.36,,,,,,,,hedge13f,,priced coverage 76%
+TOURBILLON_2017-02,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-02-01,2017-02-28,1478999.2,,,,,,,,hedge13f,,priced coverage 76%
+TOURBILLON_2017-03,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-03-01,2017-03-31,1504715.21,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2017-04,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-04-01,2017-04-30,1511271.56,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2017-05,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-05-01,2017-05-31,1534472.71,,,,,,,,hedge13f,,priced coverage 72%
+TOURBILLON_2017-06,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-06-01,2017-06-30,1548391.26,,,,,,,,hedge13f,,priced coverage 66%
+TOURBILLON_2017-07,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-07-01,2017-07-31,1647118.88,,,,,,,,hedge13f,,priced coverage 66%
+TOURBILLON_2017-08,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-08-01,2017-08-31,1643140.57,,,,,,,,hedge13f,,priced coverage 66%
+TOURBILLON_2017-09,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-09-01,2017-09-30,1692370.28,,,,,,,,hedge13f,,priced coverage 65%
+TOURBILLON_2017-10,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-10-01,2017-10-31,1700262.9,,,,,,,,hedge13f,,priced coverage 65%
+TOURBILLON_2017-11,TOURBILLON,Disclosed holdings (SEC EDGAR + Yahoo Finance),2017-11-01,2017-11-30,1734672.4,,,,,,,,hedge13f,,priced coverage 65%

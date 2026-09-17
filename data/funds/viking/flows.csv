@@ -1,2 +1,2 @@
 account_id,date,amount,flow_type,description,source_statement_id
-VIKING,2016-06-30,1000000.0,deposit,notional $1m at first 13F rebalance,VIKING_2016-06
+VIKING,2016-03-31,1000000.0,deposit,notional $1m at first 13F rebalance,VIKING_2016-03

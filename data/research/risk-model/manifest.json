@@ -1,5 +1,5 @@
 {
- "built": "2026-09-15",
+ "built": "2026-09-17",
  "months": 156,
  "first": "2013-08-31",
  "last": "2026-07-31",
@@ -15,13 +15,13 @@
   "earnings_yield"
  ],
  "industries": 12,
- "r2_avg": 0.22161420468240245,
+ "r2_avg": 0.21850441308352897,
  "half_life": 24,
  "window": 60,
  "bias": {
-  "random": 1.0915184280981909,
-  "universe": 1.0936428030328755
+  "random": 1.0915351299176859,
+  "universe": 1.0942043312458178
  },
- "universe_avg": 352,
+ "universe_avg": 364,
  "latest_month": "2026-08-31"
 }

@@ -1,2 +1,2 @@
 account_id,date,amount,flow_type,description,source_statement_id
-MATRIX,2015-03-31,1000000.0,deposit,notional $1m at first 13F rebalance,MATRIX_2015-03
+MATRIX,2013-09-30,1000000.0,deposit,notional $1m at first 13F rebalance,MATRIX_2013-09

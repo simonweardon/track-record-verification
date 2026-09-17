@@ -1,2 +1,2 @@
 account_id,date,amount,flow_type,description,source_statement_id
-ELLIOTT,2020-06-30,1000000.0,deposit,notional $1m at first 13F rebalance,ELLIOTT_2020-06
+ELLIOTT,2019-06-30,1000000.0,deposit,notional $1m at first 13F rebalance,ELLIOTT_2019-06

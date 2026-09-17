@@ -110,6 +110,20 @@ def unpack(log=print, force: bool = False) -> bool:
     return True
 
 
+def cusip_map() -> dict:
+    """cusip -> ticker, as every tool on the site should see it.
+
+    The cached map plus the companies recovered by trackrecord/renames.py, which are derived
+    rather than cached so that they are re-checked against the data on every rebuild.  Reading
+    the cache file directly would leave a tool on the old map and quietly disagree with the rest
+    of the site, so nothing does."""
+    import json as _json
+    from .renames import load as _load_renames
+    m = _json.loads((EDGAR / "cusip_map.json").read_text())
+    m.update(_load_renames())
+    return m
+
+
 def holdings_frame() -> pd.DataFrame:
     """The packed holdings as one long frame (works with or without the raw cache)."""
     return pd.read_csv(COMPACT / "holdings13f.csv.gz", dtype={"cusip": str, "cik": str, "putcall": str, "cls": str}, keep_default_na=False)

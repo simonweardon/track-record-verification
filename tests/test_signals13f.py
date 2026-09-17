@@ -31,18 +31,15 @@ def _prices():
     return pd.DataFrame(p)
 
 
+TICKERS = ["A", "B", "C", "D"] + [f"F{i}" for i in range(4)]
+
+
 def _patched(monkeypatch):
     b = _books()
     monkeypatch.setattr(S, "unpack", lambda log=print: False)
     monkeypatch.setattr(S, "holdings_frame", lambda: b)
-    monkeypatch.setattr(S, "EDGAR", type("E", (), {"__truediv__": lambda self, x: _Map()})())
+    monkeypatch.setattr(S, "cusip_map", lambda: {t: t for t in TICKERS})
     return b
-
-
-class _Map:
-    def read_text(self):
-        import json
-        return json.dumps({t: t for t in ["A", "B", "C", "D"] + [f"F{i}" for i in range(4)]})
 
 
 def test_formation_date_is_two_months_after_quarter_end():

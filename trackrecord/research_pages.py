@@ -1311,6 +1311,15 @@ def limits_html(out_dir: Path | None = None) -> str | None:
     # how long a sample the average signal would need: t grows with the square root of the months
     c_wide = uni[(uni.min_holders == wide) & (uni.signal == "composite")].iloc[0]
     comp_years = float(c_wide.months / 12 * (2.0 / c_wide.ic_t) ** 2) if c_wide.ic_t else float("nan")
+    n_renamed = int(man.get("renames_recovered", 0))
+    recovered_note = (
+        f"Part of that gap was recoverable and has been recovered. A company that is still trading under a different "
+        f"name is looked up in the reference tables under a name nobody uses, and comes back empty; {n_renamed} of them "
+        f"were found instead by matching the price each disclosure implies — its reported value over its reported share "
+        f"count — against every company with a price history, and accepting a match only where one company tracks it "
+        f"quarter for quarter and no other comes close. What remains missing is companies that were bought or taken "
+        f"private, for which no price history exists anywhere, and that part cannot be recovered at all — only measured."
+    ) if n_renamed else "&nbsp;"
     best_wide = uni[(uni.min_holders == wide) & (uni.signal != "composite")].ic.max()
     best_narrow = uni[(uni.min_holders == narrow) & (uni.signal != "composite")].ic.max()
     n_strong = int((uni.ic_t.abs() >= 2).sum())
@@ -1363,7 +1372,8 @@ td.hi {{ font-weight: 600; color: var(--good); }}
   </div>
   <div class="grid2" style="margin-top:14px">
     <div class="card"><h3>What the universe cannot contain</h3>{cov_chart}
-      <p class="cap">The share of each quarter's disclosed holdings that reaches a company with a usable price history. A company that was bought, taken private or renamed has no price history to buy, so it never enters any universe on this site at all — it is not that it leaves at its last price, it is that it was never there.</p>
+      <p class="cap">The share of each quarter's disclosed holdings that reaches a company with a usable price history. A company that was bought or taken private has no price history to buy, so it never enters any universe on this site at all — it is not that it leaves at its last price, it is that it was never there.</p>
+      <p class="cap">{recovered_note}</p>
     </div>
     <div class="card"><h3>The largest positions that are missing</h3>
       <div class="tscroll"><table><thead><tr><th>years</th><th class="n">share of value missing</th><th>largest positions</th></tr></thead><tbody>{mrows}</tbody></table></div>

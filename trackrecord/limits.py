@@ -353,6 +353,10 @@ def cleaning(log=print) -> pd.DataFrame:
 
     sig = json.loads((SIG_DIR / "manifest.json").read_text()) if (SIG_DIR / "manifest.json").exists() else {}
     from .hedge13f import MANUAL_CUSIPS
+    from .renames import OUT as RENAMES
+    rn = pd.read_csv(RENAMES) if RENAMES.exists() else pd.DataFrame(columns=["was", "ticker", "path_gap", "quarters", "runner_up_gap", "value_share"])
+    rn = rn.sort_values("value_share", ascending=False) if len(rn) else rn
+    rn_share = float(rn.value_share.sum()) if len(rn) else 0.0
 
     rows = [
         dict(issue="Reported portfolio values changed unit",
@@ -372,11 +376,18 @@ def cleaning(log=print) -> pd.DataFrame:
              cases=int(len(raw) - len(adj)),
              example=f"A company files its share count in thousands one quarter and in units the next, so it looks as though it was taken over and then un-taken over. "
                      f"{len(raw) - len(adj):,} of {len(raw):,} filed share counts are dropped this way."),
+        dict(issue="Companies that only changed their name",
+             rule="A company still trading under a new name is recovered by matching the price its filings imply, quarter by quarter, against every priced company; a match is accepted only when one company fits and no other comes close",
+             cases=int(len(rn)),
+             example=(f"The reference tables list companies under the name they use today, so a position in a company that has since been renamed is looked up under a name nobody uses and comes back empty. "
+                      f"{len(rn)} were recovered this way, worth {rn_share:.0%} of a year's disclosed value between them"
+                      + (f", the largest being {rn.iloc[0].was.title()}, whose price path matches {rn.iloc[0].ticker} to {rn.iloc[0].path_gap:.2%} a quarter over {int(rn.iloc[0].quarters)} quarters while the next best company is {rn.iloc[0].runner_up_gap:.0%} away" if len(rn) else "")
+                      + ". Matching on the name instead would have priced Washington Post's positions with Graham Corporation, an unrelated company whose name reduces to the same words.")),
         dict(issue="Securities that never reach a price",
              rule="A position that cannot be matched to a priced security is left out of every portfolio, and the share left out is reported for every quarter",
              cases=int(len(MANUAL_CUSIPS)),
-             example=("Most are companies that were bought or renamed, so no price history exists to buy. "
-                      f"{len(MANUAL_CUSIPS)} identifiers that the reference tables get wrong are corrected by hand, mostly foreign listings and share classes.")),
+             example=("What is left after the renames are recovered is companies that were bought or taken private. No price history for them exists in any free source, so they cannot be recovered at all — only measured, which the coverage figures do. "
+                      f"{len(MANUAL_CUSIPS)} further identifiers that the reference tables get wrong are corrected by hand, mostly foreign listings and share classes.")),
         dict(issue="Impossible monthly returns in the price history",
              rule="A gain of more than 300% in a month from a price under $5 is treated as a bad price and left blank rather than earned",
              cases=int(sig.get("spikes_removed", 0)),
@@ -543,6 +554,8 @@ def build(out_dir: Path = OUT_DIR, log=print) -> dict:
         checked_numbers=int(json.loads((ROOT / "data" / "research" / "r-verify" / "manifest.json").read_text()).get("checks", 0))
         if (ROOT / "data" / "research" / "r-verify" / "manifest.json").exists() else 0,
         cleaning_cases=int(cln.cases.sum()),
+        renames_recovered=int(len(pd.read_csv(ROOT / "data" / "reference" / "compact" / "renames.csv")))
+        if (ROOT / "data" / "reference" / "compact" / "renames.csv").exists() else 0,
         data_refreshed=str(fr[fr.source.str.contains("holdings")].pulled.iloc[0]),
         newest_quarter=str(fr[fr.source.str.contains("holdings")].newest.iloc[0]),
     )

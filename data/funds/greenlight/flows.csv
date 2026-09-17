@@ -1,2 +1,2 @@
 account_id,date,amount,flow_type,description,source_statement_id
-GREENLIGHT,2016-12-31,1000000.0,deposit,notional $1m at first 13F rebalance,GREENLIGHT_2016-12
+GREENLIGHT,2013-09-30,1000000.0,deposit,notional $1m at first 13F rebalance,GREENLIGHT_2013-09

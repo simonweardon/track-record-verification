@@ -218,22 +218,37 @@ MANUAL_CUSIPS = {
 
 
 def map_cusips(holdings: pd.DataFrame, log=print, figi: bool = True) -> dict[str, str | None]:
-    """cusip -> Yahoo ticker (or None).  Cached; OpenFIGI used only for names the SEC table can't match."""
+    """cusip -> Yahoo ticker (or None).  Cached; OpenFIGI used only for names the SEC table can't match.
+
+    The reference tables list companies under their current name, so a company that has since
+    been renamed is looked up under a name nobody uses any more and comes back empty.  Those are
+    recovered separately, from the filings themselves, by trackrecord/renames.py."""
+    from .renames import load as load_renames
     cache = EDGAR / "cusip_map.json"
     m: dict = json.loads(cache.read_text()) if cache.exists() else {}
     m.update(MANUAL_CUSIPS)
+    renamed = load_renames()
+    if renamed:
+        m.update(renamed)
+        log(f"  cusip map: {len(renamed)} renamed companies recovered from the filings")
     need = holdings.drop_duplicates("cusip")
     need = need[~need.cusip.isin(m) | need.cusip.map(lambda c: m.get(c) is None)]   # retry unmapped with the SEC table
     if len(need):
-        sec = sec_ticker_table(); by_norm = dict(zip(sec.norm, sec.ticker))
-        hit = 0
-        for r in need.itertuples(index=False):
-            key = _norm(r.name)
-            t = by_norm.get(key)
-            if t:
-                m[r.cusip] = t; hit += 1
-        log(f"  cusip map: {hit} matched by SEC name table, {len(need) - hit} left for OpenFIGI")
-        cache.write_text(json.dumps(m))
+        try:
+            sec = sec_ticker_table()
+        except Exception as e:                  # no reference table reachable: keep the cached map rather than losing it
+            sec = None
+            log(f"  cusip map: the reference name table is unavailable ({str(e)[:60]}); using the cached map as it stands")
+        if sec is not None:
+            by_norm = dict(zip(sec.norm, sec.ticker))
+            hit = 0
+            for r in need.itertuples(index=False):
+                key = _norm(r.name)
+                t = by_norm.get(key)
+                if t:
+                    m[r.cusip] = t; hit += 1
+            log(f"  cusip map: {hit} matched by SEC name table, {len(need) - hit} left for OpenFIGI")
+            cache.write_text(json.dumps(m))
     if figi:
         rest = [c for c in holdings.cusip.unique() if c not in m]
         if rest:

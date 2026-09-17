@@ -1,19 +1,20 @@
 {
- "built": "2026-09-15",
+ "built": "2026-09-17",
  "months": 157,
- "universe_avg": 352,
+ "universe_avg": 364,
+ "min_holders": 5,
  "first": "2013-08-31",
  "last": "2026-08-31",
  "fundamentals": true,
  "coverage": {
-  "momentum": 0.9760792409097494,
-  "reversal": 0.9998551354483558,
-  "low_vol": 0.9997102708967116,
-  "size": 0.8001412429378532,
-  "value": 0.7044219904389396,
-  "profitability": 0.8390735911922352,
-  "cash_flow": 0.8267419962335216,
-  "earnings_yield": 0.7142003476749239
+  "momentum": 0.9764431834103965,
+  "reversal": 0.9998598851057867,
+  "low_vol": 0.9997197702115735,
+  "size": 0.7909836065573771,
+  "value": 0.6981224604175423,
+  "profitability": 0.8272033067115034,
+  "cash_flow": 0.8126488720751016,
+  "earnings_yield": 0.7051982625753117
  },
  "features": [
   "momentum",
@@ -29,9 +30,9 @@
  "retrain": 12,
  "head_to_head": {
   "months": 120,
-  "ic_diff_mean": 0.0012435520786445045,
-  "ic_diff_t": 0.09092929779694388,
-  "xgb_wins_share": 0.5333333333333333
+  "ic_diff_mean": -0.006006419832234598,
+  "ic_diff_t": -0.4439396108203357,
+  "xgb_wins_share": 0.5166666666666667
  },
  "xgb_first": "2016-08-31",
  "xgb_months": 120

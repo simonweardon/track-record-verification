@@ -1,5 +1,5 @@
 {
- "built": "2026-09-15",
+ "built": "2026-09-17",
  "managers": 90,
  "quarters": 53,
  "first_formation": "2013-08-31",
@@ -11,5 +11,5 @@
  "min_names": 5,
  "min_price": 1.0,
  "spike_rule": "> +300% from under $5",
- "spikes_removed": 93
+ "spikes_removed": 78
 }

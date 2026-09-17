@@ -118,27 +118,64 @@ Every computed number on the site — research-note tiles, memo and dashboard ti
   `/external`, `/research/13f-signals`, `/research/fund-of-funds`, `/research/decay`.
 - **Method** — `limits`: the same scrutiny turned on this work, answered with numbers (see below). `/research/limits`.
 
+## Recovering renamed companies (`trackrecord/renames.py`)
+The reference tables list companies under the name they use **today**, so a 2014 position in a
+company that has since been renamed is looked up under a name nobody uses and comes back empty —
+and an unmatched position is dropped from every portfolio on the site. That was a third of the
+disclosed money in 2013–2015. Most of it is companies that were bought or taken private, for which
+no price history exists in any free source; that part is unrecoverable and is measured instead
+(see the coverage figures above). The rest is companies still trading under a different name, and
+those are recovered — but *derived*, never typed in, because a wrong match silently prices one
+company's positions with another company's returns.
+
+`python -m trackrecord renames` searches for each unmatched line's successor two ways:
+
+- **Price fingerprint (primary).** Each filing reports a position's value and its share count, so
+  it implies a price per share. That path is compared quarter by quarter against every priced
+  company. Levels never match — the filings quote the price on the day, the history is adjusted
+  for everything paid since — so the comparison is between the *changes*: for the same listing the
+  two move together and the gap is a constant. A match is accepted only when one company tracks to
+  within 2% a quarter over at least 8 quarters **and the runner-up is at least 3× worse**.
+- **Holder migration (corroboration).** At a re-identification, ≥80% of the managers holding the
+  old line appear on one particular new line the next quarter.
+
+63 companies recovered (Priceline→BKNG, Valeant→BHC, FleetCor→CPAY, Michael Kors→CPRI, Charter,
+McGraw Hill→SPGI, United Technologies→RTX, Mylan→VTRS, CBS→PSKY, Symantec→GEN, Encana→OVV …), 390
+candidates rejected. The test is what makes it safe: matching on the *name* would have priced
+Washington Post's positions with Graham **Corporation** (GHM), an unrelated industrial company
+whose name normalises to the same words as Graham **Holdings** — the price path rejects it at 19×.
+`tests/test_renames.py` re-derives the agreement for every accepted match rather than trusting the
+stored number, and asserts GHM is never accepted.
+
+Effect on the site (rebuilt end to end): scorable managers 91 → 95, mean coverage 87.4% → 88.9%,
+mean usable months 118 → 126. 76 of 91 managers' three-factor alpha moved, median 0.36%/yr, and
+**mostly downward** — Pershing Square +0.1% → −4.7%, Oaktree 12.7% → 7.9%, Greenlight +4.5% →
+−0.2%, Elliott 11.1% → 6.6%. Dropping unmatched positions had been flattering the records. The
+independent check still passes on the rebuilt data: 95 managers, 4,845 numbers, largest difference
+1.4e-12.
+
 ## Due diligence on this work (`/research/limits`)
 `python -m trackrecord limits` answers, with numbers rather than disclaimers, the eight objections a reviewer
 raises about the rest of the site. Findings as of 2026-09-17:
 
-- **Universe.** The eight signals re-tested on names held by ≥ 5 / ≥ 2 / ≥ 1 manager (352 / 1,171 / 1,722 names
-  a month). Widening the universe nearly five-fold does not rescue them: momentum goes +0.022 → +0.017, the
-  equal-weight composite +0.013 → +0.015 (t 1.4 → 1.9), and 0 of 27 measurements reach t = 2. Split in half by
+- **Universe.** The eight signals re-tested on names held by ≥ 5 / ≥ 2 / ≥ 1 manager (364 / 1,198 / 1,751 names
+  a month). Widening the universe nearly five-fold does not rescue them: momentum goes +0.023 → +0.018, the
+  equal-weight composite +0.014 → +0.015 (t 1.5 → 1.9), and 0 of 27 measurements reach t = 2. Split in half by
   time, neither half is worse, so this is sample length, not decay. The composite would need ~15 years to reach
   t = 2 against the 13 available — and the wide universes were tested *after* the narrow one, which is stated.
 - **Survivorship.** Measured directly rather than asserted: the share of each quarter's disclosed value that
-  reaches a priced security runs 64% in 2013 → 98% now. A company that was bought, taken private or renamed has
-  no price history, so it never enters any universe here at all. The largest missing positions are listed by era
+  reaches a priced security runs 70% in 2013 → 98% now (it was 64% before the renamed companies were
+  recovered — see the section above). A company that was bought or taken private has no price history, so it
+  never enters any universe here at all. The largest missing positions are listed by era
   (Priceline, Tiffany, Time Warner, EMC, Twitter, Allergan…) — overwhelmingly takeovers and renamings, not
   failures, so the direction of the bias is *not* the usual upward one. Early years carry two thirds of the money.
-- **Headline vs signal.** The construction result is reconciled through the fundamental law: quarterly IC 0.026
-  (t 1.0) × transfer coefficient 0.60 × √(344 names × 4) ⇒ implied IR 0.58 against a realised 0.78, inside the
+- **Headline vs signal.** The construction result is reconciled through the fundamental law: quarterly IC 0.031
+  (t 1.2) × transfer coefficient 0.59 × √(names × 4) ⇒ implied IR 0.68 against a realised 0.81, inside the
   0.32 standard error of an IR measured over 13 years. `construct.py` now records `transfer_coef` and
   `realized_ic` per rebalance. The whole backtest is re-run at 0/10/25/50/100/200 bps: 0 → 200 bps costs
-  3.6 pp/yr, so the headline is not a story about the cost assumption.
+  3.5 pp/yr, so the headline is not a story about the cost assumption.
 - **Capacity.** Square-root impact (a day's volume ≈ 0.5% of market cap, one day's volume ≈ one daily σ) applied
-  to the latest trade list at seven portfolio sizes. Average cost stays under 19 bps even at $50bn; what binds is
+  to the latest trade list at seven portfolio sizes. Average cost stays under 20 bps even at $50bn; what binds is
   position size — above about **$1bn** individual names break the five-day-volume or 5%-of-company rules.
 - **What the disclosures can be.** Per manager, measured from the filings: options as a share of disclosed value,
   of which puts, and the share reaching a price. Of 90 managers, 38 are close reconstructions, 28 are hedged books
@@ -148,8 +185,8 @@ raises about the rest of the site. Findings as of 2026-09-17:
   so the caveat sits next to the ranking rather than only in a method note.
 - **Evidence bar, verification scope, provenance, freshness.** Years needed to resolve a given IR; exactly what the
   three independent reimplementations cover (manager statistics, the optimiser, the decay panel) and what no
-  agreement between them can catch (both read the same assembled data); the five classes of data error found and
-  fixed, counted, with named examples (the 2022 thousands→dollars change, 92 cases; Lone Pine's Q4 2014 filing a
+  agreement between them can catch (both read the same assembled data); the six classes of data error found and
+  fixed, counted, with named examples (the 2022 thousands→dollars change; Lone Pine's Q4 2014 filing a
   thousand times its neighbours on both sides; NVIDIA's 548m shares in 2009 → 21.9bn on today's split basis);
   and when each input was last refreshed, from git rather than file timestamps.
 

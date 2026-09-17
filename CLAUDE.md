@@ -21,7 +21,25 @@ the context that is not in the code.
   xgboost → "learned model", linear composite → "simple average", R verification → "Independent Verification",
   13F signals → "Holdings Research", alpha lab → "Signal Research".
 
-## Status (Sept 17, 2026) — pick up here
+## Status (Sept 17, 2026, late) — pick up here
+**Renamed companies recovered** (`trackrecord/renames.py`, `python -m trackrecord renames`, committed to
+`data/reference/compact/renames.csv`). The reference tables list companies under today's name, so a 2014 position in a
+since-renamed company came back unmatched and was dropped from every portfolio — a third of the disclosed money in
+2013–15. 63 recovered by fingerprinting the price each filing implies (value ÷ shares) against every priced company and
+accepting only a unique match tracking to 2%/quarter over 8+ quarters with the runner-up 3× worse; 390 rejected. The
+price test is the safety: name matching would have priced Washington Post with Graham **Corp** (GHM), not Graham
+**Holdings**. `compact.cusip_map()` is now the single accessor every tool uses — read `cusip_map.json` directly and you
+silently disagree with the rest of the site. **Whole site rebuilt end to end**: scorable managers 91 → 95, mean coverage
+87.4% → 88.9%, usable months 118 → 126, first-quarter coverage 64% → 70%, universe 352 → 364 names. 76 of 91 managers'
+FF3 alpha moved, median 0.36%/yr and **mostly down** (Pershing Square +0.1% → −4.7%, Oaktree 12.7% → 7.9%, Greenlight
++4.5% → −0.2%, Elliott 11.1% → 6.6%) — dropping unmatched positions had been flattering the records. R verification
+still clean on the rebuilt data (95 managers, 4,845 numbers, max 1.4e-12). Every qualitative finding survived.
+NOTE for cloud sessions: OpenFIGI, Yahoo and sec.gov are all blocked by the egress policy here, so no new prices or
+CUSIPs can be fetched — `map_cusips` now degrades gracefully instead of crashing. The remaining coverage gap is
+companies that were bought or taken private; closing it needs a paid point-in-time price source.
+151 tests.
+
+## Earlier status (Sept 17, 2026)
 **Due Diligence on This Work** (`trackrecord/limits.py`, `/research/limits`, card on the home page under "Before you trust
 any of it"): the eight objections a reviewer raises about the site, each answered with a computed number, all rebuilt by
 `python -m trackrecord limits` (~6 min) into `data/research/limits/`. Findings and the surfaces they changed are in the

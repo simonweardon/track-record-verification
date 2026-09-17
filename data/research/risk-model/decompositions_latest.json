@@ -1,314 +1,314 @@
 {
  "Equal-weight universe": {
-  "total": 0.15665459633100023,
-  "factor": 0.15603243588078536,
-  "specific": 0.013947813618529769,
-  "share_factor": 0.9920726873478672,
+  "total": 0.1567929686016453,
+  "factor": 0.15617173950881383,
+  "specific": 0.013943556996252087,
+  "share_factor": 0.9920915024045213,
   "groups": {
-   "market": 1.0065314098700358,
-   "style": 0.0013645529094329606,
-   "industry": 0.0024153970440238337
+   "market": 1.0055357164231153,
+   "style": 0.0013618503372887255,
+   "industry": 0.0024235884505595905
   },
-  "interaction": -0.018238672475625415,
+  "interaction": -0.01722965280644243,
   "exposures": {
-   "cash_flow": 0.009286520579920327,
-   "earnings_yield": 0.0352611959766266,
+   "cash_flow": 0.009286520579920302,
+   "earnings_yield": 0.035261195974347195,
    "ind:Basic Materials": 0.02958579881656805,
    "ind:Communication Services": 0.03944773175542406,
    "ind:Consumer Cyclical": 0.1203155818540434,
-   "ind:Consumer Defensive": 0.0670611439842209,
-   "ind:Energy": 0.03353057199211045,
-   "ind:Financial Services": 0.11045364891518739,
+   "ind:Consumer Defensive": 0.06706114398422092,
+   "ind:Energy": 0.03353057199211046,
+   "ind:Financial Services": 0.11045364891518737,
    "ind:Healthcare": 0.14003944773175545,
-   "ind:Industrials": 0.15976331360946752,
+   "ind:Industrials": 0.1597633136094675,
    "ind:Real Estate": 0.03155818540433925,
    "ind:Technology": 0.2287968441814597,
    "ind:Unknown": 0.01183431952662722,
    "ind:Utilities": 0.027613412228796846,
-   "low_vol": 0.021704872174960234,
+   "low_vol": 0.021704876657784006,
    "market": 1.0000000000000022,
-   "momentum": -0.035668255221704,
-   "profitability": 0.022007722214858562,
-   "reversal": 0.009124530213284389,
-   "size": 0.0014819734520449407,
-   "value": -0.00908647730971359
+   "momentum": -0.03566825097512086,
+   "profitability": 0.02200772221485856,
+   "reversal": 0.009124517157831937,
+   "size": 0.0014819733412688287,
+   "value": -0.009086477751799932
   },
   "top": [
    {
     "factor": "market",
     "exposure": 1.0000000000000022,
-    "var_share": 1.0065314098700355
+    "var_share": 1.0055357164231151
    },
    {
     "factor": "ind:Technology",
     "exposure": 0.2287968441814597,
-    "var_share": 0.030476320798272564
+    "var_share": 0.030445665935264755
    },
    {
     "factor": "ind:Healthcare",
     "exposure": 0.14003944773175545,
-    "var_share": 0.009987060313036734
+    "var_share": 0.009956547404581857
    },
    {
     "factor": "ind:Industrials",
-    "exposure": 0.15976331360946752,
-    "var_share": 0.007095301903149363
+    "exposure": 0.1597633136094675,
+    "var_share": 0.007060527552896453
    },
    {
     "factor": "ind:Financial Services",
-    "exposure": 0.11045364891518739,
-    "var_share": 0.00406604823401752
+    "exposure": 0.11045364891518737,
+    "var_share": 0.004054595435739262
    },
    {
     "factor": "ind:Consumer Cyclical",
     "exposure": 0.1203155818540434,
-    "var_share": 0.003058237841963468
+    "var_share": 0.0030512706778822053
    },
    {
     "factor": "ind:Energy",
-    "exposure": 0.03353057199211045,
-    "var_share": 0.0029277127400488194
+    "exposure": 0.03353057199211046,
+    "var_share": 0.0029122960188211738
    },
    {
     "factor": "ind:Consumer Defensive",
-    "exposure": 0.0670611439842209,
-    "var_share": 0.0020369590347032113
+    "exposure": 0.06706114398422092,
+    "var_share": 0.002038536531744526
    }
   ],
   "n_names": 507
  },
  "Aggregate book (benchmark)": {
-  "total": 0.1587834023070919,
-  "factor": 0.15394737256234714,
-  "specific": 0.03888927010584914,
-  "share_factor": 0.9400140726301413,
+  "total": 0.15877678006318718,
+  "factor": 0.15394300647827158,
+  "specific": 0.03887951444738671,
+  "share_factor": 0.940039163307779,
   "groups": {
-   "market": 0.9797232370582984,
-   "style": 0.07849650791427865,
-   "industry": 0.024586270852514133
+   "market": 0.9805656740367976,
+   "style": 0.07818731831263848,
+   "industry": 0.024562559526682126
   },
-  "interaction": -0.14279194319494992,
+  "interaction": -0.1432763885683392,
   "exposures": {
-   "cash_flow": 0.3679205065798843,
-   "earnings_yield": 0.08647615322653382,
+   "cash_flow": 0.3679205065798845,
+   "earnings_yield": 0.08647615330676071,
    "ind:Basic Materials": 0.015361747663623332,
    "ind:Communication Services": 0.11094812271497881,
-   "ind:Consumer Cyclical": 0.07114248745378061,
+   "ind:Consumer Cyclical": 0.07114248745378063,
    "ind:Consumer Defensive": 0.06737947585182144,
    "ind:Energy": 0.032829153383551905,
    "ind:Financial Services": 0.21358408119167532,
-   "ind:Healthcare": 0.07674203392681087,
-   "ind:Industrials": 0.10118842813315984,
+   "ind:Healthcare": 0.07674203392681085,
+   "ind:Industrials": 0.10118842813315983,
    "ind:Real Estate": 0.006459510424009369,
    "ind:Technology": 0.28945691344892793,
    "ind:Unknown": 0.009686231166195505,
    "ind:Utilities": 0.0052218146414431,
-   "low_vol": 0.24538219372313796,
-   "market": 0.9999999999999782,
-   "momentum": 0.05373482177660482,
-   "profitability": 0.4707949048578462,
-   "reversal": 0.06117357617480723,
-   "size": -1.2304026123746237,
-   "value": -0.23860157698395734
+   "low_vol": 0.24538218003745554,
+   "market": 0.9999999999999778,
+   "momentum": 0.053734787969670836,
+   "profitability": 0.4707949048578463,
+   "reversal": 0.061173142022761876,
+   "size": -1.2304026133068584,
+   "value": -0.23860157729583217
   },
   "top": [
    {
     "factor": "market",
-    "exposure": 0.9999999999999782,
-    "var_share": 0.9797232370582982
+    "exposure": 0.9999999999999778,
+    "var_share": 0.9805656740367974
    },
    {
     "factor": "size",
-    "exposure": -1.2304026123746237,
-    "var_share": 0.0755741232301713
+    "exposure": -1.2304026133068584,
+    "var_share": 0.07501139443820797
    },
    {
     "factor": "ind:Technology",
     "exposure": 0.28945691344892793,
-    "var_share": 0.04747952952824807
+    "var_share": 0.047519565008580615
    },
    {
     "factor": "profitability",
-    "exposure": 0.4707949048578462,
-    "var_share": 0.03883283365353625
+    "exposure": 0.4707949048578463,
+    "var_share": 0.03884370118480995
    },
    {
     "factor": "low_vol",
-    "exposure": 0.24538219372313796,
-    "var_share": 0.016392778595418395
+    "exposure": 0.24538218003745554,
+    "var_share": 0.01633630731633329
    },
    {
     "factor": "ind:Financial Services",
     "exposure": 0.21358408119167532,
-    "var_share": 0.014798790741172263
+    "var_share": 0.014784421589653552
    },
    {
     "factor": "cash_flow",
-    "exposure": 0.3679205065798843,
-    "var_share": 0.009795797643186194
+    "exposure": 0.3679205065798845,
+    "var_share": 0.009729273396336611
    },
    {
     "factor": "ind:Communication Services",
     "exposure": 0.11094812271497881,
-    "var_share": 0.008426879054456738
+    "var_share": 0.008463282369028805
    }
   ],
   "n_names": 491
  },
  "LP portfolio": {
-  "total": 0.2241051147715588,
-  "factor": 0.21461358125969324,
-  "specific": 0.0645299403816755,
-  "share_factor": 0.9170876946835875,
+  "total": 0.22399084838698402,
+  "factor": 0.21449665813415134,
+  "specific": 0.06452196378290002,
+  "share_factor": 0.9170235969330913,
   "groups": {
-   "market": 0.49182440876838396,
-   "style": 0.21618837871951396,
-   "industry": 0.016112199326334405
+   "market": 0.49270857132861784,
+   "style": 0.21632235759315463,
+   "industry": 0.016176680038231566
   },
-  "interaction": 0.19296270786935527,
+  "interaction": 0.19181598797308727,
   "exposures": {
-   "cash_flow": 0.2170827953865161,
-   "earnings_yield": 0.008220648865421575,
-   "ind:Basic Materials": 0.00822076550255718,
-   "ind:Communication Services": 0.12348157706943862,
-   "ind:Consumer Cyclical": 0.052704106647713404,
-   "ind:Consumer Defensive": 0.04270911909637474,
-   "ind:Energy": 0.040904358995844096,
-   "ind:Financial Services": 0.2032549807833122,
-   "ind:Healthcare": 0.10674203392681259,
-   "ind:Industrials": 0.09666370568778196,
-   "ind:Real Estate": 0.0024750044102382768,
-   "ind:Technology": 0.3194569134489315,
-   "ind:Unknown": 0.000154769432498505,
-   "ind:Utilities": 0.0032326649984851,
-   "low_vol": -0.44878533606163445,
-   "market": 0.9999999999999882,
-   "momentum": 0.7763902599395305,
-   "profitability": 0.284808899375391,
-   "reversal": 0.10587773519430471,
-   "size": -1.1150072273615819,
-   "value": -0.39856865077190096
+   "cash_flow": 0.21708289320424262,
+   "earnings_yield": 0.008220624883984645,
+   "ind:Basic Materials": 0.008220765352814411,
+   "ind:Communication Services": 0.12348157525967521,
+   "ind:Consumer Cyclical": 0.052704106234330805,
+   "ind:Consumer Defensive": 0.04270910519858555,
+   "ind:Energy": 0.0409043619474062,
+   "ind:Financial Services": 0.20325499526655552,
+   "ind:Healthcare": 0.10674203392681253,
+   "ind:Industrials": 0.09666370418328077,
+   "ind:Real Estate": 0.0024750045333315762,
+   "ind:Technology": 0.31945691344893135,
+   "ind:Unknown": 0.000154769446349305,
+   "ind:Utilities": 0.0032326652019145996,
+   "low_vol": -0.4487850614845632,
+   "market": 0.999999999999988,
+   "momentum": 0.776390054142733,
+   "profitability": 0.2848090436768107,
+   "reversal": 0.10587731702638571,
+   "size": -1.1150079296859996,
+   "value": -0.3985689542818662
   },
   "top": [
    {
     "factor": "market",
-    "exposure": 0.9999999999999882,
-    "var_share": 0.49182440876838396
+    "exposure": 0.999999999999988,
+    "var_share": 0.49270857132861784
    },
    {
     "factor": "momentum",
-    "exposure": 0.7763902599395305,
-    "var_share": 0.09847109381457264
+    "exposure": 0.776390054142733,
+    "var_share": 0.09876262252962172
    },
    {
     "factor": "size",
-    "exposure": -1.1150072273615819,
-    "var_share": 0.031155925954489967
+    "exposure": -1.1150079296859996,
+    "var_share": 0.030952953303432635
    },
    {
     "factor": "ind:Technology",
-    "exposure": 0.3194569134489315,
-    "var_share": 0.02903152206211239
+    "exposure": 0.31945691344893135,
+    "var_share": 0.02908322858363087
    },
    {
     "factor": "low_vol",
-    "exposure": -0.44878533606163445,
-    "var_share": 0.02752646674456251
+    "exposure": -0.4487850614845632,
+    "var_share": 0.027457315221423546
    },
    {
     "factor": "value",
-    "exposure": -0.39856865077190096,
-    "var_share": 0.007670330789913175
+    "exposure": -0.3985689542818662,
+    "var_share": 0.007651245126065441
    },
    {
     "factor": "profitability",
-    "exposure": 0.284808899375391,
-    "var_share": 0.007134266938790859
+    "exposure": 0.2848090436768107,
+    "var_share": 0.007142957708760873
    },
    {
     "factor": "ind:Financial Services",
-    "exposure": 0.2032549807833122,
-    "var_share": 0.006727869068078756
+    "exposure": 0.20325499526655552,
+    "var_share": 0.006727635655046685
    }
   ],
   "n_names": 261
  },
  "LP portfolio \u2014 active vs benchmark": {
-  "total": 0.10621072509001077,
-  "factor": 0.09551399488429499,
-  "specific": 0.046452071055968124,
-  "share_factor": 0.8087183030688397,
+  "total": 0.10622829931897097,
+  "factor": 0.09553558952741922,
+  "specific": 0.0464478493565564,
+  "share_factor": 0.8088163438620839,
   "groups": {
-   "market": 2.2196892944485757e-28,
-   "style": 0.821351460836596,
-   "industry": 0.0037974122954861082
+   "market": 2.111106335801378e-28,
+   "style": 0.8210238642117791,
+   "industry": 0.0038253884058790867
   },
-  "interaction": -0.016430570063242413,
+  "interaction": -0.016032908755574324,
   "exposures": {
-   "cash_flow": -0.15083771119336836,
-   "earnings_yield": -0.07825550436111221,
-   "ind:Basic Materials": -0.0071409821610661514,
-   "ind:Communication Services": 0.012533454354459808,
-   "ind:Consumer Cyclical": -0.018438380806067196,
-   "ind:Consumer Defensive": -0.0246703567554467,
-   "ind:Energy": 0.008075205612292195,
-   "ind:Financial Services": -0.010329100408363177,
-   "ind:Healthcare": 0.030000000000001713,
-   "ind:Industrials": -0.004524722445377884,
-   "ind:Real Estate": -0.003984506013771092,
-   "ind:Technology": 0.030000000000003517,
-   "ind:Unknown": -0.009531461733697,
-   "ind:Utilities": -0.001989149642958,
-   "low_vol": -0.6941675297847726,
-   "market": 1.0068335054569388e-14,
-   "momentum": 0.7226554381629255,
-   "profitability": -0.18598600548245536,
-   "reversal": 0.04470415901949752,
-   "size": 0.11539538501304193,
-   "value": -0.15996707378794367
+   "cash_flow": -0.1508376133756418,
+   "earnings_yield": -0.07825552842277604,
+   "ind:Basic Materials": -0.007140982310808919,
+   "ind:Communication Services": 0.012533452544696401,
+   "ind:Consumer Cyclical": -0.018438381219449795,
+   "ind:Consumer Defensive": -0.0246703706532359,
+   "ind:Energy": 0.008075208563854295,
+   "ind:Financial Services": -0.010329085925119792,
+   "ind:Healthcare": 0.030000000000001657,
+   "ind:Industrials": -0.0045247239498790726,
+   "ind:Real Estate": -0.003984505890677793,
+   "ind:Technology": 0.030000000000003413,
+   "ind:Unknown": -0.009531461719846201,
+   "ind:Utilities": -0.0019891494395285,
+   "low_vol": -0.6941672415220188,
+   "market": 9.816800150552751e-15,
+   "momentum": 0.7226552661730623,
+   "profitability": -0.18598586118103558,
+   "reversal": 0.0447041750036237,
+   "size": 0.11539468362085903,
+   "value": -0.15996737698603403
   },
   "top": [
    {
     "factor": "momentum",
-    "exposure": 0.7226554381629255,
-    "var_share": 0.37982010142920075
+    "exposure": 0.7226552661730623,
+    "var_share": 0.3804303202783844
    },
    {
     "factor": "low_vol",
-    "exposure": -0.6941675297847726,
-    "var_share": 0.2932030839500439
+    "exposure": -0.6941672415220188,
+    "var_share": 0.2920717865410236
    },
    {
     "factor": "profitability",
-    "exposure": -0.18598600548245536,
-    "var_share": 0.013544705530857695
+    "exposure": -0.18598586118103558,
+    "var_share": 0.013542862835280552
    },
    {
     "factor": "value",
-    "exposure": -0.15996707378794367,
-    "var_share": 0.005500926110451758
+    "exposure": -0.15996737698603403,
+    "var_share": 0.005479843063068536
    },
    {
     "factor": "cash_flow",
-    "exposure": -0.15083771119336836,
-    "var_share": 0.003679807863774434
+    "exposure": -0.1508376133756418,
+    "var_share": 0.003653299237021839
    },
    {
     "factor": "earnings_yield",
-    "exposure": -0.07825550436111221,
-    "var_share": 0.0031144576517048413
+    "exposure": -0.07825552842277604,
+    "var_share": 0.003111653494052999
    },
    {
     "factor": "size",
-    "exposure": 0.11539538501304193,
-    "var_share": 0.0014856926295715312
+    "exposure": 0.11539468362085903,
+    "var_share": 0.0014740013260819192
    },
    {
     "factor": "ind:Technology",
-    "exposure": 0.030000000000003517,
-    "var_share": 0.001139867896438855
+    "exposure": 0.030000000000003413,
+    "var_share": 0.0011403564827316159
    }
   ],
-  "n_names": 379
+  "n_names": 362
  }
 }

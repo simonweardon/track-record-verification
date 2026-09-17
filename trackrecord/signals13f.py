@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .compact import COMPACT, EDGAR, holdings_frame, unpack
+from .compact import COMPACT, EDGAR, holdings_frame, unpack, cusip_map
 from .validation import MODELS, _fit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,8 +72,7 @@ def load_books(log=print) -> pd.DataFrame:
     unpack(log=log)
     h = holdings_frame()
     h = h[(h.putcall == "") & (h.value > 0)]
-    cmap = json.loads((EDGAR / "cusip_map.json").read_text())
-    h["ticker"] = h.cusip.map(cmap)
+    h["ticker"] = h.cusip.map(cusip_map())
     filed = h.groupby(["slug", "period"]).filed.max()
     g = (h.groupby(["slug", "period", "cusip"]).agg(value=("value", "sum"), shares=("shares", "sum"),
                                                      name=("name", "first"), ticker=("ticker", "first")).reset_index())

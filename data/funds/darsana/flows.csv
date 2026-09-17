@@ -1,2 +1,2 @@
 account_id,date,amount,flow_type,description,source_statement_id
-DARSANA,2016-03-31,1000000.0,deposit,notional $1m at first 13F rebalance,DARSANA_2016-03
+DARSANA,2015-09-30,1000000.0,deposit,notional $1m at first 13F rebalance,DARSANA_2015-09

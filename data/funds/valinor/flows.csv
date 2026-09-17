@@ -1,2 +1,2 @@
 account_id,date,amount,flow_type,description,source_statement_id
-VALINOR,2016-09-30,1000000.0,deposit,notional $1m at first 13F rebalance,VALINOR_2016-09
+VALINOR,2014-03-31,1000000.0,deposit,notional $1m at first 13F rebalance,VALINOR_2014-03

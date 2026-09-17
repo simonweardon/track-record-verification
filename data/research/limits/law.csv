@@ -1,9 +1,9 @@
 key,label,value,detail
-ic,Skill in the signal each quarter,0.02623945922560336,"rank correlation between the signal and what the 344 names then did, averaged over 52 quarters"
-ic_t,Is that skill distinguishable from zero?,1.0204743846519786,t-statistic of the quarterly skill measure; below 2 it is not
-transfer,Share of the signal the mandate lets through,0.5961166003357611,correlation between the positions actually taken and the signal that asked for them
-breadth,Independent bets a year,1377.7358490566037,"344 names, re-decided four times a year, counted as if independent (they are not)"
-ir_implied,Information ratio the law implies,0.5805893643282444,skill x share let through x square root of the bets
-ir_actual,Information ratio the portfolio delivered,0.7821580458135393,"active return over its own variability, 156 months"
-ir_se,How precisely that is known,0.3169428005074329,standard error of an information ratio measured over 13.0 years
-ir_t,Is the delivered result distinguishable from zero?,2.820110939697428,t-statistic of the active return
+ic,Skill in the signal each quarter,0.030579524096501567,"rank correlation between the signal and what the 356 names then did, averaged over 52 quarters"
+ic_t,Is that skill distinguishable from zero?,1.1880747766055897,t-statistic of the quarterly skill measure; below 2 it is not
+transfer,Share of the signal the mandate lets through,0.5917223979644689,correlation between the positions actually taken and the signal that asked for them
+breadth,Independent bets a year,1424.1509433962265,"356 names, re-decided four times a year, counted as if independent (they are not)"
+ir_implied,Information ratio the law implies,0.6828522453600222,skill x share let through x square root of the bets
+ir_actual,Information ratio the portfolio delivered,0.808650999096704,"active return over its own variability, 156 months"
+ir_se,How precisely that is known,0.3194897637905271,standard error of an information ratio measured over 13.0 years
+ir_t,Is the delivered result distinguishable from zero?,2.9156326411983504,t-statistic of the active return

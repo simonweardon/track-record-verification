@@ -26,8 +26,11 @@ EXTRA_CSS = """
 .finding { background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--gold); padding: 16px 18px; }
 .finding .q { font: 400 17px/1.25 var(--serif); color: var(--navy); margin-bottom: 8px; }
 .finding .a { font-size: 14px; color: var(--ink); }
-.finding .v { display: inline-block; font: 600 9.5px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; padding: 5px 8px; margin-bottom: 10px; color: #fff; }
+.finding .v { display: inline-block; font: 600 9.5px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 5px 8px; margin-bottom: 10px; color: #fff; white-space: nowrap; }
 .finding .v.no { background: var(--crit); } .finding .v.weak { background: var(--warn); } .finding .v.yes { background: var(--good); } .finding .v.caveat { background: var(--ink-2); }
+td .v, span.v { display: inline-block; font: 600 9px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; white-space: nowrap; vertical-align: middle; }
+td .v.no, span.v.no { background: var(--crit); } td .v.weak, span.v.weak { background: var(--warn); }
+td .v.yes, span.v.yes { background: var(--good); } td .v.caveat, span.v.caveat { background: var(--ink-2); }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; font: 12px var(--sans); color: var(--ink-2); margin: 8px 0 4px; }
 """
 
@@ -48,8 +51,8 @@ def _verdict_class(t: float, want_positive: bool = True) -> tuple[str, str]:
     if abs(t) < 1.0:
         return "no", "no signal"
     if abs(t) < 2.0:
-        return "weak", "weak, not significant"
-    return ("yes", "evidence") if (t > 0) == want_positive else ("no", "evidence — the wrong way")
+        return "weak", "weak"
+    return ("yes", "evidence") if (t > 0) == want_positive else ("no", "wrong way")
 
 
 def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
@@ -131,7 +134,7 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
         c, lab = _verdict_class(r.t_spread)
         srow += (f"<tr><td><b>{esc(r.label)}</b></td><td class='n'>{pct(r.ann_spread, 1)}</td><td class='n'>{_tv(r.t_spread)}</td><td class='n'>{r.share_positive_months:.0%}</td>"
                  f"<td class='n'>{pct(r.carhart_alpha, 1)}</td><td class='n'>{_tv(r.carhart_t)}</td><td class='n'>{num(r.b_SMB)}</td><td class='n'>{num(r.b_HML)}</td><td class='n'>{num(r.b_MOM)}</td>"
-                 f"<td class='n'>{pct(r.worst_year, 0)}</td><td class='n'>{pct(r.best_year, 0)}</td><td><span class='v {c}' style='color:#fff;background:var(--{ {'no': 'crit', 'weak': 'warn', 'yes': 'good', 'caveat': 'ink-2'}[c] });font:600 9px var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:4px 7px'>{esc(lab)}</span></td></tr>")
+                 f"<td class='n'>{pct(r.worst_year, 0)}</td><td class='n'>{pct(r.best_year, 0)}</td><td><span class='v {c}'>{esc(lab)}</span></td></tr>")
     def yearly(a, b):
         d = (R[a] - R[b]).dropna()
         y = d.groupby(d.index.year).sum()
@@ -511,7 +514,7 @@ def rverify_html(out_dir: Path | None = None) -> str | None:
 <title>Independent Verification</title>
 {SHEET}
 tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
-.v {{ display: inline-block; font: 600 9.5px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; }}
+.v {{ display: inline-block; font: 600 9.5px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; white-space: nowrap; }}
 .v.yes {{ background: var(--good); }} .v.no {{ background: var(--crit); }}
 </style>
 <div class="banner" role="note"><span class="bl">Verification</span> Every statistic on the site was calculated a second time by a separate implementation, written from scratch against the same data. This tests the calculations, not the conclusions.</div>
@@ -752,7 +755,7 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
         r = S.loc[s]; c, lab = light(r.ic_t)
         srow += (f"<tr><td><b>{esc(plain(r.label))}</b></td><td class='n'>{r.coverage:.0%}</td><td class='n'>{int(r.months)}</td><td class='n'>{r.ic_mean:+.3f}</td><td class='n'>{r.ic_t:+.1f}</td>"
                  f"<td class='n'>{r.ic_pct_positive:.0%}</td><td class='n'>{pct(r.spread_ann, 1)}</td><td class='n'>{r.spread_t:+.1f}</td><td class='n'>{num(r.spread_sharpe)}</td>"
-                 f"<td><span class='v {c}' style='color:#fff;background:var(--{ {'no': 'crit', 'weak': 'warn', 'yes': 'good'}[c] });font:600 9px var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:4px 7px'>{esc(lab)}</span></td></tr>")
+                 f"<td><span class='v {c}'>{esc(lab)}</span></td></tr>")
     # cumulative IC chart (linear vs xgboost) and rolling 12m IC for the best signals
     cells = [x.strftime("%Y-%m") for x in ic.index]
     series = []
@@ -1167,7 +1170,7 @@ def decay_html(out_dir: Path | None = None) -> str | None:
         return ("yes", "evidence") if t >= 2 else ("weak", "weak") if t >= 1 else ("no", "none")
     def badge(t):
         c, lab = light(t)
-        return f"<span class='v {c}' style='color:#fff;background:var(--{ {'no': 'crit', 'weak': 'warn', 'yes': 'good'}[c] });font:600 9px var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:4px 7px'>{esc(lab)}</span>"
+        return f"<span class='v {c}'>{esc(lab)}</span>"
 
     # models table
     mrow = ""
@@ -1474,9 +1477,9 @@ def limits_html(out_dir: Path | None = None) -> str | None:
 {SHEET}
 tr.bad td {{ background: color-mix(in srgb, var(--crit) 10%, transparent); }}
 td.hi {{ font-weight: 600; color: var(--good); }}
-.v {{ display: inline-block; font: 600 9px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; white-space: nowrap; }}
+.v {{ display: inline-block; font: 600 9px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; white-space: nowrap; }}
 .v.yes {{ background: var(--good); }} .v.no {{ background: var(--crit); }} .v.weak {{ background: var(--warn); }} .v.caveat {{ background: var(--ink-2); }}
-.qn {{ font: 600 9.5px/1 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }}
+.qn {{ font: 600 9.5px/1.3 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }}
 </style>
 <div class="banner" role="note"><span class="bl">Read this first</span> Every other tool here puts hard questions to an outside manager. This page puts the same questions to the work itself and answers them with numbers, including where the answer is unflattering.</div>
 <header class="cover"><div class="cover-in">

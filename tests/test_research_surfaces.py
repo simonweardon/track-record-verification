@@ -63,6 +63,19 @@ def test_research_pages_do_not_dump_css_as_text():
             assert leak not in text, (fn.__name__, leak)
 
 
+def test_holdings_verdict_badges_do_not_wrap_into_overlapping_lines():
+    """Long uppercase verdict labels with line-height 1 overlapped on narrow screens."""
+    from trackrecord.research_pages import signals13f_html, EXTRA_CSS, _verdict_class
+    assert _verdict_class(1.5) == ("weak", "weak")
+    assert "weak, not significant" not in _verdict_class(1.5)[1]
+    doc = signals13f_html()
+    assert doc is not None
+    assert "weak, not significant" not in doc.lower()
+    assert "white-space: nowrap" in EXTRA_CSS
+    assert "9px/1.3" in EXTRA_CSS or "9.5px/1.3" in EXTRA_CSS
+    assert re.search(r"class='v weak'>weak</span>", doc) or "class='v weak'>weak<" in doc
+
+
 def test_home_page_rows_carry_the_screener_attributes():
     html = S.directory_html()
     assert 'id="f-t"' in html and 'id="f-y"' in html and 'id="f-m"' in html and 'id="dl"' in html

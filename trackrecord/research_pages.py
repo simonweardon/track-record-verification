@@ -13,10 +13,10 @@ import numpy as np
 import pandas as pd
 
 from .dashboard import CSS, JS, diverging_bars, esc, line_chart, pct, num
-from .explain import plain
+from .explain import CSS as EXPLAIN_CSS, figure_note, plain
 from .signals13f import OUT_DIR as SIG_DIR, PORTFOLIOS, SPREADS
 
-EXTRA_CSS = """
+EXTRA_CSS = EXPLAIN_CSS + """
 .chart .ser.s2 { stroke: var(--s3); } .chart .dot.s2 { fill: var(--s3); } .k.s2 { background: var(--s3); }
 .chart .ser.s4 { stroke: var(--neg); } .chart .dot.s4 { fill: var(--neg); } .k.s4 { background: var(--neg); }
 .chart .ser.s5 { stroke: var(--gold); } .chart .dot.s5 { fill: var(--gold); } .k.s5 { background: var(--gold); }
@@ -177,22 +177,42 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
     <div class="legend">{legend}</div>
     {growth}
     <p class="cap">The chart uses a log scale. Each portfolio is rebuilt at the end of February, May, August and November from the filings public by then, with equal weights at formation, and is then held without trading until the next rebuild. Months with fewer than five priced names are left blank rather than filled in.</p>
+    {figure_note(
+        how="This is not a made-up path. For each month, every line is one dollar grown by that portfolio's actual monthly return, chained together: if January returned 2% and February 1%, the line is at 1.02 × 1.01. Equal-sized steps on the log scale are equal percentage moves, so a steep stretch is a fast compounding period anywhere on the chart, not just at the top. Each portfolio is formed only from holdings that were already public: a quarter ending in December is used at the end of February, because that is when the filing deadline falls. Names in the book are equal-weighted at that date and then left alone until the next formation. A month with fewer than five priced names is left blank rather than guessed.",
+        where="Public quarterly holdings filings (the long US stock positions each manager reports), matched to monthly prices that include dividends. The US market line is the size-weighted market from the Kenneth R. French Data Library over the same months. Options, short positions and names that never match a price are dropped before anything is formed.",
+        why="A table of yearly rates can hide a path that lived off one year. The chart asks whether copying a rule — best ideas, crowded names, new buys — would have grown money after the delay an outsider actually faces. If the lines wander with the market, the filings contained no extra information a copier could have used.")}
   </div>
 </section>
 
 <section>
   <div class="sh"><h2>The portfolios</h2></div>
   <div class="card tscroll"><table><thead><tr><th>portfolio</th><th class="n">return /yr</th><th class="n">vol</th><th class="n">Sharpe</th><th class="n">max DD</th><th class="n">vs market /yr</th><th class="n">β</th><th class="n">Carhart α</th><th class="n">t</th><th class="n">names</th><th class="n">turnover /qtr</th></tr></thead><tbody>{prow}</tbody></table>
-  <p class="cap">The Sharpe ratio is measured over the one-month Treasury bill. The Carhart alpha is annualized and its t-statistic uses Newey–West standard errors. Names and turnover are averages across formation dates, where turnover is half the sum of absolute weight changes against the previous portfolio.</p></div>
+  <p class="cap">The Sharpe ratio is measured over the one-month Treasury bill. The Carhart alpha is annualized and its t-statistic uses Newey–West standard errors. Names and turnover are averages across formation dates, where turnover is half the sum of absolute weight changes against the previous portfolio.</p>
+    {figure_note(
+        how="Each row is one rule for turning the same filings into a portfolio. Monthly returns are chained into a yearly rate, volatility is the standard deviation of those months scaled to a year, and Sharpe is the average return above the one-month Treasury bill divided by that volatility. The gap to the market is the same yearly rate minus the market's. Beta and Carhart alpha come from a monthly regression on the market, small-company, cheap-company and momentum factors; the t-statistic uses standard errors that allow neighbouring months to move together. Names and turnover are averages across the quarterly rebuilds.",
+        where="The same monthly return series as the growth chart, plus the Kenneth R. French factor series for the regressions. Portfolio labels (what each row holds) are fixed rules applied to the filings, not a search over definitions.",
+        why="The chart is one path. This table is the scorecard a manager would be judged on: return, bumpiness, how much of it the market already explains, and how much the book is being churned. Reading them together stops a high return that was just market exposure, or a quiet return that required frantic trading, from looking like skill.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>The tests that matter: spreads</h2></div>
   <div class="card tscroll"><table><thead><tr><th>long − short</th><th class="n">spread /yr</th><th class="n">t</th><th class="n">months &gt; 0</th><th class="n">Carhart α</th><th class="n">t</th><th class="n">SMB</th><th class="n">HML</th><th class="n">MOM</th><th class="n">worst yr</th><th class="n">best yr</th><th>verdict</th></tr></thead><tbody>{srow}</tbody></table>
-  <p class="cap">A spread cancels what both sides share, such as the market, the period and the universe, so it isolates the signal. The factor loadings show what the spread is secretly betting on. The crowding spread is a bet against small companies (SMB {num(crd.b_SMB) if crd is not None else 'n/a'}), which is why its alpha is not taken at face value.</p></div>
+  <p class="cap">A spread cancels what both sides share, such as the market, the period and the universe, so it isolates the signal. The factor loadings show what the spread is secretly betting on. The crowding spread is a bet against small companies (SMB {num(crd.b_SMB) if crd is not None else 'n/a'}), which is why its alpha is not taken at face value.</p>
+    {figure_note(
+        how="A spread is long one portfolio and short another, so anything both sides share drops out. The yearly figure is the average monthly difference, scaled up. The t-statistic is that average divided by its standard error. 'Months > 0' is the share of months the long side won. Carhart alpha is the intercept after the four factors are removed, and SMB, HML and MOM are how much of the spread was a bet on small, cheap or recently-rising stocks. Worst and best year are the calendar-year sums of the monthly differences.",
+        where="The monthly return of each named portfolio minus the monthly return of the other, from the same series as the growth chart. Factor columns use the Kenneth R. French series. The verdict badge uses a fixed rule: a t-statistic below 1 is no signal, 1 to 2 is weak, and 2 or more is evidence.",
+        why="Copying 'best ideas' only matters if those names beat the rest of the same books, not if they merely went up with the market. A spread is the clean test. The factor columns exist because a spread that looks like skill can secretly be a size or momentum bet, which is what happened with the crowding result.")}</div>
   <div class="grid2">
-    <div class="card"><h3>New positions − Sold out, by year</h3>{bars_new}<p class="cap">Each bar is the sum of the monthly spread returns in that calendar year.</p></div>
-    <div class="card"><h3>Best ideas − Every held stock, by year</h3>{bars_best}<p class="cap">Each bar is the sum of the monthly spread returns in that calendar year.</p></div>
+    <div class="card"><h3>New positions − Sold out, by year</h3>{bars_new}<p class="cap">Each bar is the sum of the monthly spread returns in that calendar year.</p>
+      {figure_note(
+          how="For each calendar year the monthly gap between the 'just bought' portfolio and the 'just sold' portfolio is added up. A blue bar means the new buys beat the sales that year; a red bar means they lagged. No compounding and no factors: it is the raw yearly sum of the same monthly spread used in the table.",
+          where="The monthly 'NEW' and 'SOLD' portfolios built from the filings that were public by each February, May, August and November. A name enters NEW when a manager first reports it, and SOLD when a previously reported name disappears.",
+          why="A small average spread can hide one wonderful year and a string of losses. The year-by-year picture is how you see that.")}</div>
+    <div class="card"><h3>Best ideas − Every held stock, by year</h3>{bars_best}<p class="cap">Each bar is the sum of the monthly spread returns in that calendar year.</p>
+      {figure_note(
+          how="Each bar is that calendar year's monthly gaps between each manager's single largest position and an equal-weighted book of everything those managers held, added up. The largest position is taken from the filing that was public by the formation date, not from the later price path.",
+          where="The same BEST1 and ALL monthly series as the growth chart and the spreads table, grouped by calendar year.",
+          why="The academic claim is that managers' highest-conviction names outperform the rest of their books. If that were usable after the public delay, the bars would be mostly blue. They are not, which is the finding.")}</div>
   </div>
 </section>
 
@@ -200,16 +220,28 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
   <div class="sh"><h2>Rank tests: information coefficients</h2></div>
   <div class="grid2">
     <div class="card"><h3>Crowding IC by formation date</h3>{ic_bars}
-      <p class="cap">Each bar is the rank correlation between the number of managers holding a stock and its return over the next quarter, across every held stock with a price. A correlation of 0.02 is small but persistent: it was positive in {ics.set_index('signal').loc['n_holders', 'share_positive']:.0%} of quarters.</p></div>
+      <p class="cap">Each bar is the rank correlation between the number of managers holding a stock and its return over the next quarter, across every held stock with a price. A correlation of 0.02 is small but persistent: it was positive in {ics.set_index('signal').loc['n_holders', 'share_positive']:.0%} of quarters.</p>
+      {figure_note(
+          how="At each formation date every stock still held by anyone is ranked two ways: by how many managers hold it, and by the return it then delivered over the next quarter. The information coefficient is the rank correlation of those two lists. A bar above zero means more holders went with a better next quarter; below zero, the opposite. No money is put to work here — it is a ranking test, not a portfolio.",
+          where="Holder counts come from the public filings as of that formation date. Next-quarter returns come from the monthly prices of those same names. Stocks without a usable price are dropped from that date's correlation, not filled in.",
+          why="A spread between 'most crowded' and 'least crowded' can be driven by a handful of tiny names. The rank test uses every held stock equally, so it is the check on whether crowding itself predicts returns. On this sample it is small and the opposite of the unreliable spread, which is why the crowding result is not believed.")}</div>
     <div class="card"><h3>All signals</h3><div class="tscroll"><table><thead><tr><th>signal</th><th class="n">quarters</th><th class="n">mean IC</th><th class="n">sd</th><th class="n">t</th><th class="n">&gt; 0</th></tr></thead><tbody>{icrow}</tbody></table></div>
-      <p class="cap">The information coefficient (IC) is the standard first look at a stock-selection signal: does this quarter's ranking predict next quarter's ranking of returns? Its t-statistic is the mean divided by the standard error. Real, tradable signals run between 0.03 and 0.05 with a t-statistic above 3 over long samples.</p></div>
+      <p class="cap">The information coefficient (IC) is the standard first look at a stock-selection signal: does this quarter's ranking predict next quarter's ranking of returns? Its t-statistic is the mean divided by the standard error. Real, tradable signals run between 0.03 and 0.05 with a t-statistic above 3 over long samples.</p>
+      {figure_note(
+          how="Each row is one ranking taken from the filings (number of holders, whether the name is someone's largest position, whether it was just bought, and so on). At every quarter the ranking is correlated with the next quarter's returns, those correlations are averaged, and the t-statistic is the average divided by its standard error. '> 0' is the share of quarters the correlation was positive.",
+          where="The same formation dates and prices as the rest of the page. Each signal's definition is fixed in advance; nothing is searched over to make a t-statistic look larger.",
+          why="Portfolios throw away information by putting names into buckets. The information coefficient asks the gentler question first: did the ranking even point the right way? If it did not, there is no portfolio to build.")}</div>
   </div>
 </section>
 
 <section>
   <div class="sh"><h2>Most crowded names now</h2></div>
   <div class="card tscroll"><table><thead><tr><th>stock</th><th class="n">managers holding</th><th class="n">#1 position of</th><th class="n">top-3 of</th><th class="n">avg weight</th><th class="n">new buyers</th><th class="n">added</th><th class="n">trimmed</th></tr></thead><tbody>{crow}</tbody></table>
-  <p class="cap">This table is built from the filings public by {esc(last_form)}, covering {n_mgr_last} managers. Weight is the average share of a holder's disclosed portfolio. New buyers, added and trimmed count the managers whose position is new, up by 25% or more in shares, or down by 25% or more since their previous filing.</p></div>
+  <p class="cap">This table is built from the filings public by {esc(last_form)}, covering {n_mgr_last} managers. Weight is the average share of a holder's disclosed portfolio. New buyers, added and trimmed count the managers whose position is new, up by 25% or more in shares, or down by 25% or more since their previous filing.</p>
+    {figure_note(
+        how="Take the latest formation date — the most recent month-end by which a quarter's filings were public. For every stock, count how many managers still report it, how many have it as their largest position or in their top three, the average weight among holders, and how many managers are new to it, added at least 25% more shares, or cut at least 25% since their previous filing. The table is sorted by number of holders.",
+        where=f"Only the filings that were public by {esc(last_form)}. Share counts are compared with the previous filing after correcting reporting-unit errors and stock splits, so a split is not counted as a trim.",
+        why="This is a snapshot, not a forecast. It shows which names the managers currently cluster in, which is the crowding the tests above asked about. It is not a buy list.")}</div>
 </section>
 
 <section>
@@ -354,7 +386,11 @@ def construction_html(out_dir: Path | None = None) -> str | None:
 <section>
   <div class="sh"><h2>Growth of $1</h2></div>
   <div class="card"><div class="legend">{legend}</div>{growth}
-  <p class="cap">The chart uses a log scale. Trading costs of {c['cost_bps']:.0f} bps per dollar traded are charged in the month after each rebalance, on both the constrained and the unconstrained portfolio.</p></div>
+  <p class="cap">The chart uses a log scale. Trading costs of {c['cost_bps']:.0f} bps per dollar traded are charged in the month after each rebalance, on both the constrained and the unconstrained portfolio.</p>
+    {figure_note(
+        how="Each line is one dollar grown by that portfolio's monthly return, chained together, on a log scale so equal percentage moves are equal steps. The constrained line is the optimiser's weights, held without trading between quarter-ends. The unconstrained line is the top tenth by the signal, equally weighted, with no caps. The benchmark is everything the managers own, added together in dollars. Trading costs are charged in the month after each rebalance on both active lines. This is a historical backtest: each rebalance uses only the signal and prices known then, then the following quarter's returns are applied. It is not a forecast of the next quarter.",
+        where="Quarterly holdings filings build the universe and the benchmark. Monthly prices including dividends grow the three books. The signal is twelve-month momentum, skipping the most recent month, standardized at that rebalance.",
+        why="A yearly active-return number can hide a path that lived off one year. The three lines together show what the signal was worth raw, what the mandate's rules left of it, and what simply owning the managers' aggregate book would have done.")}</div>
   <div class="card" style="margin-top:14px"><h3>Active return by year, constrained portfolio minus benchmark</h3>{act_bars}</div>
 </section>
 
@@ -389,6 +425,10 @@ def construction_html(out_dir: Path | None = None) -> str | None:
     <div class="card tscroll" style="margin-top:14px"><h3>Sells</h3><table><thead><tr><th>stock</th><th>sector</th><th class="n">now</th><th class="n">target</th><th class="n">active</th><th class="n">α z</th><th class="n">shares</th><th class="n">$</th></tr></thead><tbody>{trow(sells)}</tbody></table></div>
   </div>
   <p class="cap">The full list with every name is in <a href="/research/construction/trade_list.csv">trade_list.csv</a>. Shares are rounded to whole shares at the closing price on the rebalance date, and "now" is the previous target after drifting through the quarter.</p>
+  {figure_note(
+      how=f"At {esc(L['formation'])} the optimiser takes each stock's momentum score and chooses new weights that maximise the score while staying inside the name cap, the band around the benchmark, the sector bands, the active-share cap and the turnover budget. 'Now' is last quarter's target after prices have moved. The difference, rounded to whole shares at that day's close, is the ticket. Alpha z is the stock's standardized momentum at that date. Names leaving the universe are forced to a zero target.",
+      where=f"The universe is US stocks held by at least {man['min_holders']} of the managers and priced at $1 or more. Sectors come from the public price source. The mandate size is a demonstration ${man['nav'] / 1e6:,.0f} million, used only to turn weights into share counts.",
+      why="This is the moment a signal becomes something a dealer can trade. Showing the actual names, the date they were chosen, and the scores that chose them is the construction step of the active-portfolio story.")}
 </section>
 
 <section>
@@ -503,7 +543,11 @@ tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
 <section>
   <div class="sh"><h2>Manager by manager</h2></div>
   <div class="card tscroll"><table><thead><tr><th>manager</th><th class="n">months</th><th class="n">FF3 α, check</th><th class="n">FF3 α, site</th><th class="n">t, check</th><th class="n">t, site</th><th class="n">score, check</th><th class="n">score, site</th><th class="n">largest difference</th><th></th></tr></thead><tbody>{mrows}</tbody></table>
-  <p class="cap">These are the twenty managers with the largest difference, which makes them the hardest cases for the comparison rather than the best managers. Alphas are annualized, and t is the Newey–West t-statistic on the three-factor alpha.</p></div>
+  <p class="cap">These are the twenty managers with the largest difference, which makes them the hardest cases for the comparison rather than the best managers. Alphas are annualized, and t is the Newey–West t-statistic on the three-factor alpha.</p>
+    {figure_note(
+        how="For each manager a second implementation, written from scratch against the same aligned monthly returns and factors, recomputes every headline statistic. The two columns are that check and the site's own figure. The table is sorted by the largest absolute difference, so the hardest cases sit at the top. Agreement to better than one millionth is treated as a pass.",
+        where="The inputs are the aligned monthly returns already used on each manager's dashboard. The second implementation shares no code with the first. It does not fetch new prices or rewrite the holdings.",
+        why="A research story that never checks its arithmetic is a story. Putting the hardest disagreements first is how the check is made visible rather than asserted.")}</div>
 </section>
 
 <section>
@@ -758,13 +802,21 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
 <section>
   <div class="sh"><h2>Signal by signal</h2></div>
   <div class="card tscroll"><table><thead><tr><th>signal</th><th class="n">coverage</th><th class="n">months</th><th class="n">mean IC</th><th class="n">t</th><th class="n">IC &gt; 0</th><th class="n">D10 − D1 /yr</th><th class="n">t</th><th class="n">Sharpe</th><th>evidence</th></tr></thead><tbody>{srow}</tbody></table>
-  <p class="cap">Coverage is the share of stock-months for which the signal is available, since the accounting signals depend on what companies report. "D10 − D1" is the return of the top tenth of stocks minus the bottom tenth, annualized. A t-statistic of 2 or more counts as evidence, 1 to 2 as weak, and below 1 as none.</p></div>
+  <p class="cap">Coverage is the share of stock-months for which the signal is available, since the accounting signals depend on what companies report. "D10 − D1" is the return of the top tenth of stocks minus the bottom tenth, annualized. A t-statistic of 2 or more counts as evidence, 1 to 2 as weak, and below 1 as none.</p>
+    {figure_note(
+        how="Each month every stock in the universe is ranked by that characteristic, using only prices and company filings that were already public. The information coefficient is the rank correlation with the next month's return. D10 − D1 is the next-month return of the top tenth minus the bottom tenth, equally weighted, then averaged and scaled to a year. The t-statistic is that average divided by its standard error. The learned model and the simple average are scored the same way, on months after the model has something to learn from.",
+        where="The universe is stocks held by at least five of the managers and priced at $1 or more. Company accounts enter only after their filing date. Prices include dividends. Delisted names drop out at their last price.",
+        why="This table is the research meeting: which of eight well-known characteristics actually predicted the next month on this universe. The construction page trades the one row that clears the bar, and leaves the rest out.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>Cumulative information coefficient</h2></div>
   <div class="card"><div class="legend">{legend}</div>{cum_chart}
-  <p class="cap">Each line is the running sum of monthly information coefficients. A signal that works climbs steadily, and one that does not wanders around zero. The two models start at {(man.get('xgb_first') or '')[:7]}, when the first prediction from the learned model is available.</p></div>
+  <p class="cap">Each line is the running sum of monthly information coefficients. A signal that works climbs steadily, and one that does not wanders around zero. The two models start at {(man.get('xgb_first') or '')[:7]}, when the first prediction from the learned model is available.</p>
+    {figure_note(
+        how="Each month the ranking is correlated with the next month's returns, and those correlations are added up over time. A characteristic with a real edge climbs; noise wanders around zero. The learned model and the simple average are omitted until the first month they both have a prediction, so the comparison is on identical months.",
+        where="The monthly information coefficients behind the table above. Nothing is rescaled or fitted on this chart.",
+        why="An average can hide a signal that worked in 2016 and died. The running sum is how you see whether the edge was persistent.")}</div>
 </section>
 
 <section>
@@ -793,7 +845,11 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
 <section>
   <div class="sh"><h2>Latest ranking — {esc(man['last'][:7])}</h2></div>
   <div class="card tscroll"><table><thead><tr><th>stock</th>{''.join(f"<th class='n'>{esc(SIGNALS.get(f, f).split(' (')[0])}</th>" for f in feats)}<th class="n">simple average</th><th class="n">learned model</th></tr></thead><tbody>{lat_rows}</tbody></table>
-  <p class="cap">These are the top 25 stocks by the simple average at the latest month-end, with each signal shown as a standardized score across the universe. The learned-model column is its predicted return relative to the universe next month. <a href="/research/construction">Portfolio Construction</a> rebuilds the {esc(best_name)} column on the same universe and trades that alone, because it is the one column above with evidence behind it.</p></div>
+  <p class="cap">These are the top 25 stocks by the simple average at the latest month-end, with each signal shown as a standardized score across the universe. The learned-model column is its predicted return relative to the universe next month. <a href="/research/construction">Portfolio Construction</a> rebuilds the {esc(best_name)} column on the same universe and trades that alone, because it is the one column above with evidence behind it.</p>
+    {figure_note(
+        how="At the latest month-end each characteristic is standardized across the universe so that 0 is average and +1 is one standard deviation above. The simple average is the equal-weighted mean of the eight. The learned-model column is that model's predicted return versus the universe next month. The table is sorted by the simple average. Construction does not read this file: it rebuilds twelve-month momentum itself and trades that column only.",
+        where=f"Scores use prices and filings known by {esc(man['last'][:7])}. A blank is a company that had not yet reported the accounts that characteristic needs.",
+        why="A ranking looks like a buy list. Showing it next to the finding that seven of eight columns are noise is how the page stops that reading. The one column with evidence is named so the next step of the story can pick it up.")}</div>
 </section>
 
 <section>
@@ -899,7 +955,11 @@ def riskmodel_html(out_dir: Path | None = None) -> str | None:
 <section>
   <div class="sh"><h2>Factor returns</h2></div>
   <div class="card"><div class="legend">{legend}</div>{fchart}
-  <p class="cap">Each line is the cumulative return to one style factor: the return to a unit of exposure, holding the other styles and industries fixed. These are "pure" factor returns of the kind a commercial risk report shows, not long-short portfolios.</p></div>
+  <p class="cap">Each line is the cumulative return to one style factor: the return to a unit of exposure, holding the other styles and industries fixed. These are "pure" factor returns of the kind a commercial risk report shows, not long-short portfolios.</p>
+    {figure_note(
+        how="Each month every stock's next-month return is regressed on its exposures known at the time: the market, eight standardized style scores, and industry membership. The coefficients on the styles are the pure factor returns — what one extra unit of that exposure was worth that month, holding the others fixed. The chart adds those monthly returns up. It is not a portfolio you could have held; it is the model's attribution of the cross-section.",
+        where="The same universe and the same eight characteristics as Signal Research, plus industry labels from the public price source. Exposures use only information available at that month-end.",
+        why="A risk report starts from these paths: they say which tilts paid and which cost, after stripping out the others. Without them, a momentum portfolio's return would be mistaken for stock-picking.")}</div>
   <div class="grid2" style="margin-top:14px">
     <div class="card tscroll"><h3>Style factors, latest window</h3><table><thead><tr><th>factor</th><th class="n">vol /yr</th><th class="n">mean /yr</th><th class="n">t</th></tr></thead><tbody>{vrows}</tbody></table></div>
     <div class="card tscroll"><h3>Industry factors, latest window</h3><table><thead><tr><th>industry</th><th class="n">vol /yr</th><th class="n">mean /yr</th><th class="n">t</th></tr></thead><tbody>{irows}</tbody></table></div>
@@ -1011,28 +1071,52 @@ def fof_html(out_dir: Path | None = None) -> str | None:
   <p class="note">An allocator who believes some managers have skill must say how much they think true alpha varies across managers (Baks, Metrick and Wachter, 2001). Each row discounts the alphas with that belief, keeps the managers whose discounted alpha is positive, and maximises the blend's expected information ratio with no manager above {man['max_weight']:.0%}.</p>
   <div class="grid2">
     <div class="card tscroll"><h3>By prior</h3><table><thead><tr><th>prior</th><th class="n">τ</th><th class="n">managers held</th><th class="n">blend alpha</th><th class="n">expected IR</th></tr></thead><tbody>{prior_rows}</tbody></table>
-      <p class="cap">The expected information ratio is the blend's discounted alpha divided by its residual volatility, which comes from the measured overlap between managers. It is a forecast, and the out-of-sample section below is the check.</p></div>
+      <p class="cap">The expected information ratio is the blend's discounted alpha divided by its residual volatility, which comes from the measured overlap between managers. It is a forecast, and the out-of-sample section below is the check.</p>
+      {figure_note(
+          how="Each row is a belief about how much true skill varies across managers, written as τ. That belief is used to discount every manager's estimated alpha toward the average, keep those whose discounted alpha is still positive, and then choose long-only weights that maximise the blend's expected information ratio, with a cap per manager. Blend alpha and expected IR are forecasts under that belief, not a backtest.",
+          where="Each manager's three-factor alpha, its standard error and residual returns come from the verification pipeline on public reconstructed records. Overlap is the correlation of those residual returns on months both managers have, pulled part-way toward zero.",
+          why="An allocator who believes skill exists has to say how much. Putting the belief in the first column stops a set of weights from smuggling in an unspoken view of the universe.")}</div>
     <div class="card tscroll"><h3>The τ = 2% blend, three ways</h3><table><thead><tr><th>blend</th><th class="n">managers</th><th class="n">alpha</th><th class="n">resid vol</th><th class="n">expected IR</th></tr></thead><tbody>{blend_rows}</tbody></table>
-      <p class="cap">The three rows compare the optimised blend, equal weights on the top ten, and holding everyone, which shows how much the overlap between managers is worth on top of selection.</p></div>
+      <p class="cap">The three rows compare the optimised blend, equal weights on the top ten, and holding everyone, which shows how much the overlap between managers is worth on top of selection.</p>
+      {figure_note(
+          how="All three rows use the same discounted alphas (τ = 2% a year) and the same residual-overlap matrix. The first row is the optimiser's weights. The second is equal weights on the ten managers with the highest discounted information ratios. The third is equal weights on everyone who still has a positive discounted alpha.",
+          where="The same manager table as the rest of this page. Expected IR is discounted alpha of the blend divided by the blend's residual volatility, which uses the measured overlap.",
+          why="Optimisers can look clever by concentrating. Equal-weighting the top ten, and holding everyone, are the two simple alternatives that say whether the extra machinery earned its keep.")}</div>
   </div>
   <div class="card tscroll" style="margin-top:14px"><h3>Optimised weights, τ = 2%</h3><table><thead><tr><th>manager</th><th class="n">shrunk alpha</th><th class="n">residual vol</th><th class="n">shrunk IR</th><th class="n">weight</th></tr></thead><tbody>{wrow}</tbody></table>
-  <p class="cap">Managers with low residual volatility, such as listed funds and diversified long-only portfolios, get large weights even with modest alpha because they add little tracking risk. Concentrated managers get small weights because their residual volatility is 10% to 14% a year.</p></div>
+  <p class="cap">Managers with low residual volatility, such as listed funds and diversified long-only portfolios, get large weights even with modest alpha because they add little tracking risk. Concentrated managers get small weights because their residual volatility is 10% to 14% a year.</p>
+    {figure_note(
+        how="These are the managers given a non-zero weight when the optimiser maximises expected information ratio under a 2% prior, long-only, summing to 100%, with a cap per name. Shrunk alpha is the raw three-factor alpha multiplied by how much of it survives the discount. Residual vol is the leftover bumpiness after market, size and value are removed. Shrunk IR is shrunk alpha divided by residual vol.",
+        where="Alphas and residual returns are from each manager's public reconstructed record. Listed funds use their actual net returns; the others use disclosed holdings, which are the long US book rather than the fund.",
+        why="The weights are the punchline of the allocation, and they are often surprising: a quiet listed fund can outrank a famous concentrated book once residual risk is in the denominator. That is the point of writing the optimiser down rather than picking names by reputation.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>Shrinkage, manager by manager</h2></div>
   <div class="card tscroll"><table><thead><tr><th>manager</th><th class="n">months</th><th class="n">raw alpha</th><th class="n">std error</th><th class="n">t</th><th class="n">keep (τ=2%)</th><th class="n">shrunk (τ=2%)</th><th class="n">empirical Bayes</th></tr></thead><tbody>{srow}</tbody></table>
-  <p class="cap">These are the top twenty managers by raw alpha. "Keep" is the share of the raw estimate that survives the discount, and the last column is what the data alone support. The full table is in <a href="/research/data/fund-of-funds/managers.csv">managers.csv</a>.</p></div>
+  <p class="cap">These are the top twenty managers by raw alpha. "Keep" is the share of the raw estimate that survives the discount, and the last column is what the data alone support. The full table is in <a href="/research/data/fund-of-funds/managers.csv">managers.csv</a>.</p>
+    {figure_note(
+        how="Raw alpha is the intercept of a monthly regression of the record on the market, small companies and cheap companies, scaled to a year. The standard error and t-statistic describe how noisy that intercept is. 'Keep' is τ² / (τ² + s²) with τ set to 2% a year: the share of the raw number that survives when estimates are pulled toward the average. Empirical Bayes replaces the 2% with the spread of true skill the data themselves support, which on this universe is zero.",
+        where="Every manager with at least five years of a scorable public record. The three-factor fit is the same one on the manager's dashboard and memo.",
+        why="A ranking by raw alpha treats a noisy 8% the same as a precise 8%. Discounting by the standard error is how the page refuses to do that, and the last column is what is left when even the 2% belief is not granted.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>How many managers?</h2></div>
-  <div class="card">{cchart}<p class="cap">The line is the expected information ratio of an equal-weight blend of the best N managers, adding one at a time. It rises while the added manager's alpha outweighs the dilution, then flattens. With the overlap between managers averaging {man['avg_corr']:+.2f}, diversification across managers is cheap, but the alpha to diversify is thin.</p></div>
+  <div class="card">{cchart}<p class="cap">The line is the expected information ratio of an equal-weight blend of the best N managers, adding one at a time. It rises while the added manager's alpha outweighs the dilution, then flattens. With the overlap between managers averaging {man['avg_corr']:+.2f}, diversification across managers is cheap, but the alpha to diversify is thin.</p>
+    {figure_note(
+        how="Managers are ranked by discounted information ratio. For N = 1, 2, 3, … an equal-weight blend of the top N is formed, and the chart plots that blend's expected information ratio using the discounted alphas and the residual-overlap matrix. No past returns are compounded here: it is a forecast of efficiency, not a growth chart.",
+        where="The same discounted alphas (τ = 2%) and residual correlations as the allocation tables. N on the axis is a count of managers, not a date.",
+        why="The usual pitch is that a fund of funds should hold dozens of names. The curve says how many this universe actually rewards before the next name is dilution. It is the chart that answers 'how many managers?' with a number instead of a habit.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>Does picking past winners work?</h2></div>
-  <div class="card">{oos_html}</div>
+  <div class="card">{oos_html}
+    {figure_note(
+        how="The sample is cut at a fixed date. Each manager's three-factor alpha is estimated only on the months before the cut, managers are ranked by that t-statistic, and the top ten and bottom ten are held with equal weights after the cut. Their second-period alpha uses the first period's factor exposures, so later data does not rewrite the ranking. Rank persistence is the rank correlation of first-half and second-half alpha across every candidate, not just the extremes.",
+        where="The same public reconstructed records as the rest of the page. The split date is chosen in advance as a round year, not searched to make a result.",
+        why="Everything above is a forecast under a belief. This is the test of whether picking on past alpha would actually have found future alpha. On this sample it would not, which is the finding a selection process has to live with.")}</div>
 </section>
 
 <section>
@@ -1171,25 +1255,41 @@ def decay_html(out_dir: Path | None = None) -> str | None:
 <section>
   <div class="sh"><h2>Predictor by predictor</h2></div>
   <div class="card tscroll"><table><thead><tr><th>predictor</th><th class="n">pooled AUC</th><th class="n">AUC by date</th><th class="n">t</th><th class="n">&gt; 0.5</th><th class="n">riskiest − safest fifth</th><th class="n">t</th><th class="n">Brier</th><th class="n">skill</th><th>evidence</th></tr></thead><tbody>{mrow}</tbody></table>
-  <p class="cap">For "riskiest minus safest fifth", the managers are ranked by the predictor at each date, and the column shows the realized excess return over the next twelve months of the fifth predicted most likely to lag, minus that of the fifth predicted least likely. A working predictor makes this negative. Brier is the mean squared error of the predicted probabilities, and skill is the improvement over always predicting the historical base rate, so a negative skill means the model's confidence was misplaced.</p></div>
+  <p class="cap">For "riskiest minus safest fifth", the managers are ranked by the predictor at each date, and the column shows the realized excess return over the next twelve months of the fifth predicted most likely to lag, minus that of the fifth predicted least likely. A working predictor makes this negative. Brier is the mean squared error of the predicted probabilities, and skill is the improvement over always predicting the historical base rate, so a negative skill means the model's confidence was misplaced.</p>
+    {figure_note(
+        how="Three predictors score every manager at every filing date on the chance they will trail the market over the next year. Last year's laggards simply ranks by the last twelve months' excess return. The regression and the learned model are refit at each date using only manager-quarters whose twelve-month outcome was already known, then they score that date's managers. AUC by date asks whether, within that date, the eventual laggards were ranked as riskier than the rest; 0.5 is a coin flip. The t-statistic is the average of those AUCs against 0.5, with standard errors that allow overlapping years to move together.",
+        where="Features are read off each manager's public holdings (concentration, turnover, crowding, purchases and sales) and from the reconstructed monthly returns through that date. The outcome is whether the next twelve months trailed the US market. Nothing from the year being predicted is used to predict it.",
+        why="A single AUC can look clever because one bad year hit everyone. Scoring within each date, then averaging, is the honest test of whether the filings distinguish who will fade. The table is here so last year's laggards, a simple regression and a learned model sit on the same scale.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>Cumulative edge over a coin flip</h2></div>
   <div class="card"><div class="legend">{legend}</div>{chart}
-  <p class="cap">Each line is the running sum of the AUC minus 0.5 at each filing date. A predictor with skill climbs steadily, and these wander.</p></div>
+  <p class="cap">Each line is the running sum of the AUC minus 0.5 at each filing date. A predictor with skill climbs steadily, and these wander.</p>
+    {figure_note(
+        how="At each filing date the predictor's AUC is computed within that date, 0.5 is subtracted, and the differences are added up over time. A coin flip contributes zero on average, so a line that climbs has been ranking the eventual laggards above the rest, date after date. A line that wanders around zero is noise accumulating. The three lines use the same dates, so they are comparable. This is not a growth-of-a-dollar chart and not a simulated portfolio: nothing is invested.",
+        where="The AUC at each date is the walk-forward score already in the table above. Last year's laggards, the regression and the learned model each produce one number per date from the public filings and the reconstructed returns known by then.",
+        why="An average AUC of 0.51 can be one lucky stretch or a persistent edge. The running sum makes that visible. If a vendor claimed a manager-selection model, this is the picture that would have to rise, and here it does not.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>One thing at a time</h2></div>
   <div class="card tscroll"><table><thead><tr><th>feature</th><th class="n">coverage</th><th class="n">rank IC</th><th class="n">t</th><th class="n">IC &gt; 0</th><th class="n">importance in learned model</th><th class="n">regression coefficient</th><th>evidence</th></tr></thead><tbody>{frow}</tbody></table>
-  <p class="cap">The rank IC is the rank correlation between the feature and the next twelve months' excess return across managers, date by date, averaged with Newey–West standard errors; positive means that more of the feature went with a better year. {n_sig} of {len(FEATURES)} features clear a t-statistic of 2, which is about what fourteen tries at noise would give. The importance and the regression coefficient (standardized, where positive means more likely to lag) come from the latest fit on {man.get('last_fit', {}).get('n_train', 0):,} rows; they show what the models lean on, not evidence that it works.</p></div>
+  <p class="cap">The rank IC is the rank correlation between the feature and the next twelve months' excess return across managers, date by date, averaged with Newey–West standard errors; positive means that more of the feature went with a better year. {n_sig} of {len(FEATURES)} features clear a t-statistic of 2, which is about what fourteen tries at noise would give. The importance and the regression coefficient (standardized, where positive means more likely to lag) come from the latest fit on {man.get('last_fit', {}).get('n_train', 0):,} rows; they show what the models lean on, not evidence that it works.</p>
+    {figure_note(
+        how="Each row is one number an analyst can read off a filing or a return history, used alone. Coverage is the share of manager-quarters where it is available. The rank IC is the rank correlation, date by date, between that feature and the next twelve months' excess return, then averaged. Importance is the share of the learned model's improvement attributed to that feature in the latest fit; the regression coefficient is the standardized weight in the latest logistic fit, where positive means more likely to lag.",
+        where="The same manager-quarter panel as the rest of the page. Importance and the coefficient are from the last fit only, so they describe what the models leaned on most recently, not a test that the feature works.",
+        why="If a combined model is a coin flip, the next question is whether any single ingredient had a pulse. Clearing a t-statistic of 2 on fourteen tries is about what noise would give, which is why the page does not promote a feature that happens to be largest in the latest fit.")}</div>
 </section>
 
 <section>
   <div class="sh"><h2>What the models say today — {esc(man['last'][:7])}</h2></div>
   <div class="card tscroll"><table><thead><tr><th>manager</th><th class="n">chance of lagging, learned model</th><th class="n">chance of lagging, regression</th><th class="n">rank by last year</th><th class="n">trailing 12m excess</th><th class="n">turnover</th><th class="n">HHI</th><th class="n">crowding</th></tr></thead><tbody>{wrow}</tbody></table>
-  <p class="cap">These are the twelve managers the learned model scores as riskiest at the latest filing date, with what the other two predictors make of them; the rank correlation of the learned model's ranking with the regression's is {rk[0]:+.2f}, and with last year's ranking {rk[1]:+.2f}. This is shown for transparency. Given the findings above, it is not a watchlist and should not be read as one.</p></div>
+  <p class="cap">These are the twelve managers the learned model scores as riskiest at the latest filing date, with what the other two predictors make of them; the rank correlation of the learned model's ranking with the regression's is {rk[0]:+.2f}, and with last year's ranking {rk[1]:+.2f}. This is shown for transparency. Given the findings above, it is not a watchlist and should not be read as one.</p>
+    {figure_note(
+        how="At the latest filing date each manager is scored by the learned model, the regression and last year's excess return, using only information known then. The twelve rows are the managers the learned model ranks as most likely to lag. Turnover, concentration (HHI) and crowding are the features as of that date, not the reason they appear here.",
+        where=f"The latest formation is {esc(man['last'][:7])}. Scores are the walk-forward models' outputs for that date, not a new fit that can see later returns.",
+        why="A model that cannot beat a coin flip still produces a ranking, and that ranking can look like a recommendation. Showing it next to the findings is how the page stops that. It is not a list of managers to fire.")}</div>
 </section>
 
 <section>

@@ -75,3 +75,31 @@ def test_simulation_tile_labels_are_covered():
     # the labels simpages.py renders (a simulation is not built in a fresh clone, so they are listed here)
     for lab in ["Alpha-maxing score", "Wealth-management score", "FF3 alpha", "Sharpe · IR", "Gross /yr", "Net of manager fees /yr", "Max drawdown", "Best / worst month"]:
         assert E.lookup(lab, "/sim/abc123/"), lab
+
+
+def test_charts_carry_a_how_this_was_calculated_note():
+    """Figures (not just tiles) on the three Manager Analysis notes, and on Active."""
+    needed = {
+        "/research/13f-signals": (R.signals13f_html, "This is not a made-up path", 6),
+        "/research/decay": (R.decay_html, "This is not a growth-of-a-dollar chart", 3),
+        "/research/fund-of-funds": (R.fof_html, "N on the axis is a count of managers", 4),
+    }
+    for path, (fn, marker, n) in needed.items():
+        doc = fn()
+        if doc is None:
+            pytest.skip(f"{path} not built")
+        assert marker in doc, (path, marker)
+        assert doc.count('class="how fig"') >= n, (path, doc.count('class="how fig"'))
+        assert "How this was calculated" in doc
+        assert "Where the numbers come from." in doc
+
+
+def test_active_story_tiles_have_notes():
+    from trackrecord.areas import area_html
+    doc = area_html(S.page, "active")
+    labels = E.tile_labels(doc)
+    assert labels, "the story should carry the same numbered tiles as the four notes"
+    missing = [l for l in labels if E.lookup(l, "/active") is None]
+    assert not missing, missing
+    out = E.annotate(doc, "/active")
+    assert out.count("how hw") == len(labels)

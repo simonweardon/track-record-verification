@@ -122,7 +122,8 @@ def test_research_data_route_rejects_traversal():
 
 def test_home_headline_states_what_the_site_does():
     doc = home_html(S.page, 1, 1)
-    assert "Due diligence on outside managers" in doc
+    assert "Portfolio Verification Tracker" in doc
+    assert "Due diligence on outside managers" not in doc
     assert "as working software" not in doc
     assert "disclosed holdings" in doc.lower() or "Disclosed holdings" in doc
     assert "ranking" in doc.lower()

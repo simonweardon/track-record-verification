@@ -135,6 +135,8 @@ def test_active_tab_is_one_backtested_story():
     assert "View the" in doc and "managers whose holdings" in doc
     assert "Bill Ackman" in doc and 'href="/f/pershing-square/"' in doc
     assert doc.count('class="mgr-list"') == 1
+    assert "disclosed holdings on purpose" in doc or "taken from those managers" in doc
+    assert "S&amp;P 500" in doc or "S&P 500" in doc
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc
     assert "<style>" in doc and ".chartbox" in doc
     from tests.test_plain_language import visible

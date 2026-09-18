@@ -88,3 +88,7 @@ def test_active_tab_is_one_backtested_story():
     # the story still names actual stocks from the latest trade list
     assert "Momentum score" in doc
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc
+    # dashboard drawing rules must be in a stylesheet, not dumped as page text
+    assert "<style>" in doc and ".chartbox" in doc
+    from tests.test_plain_language import visible
+    assert ".chartbox" not in visible(doc)

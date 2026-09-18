@@ -189,7 +189,7 @@ def active_html(page) -> str:
     n_buy = L.get("buys", "")
     n_sell = L.get("sells", "")
 
-    body = CSS + STORY_CSS + f"""
+    body = f"<style>{CSS}</style>" + STORY_CSS + f"""
 <div class="banner" role="note"><span class="bl">A backtest</span> This page walks through one demonstration mandate on public data, date by date, using only what was known then. It is not a live book, not a forecast, and not investment advice.</div>
 <header class="cover"><div class="cover-in">
   <div class="eyebrow">Active portfolios · one story</div>

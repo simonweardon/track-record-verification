@@ -778,7 +778,7 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
   <div class="cover-top"><div class="eyebrow">Active · Signal Research</div></div>
   <div class="gold-rule"></div>
   <h1>Signal Research</h1>
-  <p class="sub">Which stock characteristics predict next month's return? Eight classic signals are built for about {man['universe_avg']} stocks a month using only what was known at the time, and tested every month from {man['first'][:7]} to {man['last'][:7]}. {sel} That selection is the reason the <a href="/research/construction">Portfolio Construction</a> page trades the signal it trades.</p>
+  <p class="sub">A <b>signal</b> is one number per stock — a ranking score built only from public facts known at the time, such as how much the price rose over the past year, or how cheap the stock looks versus its book value. Higher means prefer the name; lower means prefer less of it. Eight classic signals are built for about {man['universe_avg']} stocks a month and tested every month from {man['first'][:7]} to {man['last'][:7]}. {sel} That selection is the reason the <a href="/research/construction">Portfolio Construction</a> page trades the signal it trades.</p>
   <dl class="meta">
     <div><dt>Months</dt><dd>{man['months']}</dd></div>
     <div><dt>Names / month</dt><dd>~{man['universe_avg']}</dd></div>

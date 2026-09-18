@@ -123,7 +123,10 @@ def test_active_tab_is_one_backtested_story():
     assert "Due Diligence on This Work" not in doc
     # no outbound research-module links left on the story
     assert "/research/" not in doc
-    assert "class=\"how fig\"" in doc
+    # no How & why / How this was calculated CTAs — they read as outbound links on this page
+    assert "class=\"how fig\"" not in doc
+    assert "How &amp; why" not in doc and "How this was calculated" not in doc
+    assert "Signal Research" not in doc
     assert "Momentum score" in doc
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc
     assert "<style>" in doc and ".chartbox" in doc

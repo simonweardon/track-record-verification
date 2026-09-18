@@ -78,7 +78,7 @@ def test_simulation_tile_labels_are_covered():
 
 
 def test_charts_carry_a_how_this_was_calculated_note():
-    """Figures (not just tiles) on the three Manager Analysis notes, and on Active."""
+    """Figures (not just tiles) on the three Manager Analysis notes."""
     needed = {
         "/research/13f-signals": (R.signals13f_html, "This is not a made-up path", 6),
         "/research/decay": (R.decay_html, "This is not a growth-of-a-dollar chart", 3),
@@ -94,12 +94,15 @@ def test_charts_carry_a_how_this_was_calculated_note():
         assert "Where the numbers come from." in doc
 
 
-def test_active_story_tiles_have_notes():
+def test_active_story_has_no_how_why_ctas():
+    """Active is self-contained: no How & why expanders (they look like outbound module links)."""
     from trackrecord.areas import area_html
     doc = area_html(S.page, "active")
     labels = E.tile_labels(doc)
     assert labels, "the story should carry the same numbered tiles as the four notes"
+    # registry still covers the labels (home card / other pages), but the story does not render them
     missing = [l for l in labels if E.lookup(l, "/active") is None]
     assert not missing, missing
-    out = E.annotate(doc, "/active")
-    assert out.count("how hw") == len(labels)
+    assert "How &amp; why" not in doc and 'class="how fig"' not in doc
+    assert "How this was calculated" not in doc
+    assert "Signal Research" not in doc

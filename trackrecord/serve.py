@@ -1349,7 +1349,11 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _html(self, doc: str, code: int = 200):
         from .explain import annotate
-        body = annotate(doc, urlparse(self.path).path).encode("utf-8")   # a "How & why" note under every tile
+        path = urlparse(self.path).path
+        # Active is one self-contained story; How & why expanders read as outbound CTAs there
+        if path != "/active":
+            doc = annotate(doc, path)
+        body = doc.encode("utf-8")
         self.send_response(code); self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", str(len(body)))
         self.end_headers(); self.wfile.write(body)

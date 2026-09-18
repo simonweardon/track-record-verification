@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from .dashboard import CSS, JS, diverging_bars, esc, line_chart, num, pct
-from .explain import CSS as EXPLAIN_CSS, figure_note
+from .explain import CSS as EXPLAIN_CSS
 from .research_pages import _signal_evidence
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,9 +130,11 @@ def active_html(page) -> str:
     feats = [s for s in lab.index if s not in ("linear", "xgboost")] if len(lab) else []
     n_clear = int((lab.loc[feats].spread_t >= 2).sum()) if feats and "spread_t" in lab.columns else 0
     ev_summary, _ = _signal_evidence()
-    # story is self-contained: do not link out to the old Active research modules
+    # story is self-contained: no outbound research links and no named-module CTAs
     if ev_summary:
         ev_summary = re.sub(r'<a href="/research/[^"]+">([^<]+)</a>', r"\1", ev_summary)
+        ev_summary = re.sub(r"\s+tested on Signal Research", " tested", ev_summary)
+        ev_summary = re.sub(r"\s+on Signal Research", "", ev_summary)
     c = conman.get("constraints", {})
     L = conman.get("latest", {})
     bias = riskman.get("bias", {})
@@ -277,29 +279,18 @@ def active_html(page) -> str:
   <h3>The latest trade list — {esc(form)}</h3>
   <p class="lede">{n_tr} tickets ({n_buy} buys, {n_sell} sells), holding {n_held} names. The six largest buys are below. A high momentum score earns the place; the bands keep the size in check. This is the actual list from the backtest.</p>
   <div class="picks">{picks}</div>
-  {figure_note(
-      how=f"On {esc(form)} each eligible stock is scored by its return from twelve months earlier to one month earlier. An optimiser maximises the weighted score inside the name cap, benchmark band, sector bands, active-share cap and turnover budget. These six cards are the largest buy tickets, with the momentum score that earned them a place. Share counts use that day’s close and a ${nav_m:,.0f} million demonstration book.",
-      where="Universe and benchmark from public quarterly holdings. Prices include dividends. Construction rebuilds momentum itself; it does not read Signal Research’s ranking file.",
-      why="A backtest that never names the stocks is only a return series. These cards are the process on the latest date.")}
+  <p class="note">On {esc(form)} each eligible stock is scored by twelve-month momentum (skipping the most recent month). An optimiser sets weights inside the name cap, benchmark band, sector bands, active-share cap and turnover budget. These six cards are the largest buy tickets from that day’s close on a ${nav_m:,.0f} million demonstration book.</p>
 
   <h3>Growth of one dollar</h3>
   <div class="card">
     <div class="legend">{legend}</div>
     {growth}
-    <p class="cap">Constrained backtest, unconstrained top tenth, and the managers’ aggregate book. Log scale. {cost_bps:.0f} bps charged after each rebalance on both active lines.</p>
-    {figure_note(
-        how="Each line is one dollar compounded by that book’s monthly return. At every quarter-end the constrained book is the optimiser’s solution from that date; between rebalances nothing is traded. The following quarter’s returns — unseen by the optimiser — are then applied.",
-        where=f"Monthly prices from {esc(first)} to {esc(last)}, the same holdings universe, and the constraints above.",
-        why="The constrained line is what a mandate could hold. The unconstrained line is what the bands cost.")}
+    <p class="cap">Constrained backtest, unconstrained top tenth, and the managers’ aggregate book. Log scale. {cost_bps:.0f} bps charged after each rebalance on both active lines. The constrained line is what a mandate could hold; the unconstrained line is what the bands cost.</p>
   </div>
   <div class="card">
     <h3 style="margin-top:0">Active return by year</h3>
     {act_bars}
-    <p class="cap">Constrained book minus the benchmark, calendar year sums. Blue means the backtest won that year.</p>
-    {figure_note(
-        how="Each year sums the monthly gaps between the constrained portfolio and the benchmark. No factors are removed.",
-        where="The same monthly backtest series as the growth chart.",
-        why="A few percent a year can be one lucky year. The bars show whether the rule was persistent.")}
+    <p class="cap">Constrained book minus the benchmark, calendar year sums. Blue means the backtest won that year. A few percent a year can be one lucky year; the bars show whether the rule was persistent.</p>
   </div>
   <p class="note">With no limits the top tenth delivered {u_ret}/yr of active return; inside the mandate, {pct(P.active_return, 1) if P is not None else 'n/a'} against a benchmark that returned {b_ret}/yr. Information ratio {num(P.information_ratio) if P is not None else 'n/a'} over {n_reb} quarters (standard error about 0.3) — a description of the process, not a claim of a live edge.</p>
   {tiles3}

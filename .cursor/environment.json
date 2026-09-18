@@ -1,0 +1,16 @@
+{
+  "name": "Track Record Verification",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "server",
+      "command": "PORT=8080 .venv/bin/python -m trackrecord serve"
+    }
+  ],
+  "ports": [
+    {
+      "name": "server",
+      "port": 8080
+    }
+  ]
+}

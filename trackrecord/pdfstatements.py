@@ -6,9 +6,16 @@ subtractions, change in value, ending value — by label, and reports per file e
 it found and what it could not.  Nothing is guessed: a value that isn't on the page stays
 blank and the pipeline marks the period accordingly.
 
-Flow timing: statements print period totals for additions/subtractions, not dates, so the
-flows are placed mid-period (the original Dietz approximation) and the statement's notes
-say so.  Dated flows can be added by hand in flows.csv for a sharper number.
+Two layouts are read.  Some custodians (Fidelity, Vanguard) print one labelled number per
+line.  Others (Robinhood, Schwab) print a small table whose columns are the opening and the
+closing balance, with a row per asset type and a total row; the column headings say which
+side is which, and the total row of that block is the beginning and ending value.
+
+Flow timing: when the statement only prints period totals for additions/subtractions the
+flows are placed mid-period (the original Dietz approximation) and the statement's notes say
+so.  When the activity list prints each cash transfer with its own date — Robinhood prints no
+transfer totals at all, only the list — those dates are used instead, which is sharper.  A
+dated list is only trusted over printed totals when the two agree.
 """
 from __future__ import annotations
 
@@ -21,6 +28,9 @@ import pandas as pd
 MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
 DATE = rf"(?:{MONTHS})\.?\s+\d{{1,2}},?\s+\d{{4}}|\d{{1,2}}/\d{{1,2}}/\d{{2,4}}"
 NUM = r"\(?-?\$?\s?-?[\d,]+(?:\.\d{2})?\)?"
+# a money amount: either it carries a currency sign, or it is written to the cent.  Bare
+# integers (quantities, account numbers, page numbers) are deliberately not amounts.
+AMT = r"\(?\s*-?\$\s?-?[\d,]+(?:\.\d{2})?\s*\)?|\(?\s*-?[\d,]+\.\d{2}\s*\)?"
 
 LABELS = {
     "beginning_value": [r"beginning\s+(?:account\s+|portfolio\s+|market\s+)?value", r"opening\s+(?:account\s+)?(?:value|balance)", r"beginning\s+balance", r"value\s+at\s+beginning"],
@@ -31,6 +41,19 @@ LABELS = {
     "stated_fees": [r"(?:total\s+)?fees(?:\s+and\s+charges)?", r"advisory\s+fees?", r"management\s+fees?"],
     "ending_value": [r"ending\s+(?:account\s+|portfolio\s+|market\s+)?value", r"closing\s+(?:account\s+)?(?:value|balance)", r"ending\s+balance", r"value\s+at\s+end", r"total\s+(?:account\s+)?value"],
 }
+
+# ---- two-column (opening / closing) summary blocks -------------------------------------
+COL_BEGIN = r"(?:opening|beginning|prior|previous|start(?:ing)?)"
+COL_END = r"(?:closing|ending|current|end(?:ing)?)"
+COL_WORD = r"(?:balance|value|market\s+value|amount|total)"
+COL_FILL = r"(?:period|month|year|account|portfolio)?\s*"          # "prior period balance"
+# the grand-total row of such a block
+TOTAL_RX = re.compile(r"(?:total|portfolio\s+value|net\s+(?:account|portfolio)\s+value)[a-z&,' ]*", re.I)
+
+# ---- cash transfers in the activity list ------------------------------------------------
+XFER_YES = re.compile(r"\b(?:ach|acats|wire|rtp|deposit|withdrawal|withdraw|transfer|contribution|distribution)\b", re.I)
+XFER_NO = re.compile(r"\b(?:dividend|interest|fee|buy|bought|sell|sold|option|expir\w*|assign\w*|exercis\w*|split|merger|reinvest\w*|gold|margin|tax|journal|reorgani\w*|sweep)\b", re.I)
+XFER_OUT = re.compile(r"\b(?:withdrawal|withdraw|debit|distribution|reversal|transfer\s+out|out)\b", re.I)
 
 
 def _num(tok: str) -> float | None:
@@ -62,6 +85,97 @@ def extract_text(data: bytes) -> str:
     import pymupdf
     doc = pymupdf.open(stream=data, filetype="pdf")
     return "\n".join(page.get_text("text") for page in doc)
+
+
+def _row_amounts(line: str) -> tuple[str, list[float]]:
+    """Split a table row into its leading label and the money amounts printed after it."""
+    line = re.sub(r"[ \t]+", " ", line).strip()
+    hits = list(re.finditer(AMT, line))
+    label = line[:hits[0].start()] if hits else line
+    vals = [v for v in (_num(h.group(0)) for h in hits) if v is not None]
+    return re.sub(r"[.:\s]+$", "", label).strip(), vals
+
+
+def _two_column_header(lines: list[str]) -> tuple[int, bool] | None:
+    """Find a heading that names an opening column and a closing column.
+
+    Returns (line index of the heading, True if the opening column is printed first).
+    A heading carries no money amounts — that is what tells it apart from a data row.
+    """
+    for k in range(len(lines)):
+        for span in (1, 2, 3):
+            if k + span > len(lines):
+                break
+            win = " ".join(lines[k:k + span])
+            if re.search(AMT, win):
+                break
+            mb = re.search(rf"\b{COL_BEGIN}\s+{COL_FILL}{COL_WORD}", win, re.I)
+            me = re.search(rf"\b{COL_END}\s+{COL_FILL}{COL_WORD}", win, re.I)
+            if mb and me and mb.start() != me.start():
+                return k, mb.start() < me.start()
+    return None
+
+
+def _two_column_values(lines: list[str]) -> tuple[float, float] | None:
+    """Beginning and ending value from an opening/closing summary table, if there is one."""
+    hdr = _two_column_header(lines)
+    if hdr is None:
+        return None
+    k, begin_first = hdr
+    rows: list[tuple[str, list[float]]] = []
+    for line in lines[k + 1:k + 20]:
+        label, vals = _row_amounts(line)
+        if len(vals) < 2:
+            if rows:
+                break               # the block has ended
+            continue                # still in a heading split over several lines
+        rows.append((label, vals))
+    if not rows:
+        return None
+    totals = [v for label, v in rows if TOTAL_RX.fullmatch(label)]
+    if totals:
+        left, right = totals[-1][0], totals[-1][-1]
+    elif len(rows) >= 2:
+        left, right = sum(v[0] for _, v in rows), sum(v[-1] for _, v in rows)
+    else:
+        return None
+    return (left, right) if begin_first else (right, left)
+
+
+def parse_cash_transfers(text: str, start: date | None = None, end: date | None = None) -> list[dict]:
+    """Dated deposits (+) and withdrawals (−) from the statement's activity list.
+
+    Only lines that begin with a date, name a cash transfer, and print an amount are taken;
+    trades, dividends, interest and fees are left out because they are not flows.
+    """
+    out: list[dict] = []
+    for raw in text.splitlines():
+        line = re.sub(r"[ \t]+", " ", raw).strip()
+        m = re.match(rf"^({DATE})\b", line)
+        if not m:
+            continue
+        d = _parse_date(m.group(1))
+        rest = line[m.end():].strip()
+        while True:                                    # a row can print several dates
+            m2 = re.match(rf"^({DATE})\b", rest)
+            if not m2:
+                break
+            rest = rest[m2.end():].strip()
+        if d is None or (start and d < start) or (end and d > end):
+            continue
+        hits = list(re.finditer(AMT, rest))
+        if not hits:
+            continue
+        label = rest[:hits[0].start()]
+        if not XFER_YES.search(label) or XFER_NO.search(label):
+            continue
+        amt = _num(hits[-1].group(0))
+        if amt is None or amt == 0:
+            continue
+        if amt > 0 and XFER_OUT.search(label):
+            amt = -amt
+        out.append(dict(date=d, amount=round(amt, 2), description=re.sub(r"[\s.:-]+$", "", label).strip()[:60]))
+    return out
 
 
 def parse_statement_text(text: str) -> dict:
@@ -112,9 +226,24 @@ def parse_statement_text(text: str) -> dict:
         if val is not None:
             out[field] = abs(val) if field in ("stated_deposits", "stated_withdrawals", "stated_fees") else val
             out["found"].append(field)
-        elif field in ("ending_value", "beginning_value"):
+    # ---- opening / closing columns: a table beats a single labelled number, because on a
+    #      two-column row the label sits next to the OPENING figure, not the closing one
+    two = _two_column_values(lines)
+    if two is not None:
+        out["beginning_value"], out["ending_value"] = two
+        out["found"].append("opening and closing columns")
+    for field in ("ending_value", "beginning_value"):
+        if field in out:
+            if field not in out["found"]:
+                out["found"].append(field)
+        else:
             out["missing"].append(field)
     return out
+
+
+def _flow_rows(acct: str, sid: str, transfers: list[dict]) -> list[dict]:
+    return [dict(account_id=acct, date=t["date"], amount=t["amount"], flow_type="deposit" if t["amount"] > 0 else "withdrawal",
+                 description=(t["description"] or "cash transfer") + " (dated from the activity list)", source_statement_id=sid) for t in transfers]
 
 
 def from_pdfs(files: list[tuple[str, bytes]], out: Path, label: str) -> tuple[dict, list[dict]]:
@@ -138,15 +267,37 @@ def from_pdfs(files: list[tuple[str, bytes]], out: Path, label: str) -> tuple[di
         ps = p.get("period_start") or (pe.replace(day=1))
         acct = f"{(p.get('custodian') or 'ACCT').upper()[:4]}_{p.get('account_last4', 'XXXX')}"
         sid = f"{acct}_{pe.isoformat()}"
+        # dated cash transfers from the activity list, where the statement prints one
+        xf = parse_cash_transfers(text, ps, pe)
+        dep_x = round(sum(t["amount"] for t in xf if t["amount"] > 0), 2)
+        wdr_x = round(-sum(t["amount"] for t in xf if t["amount"] < 0), 2)
+        stated_dep, stated_wdr = p.get("stated_deposits"), p.get("stated_withdrawals")
+        use_dated = bool(xf)
+        if xf and (stated_dep is not None or stated_wdr is not None):
+            # the list is only trusted over the printed totals when the two agree
+            use_dated = abs(dep_x - (stated_dep or 0.0)) <= 1.0 and abs(wdr_x - (stated_wdr or 0.0)) <= 1.0
+            if not use_dated:
+                rep["notes"] = "the activity list does not add up to the printed totals; the printed totals were used"
+        if xf and stated_dep is None and stated_wdr is None:
+            p["stated_deposits"], p["stated_withdrawals"] = dep_x, wdr_x
+            rep["stated_deposits"], rep["stated_withdrawals"] = dep_x, wdr_x
+            rep["found"] = ", ".join(filter(None, [rep["found"], "cash transfers from the activity list"]))
+        rep["transfers"] = len(xf) if use_dated else 0
         rows.append(dict(statement_id=sid, account_id=acct, custodian=p.get("custodian", "statement PDF"), period_start=ps, period_end=pe,
                          ending_value=p["ending_value"], beginning_value=p.get("beginning_value"), stated_deposits=p.get("stated_deposits"),
                          stated_withdrawals=p.get("stated_withdrawals"), stated_income=p.get("stated_income"), stated_fees=p.get("stated_fees"),
-                         stated_pnl=p.get("stated_pnl"), source_file=fn, source_pages="", notes="parsed from PDF; flows placed mid-period"))
-        mid = ps + (pe - ps) / 2
-        if p.get("stated_deposits"):
-            flows.append(dict(account_id=acct, date=mid, amount=round(p["stated_deposits"], 2), flow_type="deposit", description="period additions (date approximated: mid-period)", source_statement_id=sid))
-        if p.get("stated_withdrawals"):
-            flows.append(dict(account_id=acct, date=mid, amount=-round(p["stated_withdrawals"], 2), flow_type="withdrawal", description="period subtractions (date approximated: mid-period)", source_statement_id=sid))
+                         stated_pnl=p.get("stated_pnl"), source_file=fn, source_pages="",
+                         notes="parsed from PDF; " + ("cash transfers dated from the activity list" if (use_dated and xf) else
+                               "cash transfer dates approximated: mid-period" if (p.get("stated_deposits") or p.get("stated_withdrawals")) else
+                               "no cash transfers on this statement")))
+        if use_dated:
+            flows.extend(_flow_rows(acct, sid, xf))
+        else:
+            mid = ps + (pe - ps) / 2
+            if p.get("stated_deposits"):
+                flows.append(dict(account_id=acct, date=mid, amount=round(p["stated_deposits"], 2), flow_type="deposit", description="period additions (date approximated: mid-period)", source_statement_id=sid))
+            if p.get("stated_withdrawals"):
+                flows.append(dict(account_id=acct, date=mid, amount=-round(p["stated_withdrawals"], 2), flow_type="withdrawal", description="period subtractions (date approximated: mid-period)", source_statement_id=sid))
         reports.append(rep)
     if not rows:
         raise UploadError("none of the PDFs yielded a period and an ending value — " + "; ".join(f"{r['file']}: {r.get('error', 'unknown')}" for r in reports[:5]))
@@ -156,7 +307,9 @@ def from_pdfs(files: list[tuple[str, bytes]], out: Path, label: str) -> tuple[di
                           + ("skipped: " + "; ".join(f"{r['file']}: {r['error']}" for r in reports if r.get("error")) if any(r.get("error") for r in reports) else ""))
     out.mkdir(parents=True, exist_ok=True)
     st.reindex(columns=_cols()).to_csv(out / "statements.csv", index=False)
-    pd.DataFrame(flows, columns=["account_id", "date", "amount", "flow_type", "description", "source_statement_id"]).to_csv(out / "flows.csv", index=False)
+    keep = set(st.statement_id)
+    pd.DataFrame([f for f in flows if f["source_statement_id"] in keep],
+                 columns=["account_id", "date", "amount", "flow_type", "description", "source_statement_id"]).to_csv(out / "flows.csv", index=False)
     pd.DataFrame(columns=["statement_id", "account_id", "as_of_date", "identifier", "description", "asset_class", "quantity", "price", "market_value", "weight_pct"]).to_csv(out / "positions.csv", index=False)
     accts = st.account_id.unique()
     pd.DataFrame([dict(account_id=a, label=f"{label} — {a}", owner_type="principal", discretionary="Y", strategy="default", benchmark="US_MKT",

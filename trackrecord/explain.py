@@ -119,9 +119,15 @@ NOTES: list[tuple[str | None, str, str, str]] = [
      "This is a formal test of decay. With standard errors this size, halves of a record with constant true alpha will differ by more than two standard errors about one time in twenty, so a decline inside that range is not evidence of anything."),
 
     # ---------------------------------------------------------------- signal research
-    (r"alpha-lab", r"^strongest",
-     "For every signal, at every month-end, all stocks in the universe are ranked on the signal and on the following month's return, and the rank correlation between the two is the information coefficient (IC). The tile shows whichever of the eight signals has the most reliable monthly IC, judged by its t-statistic, and its average IC.",
-     "The IC is the first test of whether a signal has any predictive content. Around plus or minus 0.03 is typical of a usable stock signal, so it sets the scale for judging everything else on the page."),
+    (r"alpha-lab", r"^signals with .*evidence",
+     "Each signal is tested two ways every month: the rank correlation between the signal and the following month's return, and the return of the top tenth of the universe minus the bottom tenth. Both give a t-statistic over the whole sample, and a signal is counted here only if one of them reaches 2. The count is out of the eight characteristics tested; the fitted models are not included, because they are built from these same eight.",
+     "This is the result the page exists to produce: how many of the candidates survive contact with the data. A research process that cannot return a small number here is not testing anything."),
+    (r"alpha-lab", r"^best (?:of the eight|signal)",
+     "For the signal with the strongest evidence, the tile shows the top tenth of the universe minus the bottom tenth, annualized, with its t-statistic, its Sharpe ratio and its monthly rank correlation. Portfolios are rebuilt every month-end from what was known at the time, and each tenth is equally weighted.",
+     "This is the one candidate worth trading, and the size of the number is why: it sets what a portfolio built on it could plausibly earn before costs and constraints. The construction page takes this signal and nothing else."),
+    (r"alpha-lab", r"^learned model versus simple average$",
+     "The two models are scored on identical months, and the difference between their monthly rank correlations is averaged over the period, giving the t-statistic shown. Anything short of 2 means the sample cannot tell them apart.",
+     "It says whether a fitted model earns its complexity against a baseline with nothing to fit. On this sample it does not, which is the honest answer and the reason the portfolio is built on a single signal instead."),
     (r"alpha-lab", r"^learned model$",
      "A model that learns from all eight signals at once is trained on next-month returns, and its predictions are tested the same way as a single signal: ranked against the following month's returns, month by month. The first 36 months are held out entirely, and the model is refit every twelve months using only earlier data, so it never sees a month it is predicting.",
      "This is where learning is tried honestly. Compared with the simple average on identical months, it answers whether combining the signals cleverly adds anything on this universe."),

@@ -8,7 +8,8 @@ Three accepted shapes (CSV or XLSX):
 
 `returns` and `values` become one account with a notional or actual value path; nothing on
 them can be reconciled, so the pipeline marks every period unverified — which is the truth.
-The template shape is the only one that can reach "verified".
+Of these three the template shape is the only one that can reach "verified"; statement PDFs
+(see pdfstatements.py) can too, because they print a beginning value to chain against.
 """
 from __future__ import annotations
 
@@ -20,7 +21,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-MAX_BYTES = 5 * 1024 * 1024
+MAX_BYTES = 5 * 1024 * 1024          # per file
+MAX_TOTAL = 40 * 1024 * 1024         # per upload, so a long run of monthly statements fits
 
 
 class UploadError(Exception):
@@ -39,12 +41,47 @@ def _read_table(name: str, data: bytes) -> pd.DataFrame:
         raise UploadError(f"{name}: could not be read as a table ({e})")
 
 
+def _norm(c) -> str:
+    return re.sub(r"[^a-z]", "", str(c).lower())
+
+
 def _find_col(df: pd.DataFrame, *cands) -> str | None:
-    cols = {re.sub(r"[^a-z]", "", c.lower()): c for c in df.columns}
+    """The column a candidate name refers to, exactly first, then as part of a longer name.
+
+    Broker exports rarely call a column just "date": Robinhood writes "Activity Date",
+    others "As Of Date" or "Month End". A candidate of four letters or more is allowed to
+    match inside a longer heading so those files load without being edited first.
+    """
+    cols = {_norm(c): c for c in df.columns}
     for c in cands:
         if c in cols:
             return cols[c]
+    for c in cands:
+        if len(c) < 4:
+            continue
+        for k, orig in cols.items():
+            if c in k:
+                return orig
     return None
+
+
+# columns that say "this file is a list of transactions", not a history of the account
+TXN_COLS = {"transcode", "activitydate", "settledate", "tradedate", "processdate", "action",
+            "instrument", "symbol", "quantity", "price", "amount", "description", "commission"}
+
+
+def _transaction_export(df: pd.DataFrame) -> str | None:
+    """A message explaining why a transaction list cannot become a track record, or None."""
+    n = {_norm(c) for c in df.columns}
+    if len(n & TXN_COLS) < 4:
+        return None
+    who = "Robinhood's transaction export looks exactly like this. " if {"activitydate", "transcode"} <= n else ""
+    return ("this file lists individual transactions — each trade, dividend, fee and transfer — rather than "
+            "what the account was worth over time. " + who + "A transaction list never prints the account's "
+            "value at the end of each month, and that value is what a return is computed from, so a track "
+            "record cannot be built from it. Upload the monthly statements themselves instead, with the "
+            "Statement PDFs option: they print the opening and closing balance of every month. In Robinhood "
+            "they are under Account, then Menu, then Statements.")
 
 
 def _num(s: pd.Series) -> pd.Series:
@@ -84,7 +121,9 @@ def from_returns(name: str, data: bytes, out: Path, label: str) -> dict:
     df = _read_table(name, data)
     dc, rc = _find_col(df, "date", "month", "period", "year", "asof"), _find_col(df, "return", "ret", "monthlyreturn", "annualreturn", "netreturn", "grossreturn", "pct", "performance")
     if dc is None or rc is None:
-        raise UploadError(f"{name}: need a date column and a return column (found: {', '.join(df.columns)})")
+        why = _transaction_export(df)
+        raise UploadError(f"{name}: {why}" if why else
+                          f"{name}: need a date column and a return column (found: {', '.join(df.columns)})")
     d = pd.DataFrame({"date": _dates(df[dc]), "r": _num(df[rc])}).dropna().sort_values("date")
     if len(d) < 12:
         raise UploadError(f"{name}: only {len(d)} usable rows — need at least 12")
@@ -112,11 +151,14 @@ def from_returns(name: str, data: bytes, out: Path, label: str) -> dict:
 def from_values(name: str, data: bytes, out: Path, label: str) -> dict:
     df = _read_table(name, data)
     dc = _find_col(df, "date", "month", "period", "asof", "year")
-    vc = _find_col(df, "value", "endingvalue", "balance", "nav", "marketvalue", "totalvalue", "portfoliovalue")
-    fc = _find_col(df, "flow", "netflow", "cashflow", "deposit", "contribution", "depositwithdrawal", "flows")
+    vc = _find_col(df, "value", "endingvalue", "closingvalue", "closingbalance", "endingbalance", "balance", "nav",
+                   "marketvalue", "totalvalue", "portfoliovalue", "accountvalue", "equity")
+    fc = _find_col(df, "flow", "netflow", "cashflow", "netdeposits", "deposit", "contribution", "depositwithdrawal", "flows")
     wc = _find_col(df, "withdrawal", "withdrawals", "redemption")
     if dc is None or vc is None:
-        raise UploadError(f"{name}: need a date column and a value column (found: {', '.join(df.columns)})")
+        why = _transaction_export(df)
+        raise UploadError(f"{name}: {why}" if why else
+                          f"{name}: need a date column and a value column (found: {', '.join(df.columns)})")
     d = pd.DataFrame({"date": _dates(df[dc]), "v": _num(df[vc])})
     d["f"] = _num(df[fc]) if fc else 0.0
     if wc:

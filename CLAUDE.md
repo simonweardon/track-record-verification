@@ -39,7 +39,22 @@ CUSIPs can be fetched — `map_cusips` now degrades gracefully instead of crashi
 companies that were bought or taken private; closing it needs a paid point-in-time price source.
 151 tests.
 
-## Earlier status (Sept 17, 2026)
+## Earlier status (Sept 17, 2026, later) — Signal Research reframed
+Signal Research reframed after Simon asked whether the alpha lab adds anything. Answer, on the numbers: it is load-bearing
+(`riskmodel.py` imports `build_panel` and `SIGNALS` — the eight point-in-time z-scores *are* the risk model's style
+exposures, so it cannot be deleted), but its advertised headline — learned model vs simple average — was a dead heat
+(ic_diff_t −0.44, 52% of months) and duplicated the lesson `decay.py` already teaches better. Meanwhile the one real
+result was being thrown away: of the eight signals only momentum's decile spread clears t ≥ 2 (2.23, +15.3%/yr; on the
+IC *nothing* clears 2, momentum peaks at 1.53 — the page now says both), and the construction page was disclaiming its
+own choice ("chosen because it is transparent ... not because it is good"). So: the lab page leads with the selection,
+the horse race moved to a later section titled "Does learning add anything?", the construction page and its method note
+now cite the evidence via `_signal_evidence()` (read from the committed CSV so the claim cannot drift), and the Active
+card shows "1 of 8 signals with evidence behind them". (Numbers here are as re-derived after the renamed
+companies were recovered — see the status above; the pages read them from the committed CSVs, so they moved on their own.) Also corrected a false claim: the latest-ranking table said it
+"feeds Portfolio Construction" — construction rebuilds the same momentum definition itself and reads none of the lab's
+CSVs. 143 tests.
+
+## Earlier status (Sept 17, 2026) — Due Diligence on This Work
 **Due Diligence on This Work** (`trackrecord/limits.py`, `/research/limits`, card on the home page under "Before you trust
 any of it"): the eight objections a reviewer raises about the site, each answered with a computed number, all rebuilt by
 `python -m trackrecord limits` (~6 min) into `data/research/limits/`. Findings and the surfaces they changed are in the
@@ -53,6 +68,20 @@ and grid items kept `min-width:auto`, so a wide table held the whole page open. 
 `min-width:0` on grid items — **every page fits at 390/768/1280 px**, which several did not before. 143 tests (4 of them need R, which is installed locally).
 Rebuild order after data changes: alpha-lab → risk-model; construct, fund-of-funds and limits are independent, but
 limits reads construction's trade list and the r-verify / decay manifests, so run it last.
+
+## Earlier status (Sept 17, 2026) — Robinhood uploads
+Robinhood uploads fixed (Simon reported they did not work). Two failures, both real: (1) Robinhood's monthly statement
+PDFs print a portfolio-summary *table* — Opening Balance / Closing Balance columns, a row per asset type, a Total row —
+not the labelled line per number the parser looked for, so every file was skipped and the upload errored out;
+`pdfstatements.py` now detects such a heading (a line naming both columns and carrying no money amounts), reads the
+total row (or sums the rows when there is no total), and lets the table win over the label, which also fixes Schwab-style
+statements where reading the label took the *opening* figure as the ending value. (2) Robinhood prints no deposit or
+withdrawal totals, only a dated activity list, so `parse_cash_transfers` takes the dated transfers from it (trades,
+dividends, interest and fees excluded) — used over printed totals only when the two agree, so the list also checks the
+summary. Verified end to end through the server: thirteen Robinhood-shaped statements → 13/13 periods *verified* on the
+chain check, dated flows, dashboard built. Also: a broker transaction export (Robinhood's activity CSV) is recognised
+and refused with the reason and what to upload instead; `_find_col` matches "Activity Date"-style headings; upload cap
+is now 40 MB per upload (was a confusing 30 MB "5 MB per file" message). 137 tests.
 
 ## Earlier status (Sept 16, 2026, night)
 Passive area removed entirely (Simon's call after the pandering audit: the 5% JD line was not worth a tab that read as

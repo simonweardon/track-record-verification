@@ -370,17 +370,29 @@ def tile_labels(doc: str) -> list[str]:
 
 CSS = """<style>
 details.how{margin-top:10px;font-size:13px}
-details.how summary{cursor:pointer;color:var(--navy,#1b2a41);font:600 9.5px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;list-style:none;display:inline-flex;align-items:center;gap:6px}
+details.how summary{cursor:pointer;color:var(--navy,#1b2a41);font:600 9.5px/1.3 "Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;list-style:none;display:inline-flex;align-items:center;gap:6px}
 details.how summary::-webkit-details-marker{display:none}
 details.how summary::before{content:"";width:5px;height:5px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(-45deg)}
 details.how[open] summary::before{transform:rotate(45deg)}
 details.how summary:focus-visible{outline:2px solid var(--gold,#b08d57);outline-offset:2px}
-details.how .howb{margin-top:8px;line-height:1.5;color:var(--ink2,#3a3f47)}
-details.how .howb p{margin:0 0 6px}
+details.how .howb{margin-top:8px;line-height:1.55;color:var(--ink,#23262b)}
+details.how .howb p{margin:0 0 8px}
+details.how .howb p:last-child{margin-bottom:0}
+details.how .howb b{color:var(--navy,#1b2a41)}
 details.how.fig{margin-top:12px}
 details.how.fig summary{border:1px solid var(--gold,#8c7a56);padding:6px 11px;letter-spacing:.14em;color:var(--gold,#8c7a56);background:var(--surface,#fdfcf9)}
 details.how.fig[open] summary{border-bottom-color:transparent}
-details.how.fig .howb{border:1px solid var(--gold,#8c7a56);border-top:0;padding:10px 12px 4px;background:var(--surface,#fdfcf9)}
-@media(prefers-color-scheme:dark){details.how summary{color:var(--gold-l,#c9b48a)}
-details.how.fig summary,details.how.fig .howb{border-color:var(--gold,#c9b48a);background:transparent}}
+details.how.fig .howb{border:1px solid var(--gold,#8c7a56);border-top:0;padding:10px 12px 8px;background:var(--surface,#fdfcf9)}
+@media(prefers-color-scheme:dark){
+details.how summary{color:var(--gold-l,#c9b48a)}
+details.how .howb{color:var(--ink,#e8e4da)}
+details.how .howb b{color:var(--gold-l,#c9b48a)}
+details.how.fig summary{border-color:var(--gold,#c9b48a);background:var(--surface-2,#22334d);color:var(--gold-l,#c9b48a)}
+details.how.fig .howb{border-color:var(--gold,#c9b48a);background:var(--surface-2,#22334d);color:var(--ink,#e8e4da)}
+}
+:root[data-theme="dark"] details.how summary{color:var(--gold-l,#c9b48a)}
+:root[data-theme="dark"] details.how .howb{color:var(--ink,#e8e4da)}
+:root[data-theme="dark"] details.how .howb b{color:var(--gold-l,#c9b48a)}
+:root[data-theme="dark"] details.how.fig summary{border-color:var(--gold,#c9b48a);background:var(--surface-2,#22334d);color:var(--gold-l,#c9b48a)}
+:root[data-theme="dark"] details.how.fig .howb{border-color:var(--gold,#c9b48a);background:var(--surface-2,#22334d);color:var(--ink,#e8e4da)}
 </style>"""

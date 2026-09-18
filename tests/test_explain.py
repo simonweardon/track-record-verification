@@ -28,6 +28,16 @@ def test_annotate_adds_one_note_per_tile_and_is_idempotent():
     assert E.annotate(keep, "/f/x/memo") == keep
 
 
+def test_how_why_notes_readable_in_dark_mode():
+    """How & why / How this was calculated must not use dark ink on a transparent navy panel."""
+    css = E.CSS
+    assert "--ink2" not in css  # site tokens use --ink-2; the typo fell back to near-black
+    assert "background:transparent" not in css
+    assert "var(--ink," in css
+    assert "var(--surface-2" in css
+    assert "line-height:1.55" in css
+
+
 PAGES = [("/research/alpha-lab", R.alphalab_html), ("/research/risk-model", R.riskmodel_html), ("/research/construction", R.construction_html),
          ("/research/r-verify", R.rverify_html), ("/research/decay", R.decay_html), ("/research/fund-of-funds", R.fof_html),
          ("/research/13f-signals", R.signals13f_html), ("/research/limits", R.limits_html)]

@@ -115,8 +115,12 @@ def test_active_tab_is_one_backtested_story():
     assert "one number per stock" in doc.lower() or "One number per stock" in doc
     assert "rank" in doc.lower()
     assert "twelve-month momentum" in doc.lower()
-    assert "/research/alpha-lab" in doc and "/research/construction" in doc
-    assert "/research/risk-model" in doc and "/research/r-verify" in doc
+    assert "/research/alpha-lab" not in doc and "/research/construction" not in doc
+    assert "/research/risk-model" not in doc and "/research/r-verify" not in doc
+    assert "Full research note" not in doc and "Full risk note" not in doc
+    assert "Full construction note" not in doc and "Full verification note" not in doc
+    # method page is fine to keep; the four Active modules are not
+    assert "/research/limits" in doc or "Due Diligence on This Work" in doc
     assert "class=\"how fig\"" in doc
     assert "Momentum score" in doc
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc

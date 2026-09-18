@@ -8,6 +8,7 @@ at that date — not a live book and not a forecast.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -44,9 +45,6 @@ main.wrap.story > * + *{margin-top:28px}
 .define p{margin:0;font-size:15px;line-height:1.5;color:var(--ink)}
 .story .tiles{margin:12px 0 0;gap:10px}
 .story .tile{padding:12px 14px}
-.story-rail{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
-.story-rail a{font:600 10px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--navy);border:1px solid var(--line);padding:7px 10px;text-decoration:none}
-.story-rail a:hover{border-color:var(--gold)}
 .picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:10px;margin:10px 0 0}
 .pick{background:var(--surface);border:1px solid var(--line);padding:12px 14px;min-width:0}
 .pick .tk{font:600 16px/1.2 var(--sans);color:var(--navy)}
@@ -132,6 +130,9 @@ def active_html(page) -> str:
     feats = [s for s in lab.index if s not in ("linear", "xgboost")] if len(lab) else []
     n_clear = int((lab.loc[feats].spread_t >= 2).sum()) if feats and "spread_t" in lab.columns else 0
     ev_summary, _ = _signal_evidence()
+    # story is self-contained: do not link out to the old Active research modules
+    if ev_summary:
+        ev_summary = re.sub(r'<a href="/research/[^"]+">([^<]+)</a>', r"\1", ev_summary)
     c = conman.get("constraints", {})
     L = conman.get("latest", {})
     bias = riskman.get("bias", {})
@@ -253,13 +254,11 @@ def active_html(page) -> str:
   <p class="lede">Eight candidate signals were built each month for about {labman.get('universe_avg', '')} stocks held by five or more of the managers and priced at a dollar or more: momentum, short-term reversal, low volatility, size, value, profitability, cash flow and earnings yield. Each signal is just that stock’s score on that rule, using only information public at the time. The test asks whether a higher score went with a higher return next month.</p>
   {tiles1}
   <p class="note">{ev_summary.strip() or "Twelve-month momentum is the characteristic the later steps trade."} A rank-correlation test does not clear the same bar even for momentum, and a learned model of all eight does not beat a simple average. So the book trades momentum alone.</p>
-  <p class="story-rail"><a href="/research/alpha-lab">Full research note</a></p>
 
   <h3>2 · Risk — how much the book might move</h3>
   <p class="lede">Each stock’s next month is explained by the market, those same eight characteristics, and its industry. What is left is stock-specific risk. Together they forecast portfolio volatility and are checked against what then happened.</p>
   {tiles2}
   <p class="note">This model is a little too confident ({float(bias.get('random', float('nan'))):.2f} vs 1.00) and explains about {float(riskman.get('r2_avg', 0)):.0%} of a typical month. Construction reports that forecast as tracking error; the hard caps are the position and sector bands below.</p>
-  <p class="story-rail"><a href="/research/risk-model">Full risk note</a></p>
 
   <h3>3 · Construction — rules that turn the ranking into tickets</h3>
   <p class="lede">Mandate: ${nav_m:,.0f} million, long-only, fully invested. Name cap {c.get('max_weight', 0):.0%}; active band {c.get('active_band', 0):.0%} vs the benchmark; sector band {c.get('sector_band', 0):.0%}; active share ≤ {c.get('active_share', 0):.0%}; one-way turnover ≤ {c.get('turnover', 0):.0%} a quarter; {cost_bps:.0f} bps per dollar traded. The benchmark is everything the managers own that quarter, in dollars — not a published index.</p>
@@ -269,7 +268,6 @@ def active_html(page) -> str:
     <div><span class="when-lab">How they are ranked</span><span class="when-val">By the momentum signal: twelve-month return, skipping the most recent month, then standardized across the universe on that date so the typical stock is near zero and a strong recent winner is positive.</span></div>
     <div><span class="when-lab">What then happens</span><span class="when-val">The optimiser sets weights inside the bands. Names that left are sold. The book is held until the next quarter.</span></div>
   </div>
-  <p class="story-rail"><a href="/research/construction">Full construction note</a></p>
 </article>
 
 <article class="part reveal" id="product">
@@ -310,7 +308,6 @@ def active_html(page) -> str:
   <p class="lede">Every headline statistic on every manager was recalculated by a second implementation against the same aligned returns. The two share no code and agree to computer precision. That rules out quiet arithmetic errors; it does not make the next quarter look like the last {n_reb}.</p>
   {tiles4}
   <p class="note">What the check cannot reach: names bought or taken private never enter the universe; disclosed holdings are the long US book; the 45-day filing delay is baked into every date. Measured on <a href="/research/limits">Due Diligence on This Work</a>.</p>
-  <p class="story-rail"><a href="/research/r-verify">Full verification note</a></p>
 </article>
 
 <div class="foot">

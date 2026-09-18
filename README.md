@@ -100,7 +100,7 @@ lag the names just sold; the one apparent anomaly (least-crowded names) sits exa
 survivorship bias lives and is reported as unreliable.
 
 ## The site, by job area
-Every computed number on the site — research-note tiles, memo and dashboard tiles, the stats on the home cards — carries a **How & why** toggle: how it was calculated (inputs, formula, the function in the code) and why it is on the page (the decision it informs). The notes live in `trackrecord/explain.py`; a test fails if a number is missing one.
+Every computed number on a research note, memo or dashboard carries a **How & why** toggle: how it was calculated (inputs, formula, the function in the code) and why it is on the page (the decision it informs). The notes live in `trackrecord/explain.py`; a test fails if a number is missing one. Home and area tools are plain links to those pages.
 
 - **Active** — `alpha-lab`: eight point-in-time signals (prices + SEC XBRL fundamentals), ICs, deciles, equal-weight
   linear composite vs walk-forward xgboost (finding: tree ≈ line); `risk-model`: Barra-style fundamental factor

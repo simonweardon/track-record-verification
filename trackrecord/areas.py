@@ -4,9 +4,8 @@
     External managers  manager verification and screening, due-diligence memos, holdings
                        research, manager decay model, fund-of-funds construction
 
-Every card's numbers are read from the committed CSVs under data/research/ (or the
-leaderboard), so nothing on these pages can go stale, and a tool whose data is missing
-is simply not shown rather than shown with a broken claim.
+A tool whose committed CSVs under data/research/ are missing is simply not shown.
+Each button is one link to that tool's page.
 """
 from __future__ import annotations
 
@@ -14,8 +13,6 @@ import csv
 import html
 import json
 from pathlib import Path
-
-from .explain import CSS as EXPLAIN_CSS
 
 ROOT = Path(__file__).resolve().parents[1]
 R = ROOT / "data" / "research"
@@ -55,70 +52,64 @@ def _num(x, d=None):
 
 
 def tool_cards() -> dict[str, list[dict]]:
-    """Live tools by area.  Each: href, eyebrow, title, what, stats [(value, label)].
+    """Live tools by area.  Each: href, title, what.
 
-    Active is one story page now (/active), so the home lists a single card into that
+    Active is one story page now (/active), so the home lists a single button into that
     walk-through rather than four separate research modules. The full notes remain
-    linked from inside the story. Manager Analysis still has one card per tool.
+    linked from inside the story. Manager Analysis still has one button per tool.
     """
     cards = {"active": [], "external": []}
 
     # ---- active: one entry into the story
     lab, labman = _rows("alpha-lab/summary.csv", "signal"), _man("alpha-lab/manifest.json")
     con, conman = _rows("construction/summary.csv", "key"), _man("construction/manifest.json")
-    rv = _man("r-verify/manifest.json")
     if lab and labman and con and conman:
-        tested = {k: r for k, r in lab.items() if k not in ("linear", "xgboost")}
-        kept = [r for r in tested.values() if _num(r.get("spread_t"), 0) >= 2]
-        P = con.get("portfolio", {})
         cards["active"].append(dict(
             href="/active",
-            eyebrow="From ranking scores to the tickets a dealer would receive",
             title="How ranking scores became this trade list",
             what="One backtested mandate on public data: which stock ranking score predicted next month's return, "
                  "how much risk a book on it would take, which names were chosen and when, and whether the arithmetic "
-                 "survives a second look.",
-            stats=[(f"{len(kept)} of {len(tested)}", "signals with evidence behind them"),
-                   (f"{_num(P.get('active_return'), 0) * 100:+.1f}%", "active return per year"),
-                   (f"{conman.get('rebalances', '')}", "rebalances")]))
+                 "survives a second look."))
     elif lab and labman:
         # story still opens even if construction has not been built in this clone
-        tested = {k: r for k, r in lab.items() if k not in ("linear", "xgboost")}
-        kept = [r for r in tested.values() if _num(r.get("spread_t"), 0) >= 2]
         cards["active"].append(dict(
             href="/active",
-            eyebrow="From ranking scores to the tickets a dealer would receive",
             title="How ranking scores became this trade list",
-            what="One backtested mandate on public data, told as objective, process and product.",
-            stats=[(f"{len(kept)} of {len(tested)}", "signals with evidence behind them"),
-                   (f"{rv.get('managers', '')}" if rv.get("managers") else "—", "managers checked")]))
+            what="One backtested mandate on public data, told as objective, process and product."))
 
     # ---- external
     sig, sigman = _rows("13f-signals/summary.csv", "key"), _man("13f-signals/manifest.json")
     if sig and sigman:
         t = _num(sig.get("BEST1", {}).get("carhart_t"))
-        cards["external"].append(dict(href="/research/13f-signals", eyebrow="Can you make money by copying what the best managers own?",
+        cards["external"].append(dict(
+            href="/research/13f-signals",
             title="Holdings Research",
-            what=f"Every manager's public quarterly holdings are turned into portfolios of their biggest positions, their most crowded stocks and their newest purchases, and tested for whether they beat the market. "
-                 f"{'The finding is that nothing survives the 45-day delay before the holdings become public.' if t is None or abs(t) < 2 else 'The finding is that one spread survives the 45-day delay before the holdings become public.'}",
-            stats=[(f"{sigman.get('managers', '')}", "managers"), (f"{sigman.get('quarters', '')}", "quarters"), (f"{_num(sigman.get('positions'), 0):,.0f}", "positions")]))
+            what=("Every manager's public quarterly holdings are turned into portfolios of their biggest positions, "
+                  "their most crowded stocks and their newest purchases, and tested for whether they beat the market. "
+                  + ("The finding is that nothing survives the 45-day delay before the holdings become public."
+                     if t is None or abs(t) < 2 else
+                     "The finding is that one spread survives the 45-day delay before the holdings become public."))))
     dec, decman = _rows("decay/summary.csv", "model"), _man("decay/manifest.json")
     if dec and decman.get("managers"):
-        xg, lg, ps = dec.get("xgboost", {}), dec.get("logistic", {}), dec.get("persist", {})
         best_t = max(_num(r.get("auc_cs_t"), 0) for r in dec.values())
-        cards["external"].append(dict(href="/research/decay", eyebrow="Can a manager's filings say who will lag next year?",
+        cards["external"].append(dict(
+            href="/research/decay",
             title="Manager Decay Model",
-            what=f"For {decman['managers']} managers at every quarterly filing, the portfolio's concentration, turnover, crowding, recent trades and recent performance are used to predict who will trail the market over the next twelve months. "
-                 f"{'The finding is that nothing detectable predicts it, and the page shows how a carelessly built test would claim otherwise.' if best_t < 2 else 'The finding is a weak signal, and the page shows how a carelessly built test would overstate it.'}",
-            stats=[(f"{_num(xg.get('auc_cs_mean'), 0.5):.3f}", "learned model"), (f"{_num(lg.get('auc_cs_mean'), 0.5):.3f}", "regression"),
-                   (f"{_num(ps.get('auc_cs_mean'), 0.5):.3f}", "last year's laggards")]))
+            what=(f"For {decman['managers']} managers at every quarterly filing, the portfolio's concentration, "
+                  "turnover, crowding, recent trades and recent performance are used to predict who will trail "
+                  "the market over the next twelve months. "
+                  + ("The finding is that nothing detectable predicts it, and the page shows how a carelessly "
+                     "built test would claim otherwise."
+                     if best_t < 2 else
+                     "The finding is a weak signal, and the page shows how a carelessly built test would overstate it."))))
     fof = _man("fund-of-funds/manifest.json")
     if fof.get("managers"):
-        cards["external"].append(dict(href="/research/fund-of-funds", eyebrow="How should money be split across the managers that pass?",
+        cards["external"].append(dict(
+            href="/research/fund-of-funds",
             title="Fund of Funds",
-            what="Each manager's measured skill is discounted for how noisy its estimate is, the managers' returns are checked for overlap, and the money is allocated to the combination with the best expected result. "
-                 "The page shows how many managers diversification actually rewards.",
-            stats=[(f"{fof.get('managers')}", "candidates"), (f"{fof.get('selected')}", "selected"), (f"{_num(fof.get('ir_blend'), 0):.2f}", "expected information ratio")]))
+            what="Each manager's measured skill is discounted for how noisy its estimate is, the managers' returns "
+                 "are checked for overlap, and the money is allocated to the combination with the best expected result. "
+                 "The page shows how many managers diversification actually rewards."))
     return cards
 
 
@@ -127,29 +118,21 @@ def method_card() -> dict | None:
     m = _man("limits/manifest.json")
     if not m.get("managers"):
         return None
-    return dict(href="/research/limits", eyebrow="What would a reviewer object to?",
+    return dict(href="/research/limits",
                 title="Due Diligence on This Work",
                 what="Every tool here puts hard questions to an outside manager. This page puts the same questions to the work itself: "
                      "why this set of stocks, what is missing from it, whether the portfolio result matches the signal behind it, what disclosed "
-                     "holdings can and cannot say about a manager, and how current the data is. Each answer is a number, and the unflattering ones are kept.",
-                stats=[(f"{m.get('widest_universe', 0):,}", "widest set of stocks tested"),
-                       (f"{_num(m.get('coverage_last'), 0):.0%}", "of holdings reach a price"),
-                       (f"{m.get('long_short', 0)} of {m.get('managers', 0)}", "records that are a long book only")])
+                     "holdings can and cannot say about a manager, and how current the data is. Each answer is a number, and the unflattering ones are kept.")
 
 
-CARD_CSS = EXPLAIN_CSS + """<style>
-.rcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:14px;margin:6px 0 10px}
-.rcard{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:18px 20px;text-decoration:none;color:var(--ink)}
-.rcard .eyeb{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
-.rcard .rt{font:400 21px/1.2 var(--serif);color:var(--navy);margin:8px 0 6px}
+CARD_CSS = """<style>
+.rcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px;margin:6px 0 10px}
+.rcard{display:flex;flex-direction:column;min-width:0;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:18px 20px;text-decoration:none;color:var(--ink)}
+.rcard .rt{font:400 21px/1.2 var(--serif);color:var(--navy);margin:0 0 6px}
 .rcard .rw{font-size:13.5px;color:var(--ink2);line-height:1.5;flex:1}
-.rcard .rs{display:flex;gap:18px;margin:14px 0 0;flex-wrap:wrap}.rcard .rs div{display:grid;gap:3px}
-.rcard .rs .v{font:600 16px/1 var(--sans);color:var(--navy)}
-.rcard .rs .l{font:600 8.5px/1.2 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.rcard{position:relative}.rcard .rt a{color:inherit;text-decoration:none}.rcard .rt a::after{content:"";position:absolute;inset:0}
-.rcard .rs div{position:relative;z-index:1}.rcard .rs div:has(details[open]){flex-basis:100%}.rcard details.how{margin-top:6px}.rcard details.how .howb{font-size:12.5px}
 .rcard .go{margin-top:14px;font:600 9.5px/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
 .rcard:hover{border-color:var(--gold)}
+.rcard:hover .go{text-decoration:underline}
 .areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:14px;margin:26px 0 0}
 .area{display:grid;gap:8px;padding:22px 24px;text-decoration:none;border:1px solid var(--goldl);color:var(--coverink);background:rgba(232,228,218,.04)}
 .area .t{font:400 24px/1.15 var(--serif)}.area .s{font-size:13.5px;line-height:1.5;color:var(--covermuted)}.area .n{font:600 9.5px/1.3 var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--goldl);margin-top:6px}
@@ -159,12 +142,13 @@ CARD_CSS = EXPLAIN_CSS + """<style>
 
 
 def cards_html(cards: list[dict]) -> str:
-    from .explain import note_html
+    """Each tool is one link: the whole card goes to its page."""
     out = ""
     for c in cards:
-        st = "".join(f"<div><span class='v'>{html.escape(str(v))}</span><span class='l'>{html.escape(l)}</span>{note_html(l, c['href'])}</div>" for v, l in c["stats"])
-        out += (f"<div class='rcard'><div class='eyeb'>{html.escape(c['eyebrow'])}</div><div class='rt'><a href=\"{c['href']}\">{html.escape(c['title'])}</a></div>"
-                f"<div class='rw'>{c['what']}</div><div class='rs'>{st}</div></div>")
+        out += (f"<a class='rcard' href=\"{html.escape(c['href'], quote=True)}\">"
+                f"<span class='rt'>{html.escape(c['title'])}</span>"
+                f"<span class='rw'>{html.escape(c['what'])}</span>"
+                f"<span class='go'>Open &rarr;</span></a>")
     return out
 
 

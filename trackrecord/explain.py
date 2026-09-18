@@ -189,7 +189,7 @@ NOTES: list[tuple[str | None, str, str, str]] = [
     (r"construction", r"^benchmark$",
      "The benchmark is everything the managers own, added together: every manager's disclosed positions summed in dollars each quarter and held until the next filing. Its monthly return is chained and converted to a yearly rate, with its volatility and largest fall over the same months.",
      "The constructor is measured against what the managers collectively own, rather than a published index, because the signal comes from their filings. Everything above is relative to this."),
-    (r"construction", r"^rebalances$",
+    (r"construction|/active", r"^rebalances$",
      "This is the number of quarter-ends, 45 days after each filing date, on which the optimiser was run and a trade list was produced.",
      "This is the sample size behind the active-return and information-ratio figures. With around 50 quarters, the information ratio's standard error is about 0.3, which is why no claim of skill is made from it."),
 

@@ -185,9 +185,9 @@ def home_html(page, n_managers: int, n_scorable: int) -> str:
         sections += ("<h2 data-n='Method' id='method'>Before you trust any of it</h2>"
                      "<p class='note'>The same scrutiny the rest of the site applies to other people's records, applied to this one.</p>"
                      f"<div class='rcards'>{cards_html([method])}</div>")
-    return page("Global Equity — quantitative portfolio management", CARD_CSS + f"""<div class="banner"><b>Public data.</b> Every tool runs on public information: managers' quarterly holdings filings, listed funds' prices and the standard academic market factors. Nothing here is investment advice.</div>
-<header class="cover"><div class="cover-in"><div class="eyebrow">Quantitative portfolio management · global equity</div><div class="rule"></div><h1>The work of a portfolio manager,<br>as working software</h1>
-<p class="sub">One tool for each part of the job: running an active stock portfolio and evaluating outside managers. Everything is built on public data and reports what it finds, including when the finding is nothing.</p>
+    return page("Manager due diligence and active equity — public data", CARD_CSS + f"""<div class="banner"><b>Public data.</b> Every tool runs on public information: managers' quarterly holdings filings, listed funds' prices and the standard academic market factors. Nothing here is investment advice.</div>
+<header class="cover"><div class="cover-in"><div class="eyebrow">Quantitative portfolio management · global equity</div><div class="rule"></div><h1>Due diligence on outside managers —<br>and a stock portfolio on public data</h1>
+<p class="sub">Reconstruct each manager from disclosed holdings, test which stock ranking scores predicted next month's return, turn the one that survives into a constrained trade list, and check every headline number a second time. Findings stay on the page even when they are nothing.</p>
 <div class="areas">{areas}</div>
 <dl class="stats"><div><dt>Tools</dt><dd>{n_tools}</dd></div><div><dt>Managers in the system</dt><dd>{n_managers}</dd></div><div><dt>Scorable today</dt><dd>{n_scorable}</dd></div></dl>
 </div></header>

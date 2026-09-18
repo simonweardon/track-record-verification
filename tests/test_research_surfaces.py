@@ -128,6 +128,8 @@ def test_active_tab_is_one_backtested_story():
     assert "How &amp; why" not in doc and "How this was calculated" not in doc
     assert "Signal Research" not in doc
     assert "Momentum score" in doc
+    assert "Downside capture" in doc
+    assert "of the benchmark" in doc.lower() and "fall" in doc.lower()
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc
     assert "<style>" in doc and ".chartbox" in doc
     from tests.test_plain_language import visible

@@ -108,6 +108,20 @@ def _csv(rel: str, **kw) -> pd.DataFrame:
     return pd.read_csv(f, **kw) if f.exists() else pd.DataFrame()
 
 
+def _max_dd(r: pd.Series) -> float:
+    w = (1 + r.fillna(0)).cumprod()
+    return float((w / w.cummax() - 1).min()) if len(w) else float("nan")
+
+
+def _capture(port: pd.Series, bench: pd.Series, *, down: bool) -> tuple[float, int]:
+    """Mean portfolio return / mean benchmark return in months the benchmark is down (or up)."""
+    mask = (bench < 0) if down else (bench > 0)
+    n = int(mask.sum())
+    if n < 5 or abs(float(bench[mask].mean())) < 1e-12:
+        return float("nan"), n
+    return float(port[mask].mean() / bench[mask].mean()), n
+
+
 def active_html(page) -> str:
     labman = _man("alpha-lab/manifest.json")
     riskman = _man("risk-model/manifest.json")
@@ -198,12 +212,24 @@ def active_html(page) -> str:
     <div class="tile"><div class="tl">Bias statistic, random portfolios</div><div class="tv">{float(bias.get('random', float('nan'))):.2f}</div><div class="td muted">1.00 means predicted risk matched what then happened</div></div>
     <div class="tile"><div class="tl">Explanatory power</div><div class="tv">{float(riskman.get('r2_avg', 0)):.0%}</div><div class="td muted">share of a month's stock returns the factors explain</div></div>
   </div>"""
+    down_cap = up_cap = float("nan")
+    n_down = n_up = 0
+    port_dd = bench_dd = float("nan")
+    if len(monthly) and {"portfolio", "benchmark"}.issubset(monthly.columns):
+        pr, br = monthly["portfolio"], monthly["benchmark"]
+        down_cap, n_down = _capture(pr, br, down=True)
+        up_cap, n_up = _capture(pr, br, down=False)
+        port_dd, bench_dd = _max_dd(pr), _max_dd(br)
+
     tiles3 = ""
     if P is not None:
         te = pct(P.tracking_error, 1, False)
+        down_tv = f"{down_cap:.0%}" if down_cap == down_cap else "n/a"
+        up_bit = f"; upside {up_cap:.0%}" if up_cap == up_cap else ""
         tiles3 = f"""<div class="tiles">
     <div class="tile"><div class="tl">Active return, constrained</div><div class="tv">{pct(P.active_return, 1)}</div><div class="td muted">per year vs the benchmark, after {cost_bps:.0f} bps costs</div></div>
     <div class="tile"><div class="tl">Information ratio</div><div class="tv">{num(P.information_ratio)}</div><div class="td muted">beat the benchmark in {P.hit_rate:.0%} of months</div></div>
+    <div class="tile"><div class="tl">Downside capture</div><div class="tv">{down_tv}</div><div class="td muted">of the benchmark’s fall in down months{up_bit}</div></div>
     <div class="tile"><div class="tl">Tracking error</div><div class="tv">{te}</div><div class="td muted">realized; model predicted {pct(P.avg_ex_ante_te, 1, False)}</div></div>
   </div>"""
     tiles4 = ""
@@ -293,6 +319,13 @@ def active_html(page) -> str:
     <p class="cap">Constrained book minus the benchmark, calendar year sums. Blue means the backtest won that year. A few percent a year can be one lucky year; the bars show whether the rule was persistent.</p>
   </div>
   <p class="note">With no limits the top tenth delivered {u_ret}/yr of active return; inside the mandate, {pct(P.active_return, 1) if P is not None else 'n/a'} against a benchmark that returned {b_ret}/yr. Information ratio {num(P.information_ratio) if P is not None else 'n/a'} over {n_reb} quarters (standard error about 0.3) — a description of the process, not a claim of a live edge.</p>
+  <p class="note">{(
+      f"On the downside: in the {n_down} months the benchmark fell, the constrained book took about {down_cap:.0%} of that fall"
+      f"{f' (and about {up_cap:.0%} of the rise in the {n_up} up months)' if up_cap == up_cap else ''}."
+      f" Peak to trough it fell {abs(port_dd):.0%} against the benchmark’s {abs(bench_dd):.0%}."
+      if down_cap == down_cap else
+      "Downside capture is measured against the same managers’ aggregate book used for active return."
+  )}</p>
   {tiles3}
 
   <h3>Independent check</h3>

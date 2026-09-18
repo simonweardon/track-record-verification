@@ -1125,9 +1125,16 @@ details.how[open] summary::before { transform: rotate(45deg); }
 details.how summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .howb { margin-top: 8px; padding: 12px 16px; background: var(--surface-2); border-left: 2px solid var(--gold); color: var(--ink); line-height: 1.6; max-width: 90ch; font-size: 13.5px; }
 .howb b { color: var(--navy); }
-.howb p { margin: 0 0 6px; }
+.howb p { margin: 0 0 8px; }
 .tile:has(details.hw[open]) { grid-column: 1 / -1; }   /* an opened note gets the whole row */
 .howb p:last-child { margin-bottom: 0; }
+details.how.fig .howb { border-left: 0; color: var(--ink); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) details.how.fig .howb,
+  :root:not([data-theme="light"]) details.how.fig summary { background: var(--surface-2); }
+}
+:root[data-theme="dark"] details.how.fig .howb,
+:root[data-theme="dark"] details.how.fig summary { background: var(--surface-2); }
 .tile .exp { margin-top: 8px; gap: 2px 14px; }
 /* stocks behind the outperformance */
 ol.stocks { list-style: none; margin: 0; padding: 0; }

@@ -92,7 +92,8 @@ def test_active_tab_is_one_backtested_story():
                     "How that objective was pursued",
                     "What that process produced"):
         assert heading in doc, heading
-    assert "How a signal became a list of trades" in doc
+    assert "How ranking scores became this trade list" in doc
+    assert "How a signal became a list of trades" not in doc
     assert "one number per stock" in doc.lower() or "One number per stock" in doc
     assert "rank" in doc.lower()
     assert "twelve-month momentum" in doc.lower()

@@ -307,7 +307,7 @@ def active_html(page) -> str:
   <h3>Independent check</h3>
   <p class="lede">Every headline statistic on every manager was recalculated by a second implementation against the same aligned returns. The two share no code and agree to computer precision. That rules out quiet arithmetic errors; it does not make the next quarter look like the last {n_reb}.</p>
   {tiles4}
-  <p class="note">What the check cannot reach: names bought or taken private never enter the universe; disclosed holdings are the long US book; the 45-day filing delay is baked into every date. Measured on <a href="/research/limits">Due Diligence on This Work</a>.</p>
+  <p class="note">What the check cannot reach: names bought or taken private never enter the universe; disclosed holdings are the long US book; the 45-day filing delay is baked into every date.</p>
 </article>
 
 <div class="foot">

@@ -117,10 +117,12 @@ def test_active_tab_is_one_backtested_story():
     assert "twelve-month momentum" in doc.lower()
     assert "/research/alpha-lab" not in doc and "/research/construction" not in doc
     assert "/research/risk-model" not in doc and "/research/r-verify" not in doc
+    assert "/research/limits" not in doc
     assert "Full research note" not in doc and "Full risk note" not in doc
     assert "Full construction note" not in doc and "Full verification note" not in doc
-    # method page is fine to keep; the four Active modules are not
-    assert "/research/limits" in doc or "Due Diligence on This Work" in doc
+    assert "Due Diligence on This Work" not in doc
+    # no outbound research-module links left on the story
+    assert "/research/" not in doc
     assert "class=\"how fig\"" in doc
     assert "Momentum score" in doc
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc

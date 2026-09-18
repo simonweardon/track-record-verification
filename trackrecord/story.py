@@ -39,6 +39,9 @@ main.wrap.story > * + *{margin-top:28px}
 .part h3{font:700 10px/1.3 var(--sans);margin:18px 0 8px;color:var(--navy);text-transform:uppercase;letter-spacing:.14em}
 .part .lede{font-size:16px;line-height:1.5;max-width:68ch;color:var(--ink);margin:0 0 12px}
 .part .note{margin:10px 0 0;max-width:68ch}
+.define{margin:12px 0 0;padding:12px 14px;border-left:3px solid var(--gold);background:var(--surface);max-width:68ch}
+.define .dt{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
+.define p{margin:0;font-size:15px;line-height:1.5;color:var(--ink)}
 .story .tiles{margin:12px 0 0;gap:10px}
 .story .tile{padding:12px 14px}
 .story-rail{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
@@ -222,7 +225,7 @@ def active_html(page) -> str:
   <div class="eyebrow">Active portfolios</div>
   <div class="rule"></div>
   <h1>How a signal became a list of trades</h1>
-  <p class="sub">Objective, process, product — a historical backtest from {esc(first)} to {esc(last)}, using only what was known at each date.</p>
+  <p class="sub">A signal is a score for each stock, built only from public facts known at the time, used to decide which names to overweight. This page is the historical backtest of that idea from {esc(first)} to {esc(last)}: objective, process, product.</p>
   <nav class="story-toc" aria-label="Sections">
     <a href="#objective">Objective</a>
     <a href="#process">Process</a>
@@ -233,8 +236,12 @@ def active_html(page) -> str:
 
 <article class="part reveal in" id="objective">
   <p class="eyebrow">Objective</p>
-  <h2>Turn public information into a tradable book — and say what it would have done</h2>
-  <p class="lede">The job is to pick a stock characteristic that actually predicted next month’s return, measure the risk of a book built on it, turn that characteristic into weights inside a real mandate, and check the arithmetic. The site cannot honestly simulate the next two weeks without a live book and an unread future. What it can show is the same process run through history: rebuild the signal each quarter from public prices, form the trades, then apply the returns that followed.</p>
+  <h2>Turn a public stock score into a tradable book — and say what it would have done</h2>
+  <div class="define">
+    <p class="dt">What “signal” means here</p>
+    <p>A <b>signal</b> is one number per stock, computed the same way every month from information that was already public — prices, company accounts, industry — and then used to <b>rank</b> the universe. Higher score means “prefer this name”; lower means “prefer less of it.” It is not a tip, not a forecast from a person, and not a buy list on its own. It is a ranking rule. Example: <b>twelve-month momentum</b> scores each stock by how much its price rose over the past year (skipping the most recent month). Value would score cheapness of book value versus price; profitability would score return on assets. Eight such rules were tested; only momentum cleared the evidence bar, so that is the signal this page trades.</p>
+  </div>
+  <p class="lede">The job is to pick a ranking rule that actually predicted next month’s return, measure the risk of a book built on it, turn those ranks into weights inside a real mandate, and check the arithmetic. The site cannot honestly simulate the next two weeks without a live book and an unread future. What it can show is the same process run through history: rebuild the ranking each quarter from public prices, form the trades, then apply the returns that followed.</p>
   <p class="note">That is a backtest. The findings below, including the weak ones, are what it produced.</p>
 </article>
 
@@ -242,8 +249,8 @@ def active_html(page) -> str:
   <p class="eyebrow">Process</p>
   <h2>How that objective was pursued</h2>
 
-  <h3>1 · Research — which characteristic survived</h3>
-  <p class="lede">Eight well-known characteristics were built each month for about {labman.get('universe_avg', '')} stocks held by five or more of the managers and priced at a dollar or more: momentum, short-term reversal, low volatility, size, value, profitability, cash flow and earnings yield. Only information public at the time was used.</p>
+  <h3>1 · Research — which ranking rule survived</h3>
+  <p class="lede">Eight candidate signals were built each month for about {labman.get('universe_avg', '')} stocks held by five or more of the managers and priced at a dollar or more: momentum, short-term reversal, low volatility, size, value, profitability, cash flow and earnings yield. Each signal is just that stock’s score on that rule, using only information public at the time. The test asks whether a higher score went with a higher return next month.</p>
   {tiles1}
   <p class="note">{ev_summary.strip() or "Twelve-month momentum is the characteristic the later steps trade."} A rank-correlation test does not clear the same bar even for momentum, and a learned model of all eight does not beat a simple average. So the book trades momentum alone.</p>
   <p class="story-rail"><a href="/research/alpha-lab">Full research note</a></p>
@@ -259,7 +266,7 @@ def active_html(page) -> str:
   <div class="when">
     <div><span class="when-lab">When</span><span class="when-val">Every quarter-end, {n_reb} times from {esc(first)} to {esc(last)}. Latest list: {esc(form)}.</span></div>
     <div><span class="when-lab">Who can be bought</span><span class="when-val">{esc(n_univ) or "Hundreds of"} US stocks held by at least {conman.get('min_holders', 5)} managers, priced at $1 or more.</span></div>
-    <div><span class="when-lab">How they are ranked</span><span class="when-val">Twelve-month return, skipping the most recent month, standardized across the universe on that date.</span></div>
+    <div><span class="when-lab">How they are ranked</span><span class="when-val">By the momentum signal: twelve-month return, skipping the most recent month, then standardized across the universe on that date so the typical stock is near zero and a strong recent winner is positive.</span></div>
     <div><span class="when-lab">What then happens</span><span class="when-val">The optimiser sets weights inside the bands. Names that left are sold. The book is held until the next quarter.</span></div>
   </div>
   <p class="story-rail"><a href="/research/construction">Full construction note</a></p>

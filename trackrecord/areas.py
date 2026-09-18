@@ -22,8 +22,8 @@ R = ROOT / "data" / "research"
 
 AREAS = {
     "active": ("Active portfolios", "/active",
-               "One backtested mandate, told in order: which characteristic predicted returns, how the risk was measured, "
-               "which stocks were chosen and when, and whether the arithmetic survives a second implementation."),
+               "One backtested mandate: pick a stock ranking rule (a signal), measure its risk, "
+               "turn the ranks into trades, and check the arithmetic — told as objective, process, product."),
     "external": ("Manager Analysis", "/external",
                  "These tools evaluate outside managers: verify each record, separate skill from market exposure, "
                  "test it against luck, write the memo, and combine the managers that pass into a fund of funds."),

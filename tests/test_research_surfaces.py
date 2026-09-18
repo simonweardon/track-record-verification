@@ -78,12 +78,15 @@ def test_active_tab_is_one_backtested_story():
     assert "class='rcard'" not in doc
     assert "A backtest" in doc
     for heading in ("Objective", "Process", "Product",
-                    "Turn public information into a tradable book",
+                    "What “signal” means here",
+                    "Turn a public stock score into a tradable book",
                     "How that objective was pursued",
                     "What that process produced"):
         assert heading in doc, heading
     assert "How a signal became a list of trades" in doc
-    assert "not a live book" in doc.lower() or "not a live portfolio" in doc
+    assert "one number per stock" in doc.lower() or "One number per stock" in doc
+    assert "rank" in doc.lower()
+    assert "twelve-month momentum" in doc.lower()
     assert "/research/alpha-lab" in doc and "/research/construction" in doc
     assert "/research/risk-model" in doc and "/research/r-verify" in doc
     assert "class=\"how fig\"" in doc

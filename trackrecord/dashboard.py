@@ -986,7 +986,7 @@ CSS = r"""
   --serif: "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", "TeX Gyre Pagella", Georgia, serif;
   --sans: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
   --page: #f6f4ee; --surface: #fdfcf9; --surface-2: #f3f0e8; --line: #e4dfd2; --hair: #ebe7dc; --rule: #1b2a41;
-  --ink: #23262b; --ink-2: #6b7078; --muted: #a09883; --navy: #1b2a41; --gold: #8c7a56; --gold-l: #c9b48a;
+  --ink: #23262b; --ink-2: #6b7078; --ink2: #6b7078; --muted: #a09883; --navy: #1b2a41; --gold: #8c7a56; --gold-l: #c9b48a;
   --cover: #1b2a40; --cover-ink: #e8e4da; --cover-muted: #8a9ab4;
   --accent: #2c3e5e; --accent-l: #8c7a56; --accent-wash: rgba(27,42,65,.07);
   --dim: #b9b1a0; --dim-strong: #8f8778; --dim-wash: rgba(185,177,160,.28);
@@ -1000,7 +1000,7 @@ CSS = r"""
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: #141f31; --surface: #1b2a40; --surface-2: #22334d; --line: #34455f; --hair: #2b3b54; --rule: #c9b48a;
-    --ink: #e8e4da; --ink-2: #b7bcc6; --muted: #8a9ab4; --navy: #e8e4da; --gold: #c9b48a; --gold-l: #c9b48a;
+    --ink: #e8e4da; --ink-2: #b7bcc6; --ink2: #b7bcc6; --muted: #8a9ab4; --navy: #e8e4da; --gold: #c9b48a; --gold-l: #c9b48a;
     --cover: #111a2a; --cover-ink: #e8e4da; --cover-muted: #8a9ab4;
     --accent: #d9c48f; --accent-l: #a89468; --accent-wash: rgba(217,196,143,.12);
     --dim: #8a9ab4; --dim-strong: #6c7c96; --dim-wash: rgba(138,154,180,.22);
@@ -1014,7 +1014,7 @@ CSS = r"""
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #141f31; --surface: #1b2a40; --surface-2: #22334d; --line: #34455f; --hair: #2b3b54; --rule: #c9b48a;
-  --ink: #e8e4da; --ink-2: #b7bcc6; --muted: #8a9ab4; --navy: #e8e4da; --gold: #c9b48a; --gold-l: #c9b48a;
+  --ink: #e8e4da; --ink-2: #b7bcc6; --ink2: #b7bcc6; --muted: #8a9ab4; --navy: #e8e4da; --gold: #c9b48a; --gold-l: #c9b48a;
   --cover: #111a2a; --cover-ink: #e8e4da; --cover-muted: #8a9ab4;
   --accent: #d9c48f; --accent-l: #a89468; --accent-wash: rgba(217,196,143,.12);
   --dim: #8a9ab4; --dim-strong: #6c7c96; --dim-wash: rgba(138,154,180,.22);

@@ -56,6 +56,17 @@ main.wrap.story > * + *{margin-top:28px}
 .when > div{border-left:2px solid var(--gold);padding:0 0 0 10px;min-width:0}
 .when .when-lab{display:block;font:600 9px/1.2 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
 .when .when-val{display:block;font-size:14px;line-height:1.4;color:var(--navy);margin:0}
+.mgrs{margin:14px 0 0;max-width:68ch}
+.mgrs > summary{cursor:pointer;font-size:14px;line-height:1.4;color:var(--navy);list-style:none}
+.mgrs > summary::-webkit-details-marker{display:none}
+.mgrs > summary::before{content:"▸ ";color:var(--muted);font-size:12px}
+.mgrs[open] > summary::before{content:"▾ "}
+.mgrs .mgr-list{list-style:none;margin:10px 0 0;padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:6px 16px;max-height:min(320px,50vh);overflow:auto;border:1px solid var(--line);background:var(--surface);min-width:0}
+.mgrs .mgr-list li{min-width:0}
+.mgrs .mgr-list a{font-size:13.5px;color:var(--navy);text-decoration:none;line-height:1.3}
+.mgrs .mgr-list a:hover{text-decoration:underline}
+.mgrs .mgr-list .fund{display:block;font-size:11.5px;color:var(--ink2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mgrs .mgr-note{margin:8px 0 0;font-size:13px;color:var(--ink2);line-height:1.45}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font:12px var(--sans);color:var(--ink-2,#6b7078);margin:6px 0 4px}
 .legend .swatch{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle;background:var(--navy)}
 .legend .swatch.s0{background:#8a9ab4}.legend .swatch.s1{background:var(--navy)}.legend .swatch.s4{background:var(--crit,#8f3b34)}
@@ -106,6 +117,51 @@ def _man(rel: str) -> dict:
 def _csv(rel: str, **kw) -> pd.DataFrame:
     f = R / rel
     return pd.read_csv(f, **kw) if f.exists() else pd.DataFrame()
+
+
+def _universe_managers() -> list[dict]:
+    """Managers whose packed holdings define the Active universe and benchmark."""
+    hold = ROOT / "data" / "reference" / "compact" / "holdings13f.csv.gz"
+    lb_path = ROOT / "data" / "funds" / "leaderboard.csv"
+    if not hold.exists():
+        return []
+    slugs = set(pd.read_csv(hold, usecols=["slug"])["slug"].astype(str).unique())
+    if not lb_path.exists():
+        return [dict(slug=s, who=s, fund="") for s in sorted(slugs)]
+    lb = pd.read_csv(lb_path)
+    rows = []
+    for _, r in lb[lb.slug.isin(slugs)].iterrows():
+        who = str(r.get("manager") or r.get("name") or r.slug).strip()
+        fund = str(r.get("name") or "").strip()
+        if fund.lower() == who.lower():
+            fund = ""
+        rows.append(dict(slug=str(r.slug), who=who, fund=fund))
+    rows.sort(key=lambda d: d["who"].casefold())
+    # any holdings slug missing from the leaderboard still appears
+    seen = {d["slug"] for d in rows}
+    for s in sorted(slugs - seen):
+        rows.append(dict(slug=s, who=s, fund=""))
+    return rows
+
+
+def _managers_html(managers: list[dict]) -> str:
+    if not managers:
+        return ""
+    items = []
+    for m in managers:
+        label = esc(m["who"])
+        fund = f'<span class="fund">{esc(m["fund"])}</span>' if m.get("fund") else ""
+        items.append(f'<li><a href="/f/{esc(m["slug"])}/">{label}</a>{fund}</li>')
+    n = len(managers)
+    return (
+        f'<details class="mgrs" id="managers">'
+        f'<summary>View the {n} managers whose holdings define this universe</summary>'
+        f'<ul class="mgr-list">{"".join(items)}</ul>'
+        f'<p class="mgr-note">A stock enters the buyable set when at least five of these managers '
+        f'own it that quarter and it is priced at a dollar or more. Multi-strategy and market-maker '
+        f'books are not in this list — their filings are trading inventory, not a portfolio.</p>'
+        f'</details>'
+    )
 
 
 def _max_dd(r: pd.Series) -> float:
@@ -247,6 +303,9 @@ def active_html(page) -> str:
     n_buy = L.get("buys", "")
     n_sell = L.get("sells", "")
     nav_m = conman.get("nav", 0) / 1e6
+    managers = _universe_managers()
+    managers_block = _managers_html(managers)
+    n_mgr = len(managers) or ""
 
     body = f"<style>{CSS}</style>" + STORY_CSS + f"""
 <div class="banner" role="note"><span class="bl">A backtest</span> One demonstration mandate on public data, date by date. Not a live book, not a forecast, not investment advice.</div>
@@ -292,10 +351,11 @@ def active_html(page) -> str:
   <p class="lede">Mandate: ${nav_m:,.0f} million, long-only, fully invested. Name cap {c.get('max_weight', 0):.0%}; active band {c.get('active_band', 0):.0%} vs the benchmark; sector band {c.get('sector_band', 0):.0%}; active share ≤ {c.get('active_share', 0):.0%}; one-way turnover ≤ {c.get('turnover', 0):.0%} a quarter; {cost_bps:.0f} bps per dollar traded. The benchmark is everything the managers own that quarter, in dollars — not a published index.</p>
   <div class="when">
     <div><span class="when-lab">When</span><span class="when-val">Every quarter-end, {n_reb} times from {esc(first)} to {esc(last)}. Latest list: {esc(form)}.</span></div>
-    <div><span class="when-lab">Who can be bought</span><span class="when-val">{esc(n_univ) or "Hundreds of"} US stocks held by at least {conman.get('min_holders', 5)} managers, priced at $1 or more.</span></div>
+    <div><span class="when-lab">Who can be bought</span><span class="when-val">{esc(n_univ) or "Hundreds of"} US stocks held by at least {conman.get('min_holders', 5)} of {n_mgr or 'these'} managers, priced at $1 or more.</span></div>
     <div><span class="when-lab">How they are ranked</span><span class="when-val">By the momentum signal: twelve-month return, skipping the most recent month, then standardized across the universe on that date so the typical stock is near zero and a strong recent winner is positive.</span></div>
     <div><span class="when-lab">What then happens</span><span class="when-val">The optimiser sets weights inside the bands. Names that left are sold. The book is held until the next quarter.</span></div>
   </div>
+  {managers_block}
 </article>
 
 <article class="part reveal" id="product">

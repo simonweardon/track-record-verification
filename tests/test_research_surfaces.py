@@ -130,6 +130,11 @@ def test_active_tab_is_one_backtested_story():
     assert "Momentum score" in doc
     assert "Downside capture" in doc
     assert "of the benchmark" in doc.lower() and "fall" in doc.lower()
+    # managers that define the universe are listed in-page (not a separate research module)
+    assert 'id="managers"' in doc
+    assert "View the" in doc and "managers whose holdings" in doc
+    assert "Bill Ackman" in doc and 'href="/f/pershing-square/"' in doc
+    assert doc.count('class="mgr-list"') == 1
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc
     assert "<style>" in doc and ".chartbox" in doc
     from tests.test_plain_language import visible

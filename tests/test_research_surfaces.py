@@ -16,16 +16,34 @@ def test_research_cards_read_their_numbers_from_the_data():
     from trackrecord.areas import tool_cards, cards_html
     cards = tool_cards()
     assert cards["active"] and cards["external"]
+    # Active is one story entry, not four separate research modules
+    assert len(cards["active"]) == 1
+    assert cards["active"][0]["href"] == "/active"
+    assert cards["active"][0]["title"] == "How ranking scores became this trade list"
     for area in cards.values():
         for c in area:
-            assert c["href"].startswith("/research/") and c["stats"], c["href"]
+            assert c["href"].startswith("/research/") or c["href"] == "/active", c["href"]
+            assert c["stats"], c["href"]
             # a card only claims a number it could read: no empty or unreadable stat values
             assert all(str(v).strip() not in ("", "nan", "None") for v, _ in c["stats"]), (c["href"], c["stats"])
             # one or two complete sentences, no fragments
             what = c["what"].strip()
             assert what.endswith(".") and 1 <= what.count(". ") + 1 <= 3, what
     html = cards_html(cards["active"])
-    assert html.count("class='rcard'") == len(cards["active"])
+    assert html.count("class='rcard'") == 1
+    assert "/research/alpha-lab" not in html
+    assert 'href="/active"' in html
+
+
+def test_home_page_does_not_list_separate_active_modules():
+    """The four Active research notes live inside the story, not as home cards."""
+    doc = home_html(S.page, 1, 1)
+    assert "Signal Research" not in doc or doc.count("Signal Research") == 0
+    # home must not advertise the four old Active module routes as cards
+    for path in ("/research/alpha-lab", "/research/risk-model", "/research/construction", "/research/r-verify"):
+        assert f'href="{path}"' not in doc and f"href='{path}'" not in doc, path
+    assert 'href="/active"' in doc or "href='/active'" in doc
+    assert "How ranking scores became this trade list" in doc
 
 
 def test_home_page_rows_carry_the_screener_attributes():

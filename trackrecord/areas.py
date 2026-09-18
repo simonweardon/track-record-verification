@@ -55,48 +55,43 @@ def _num(x, d=None):
 
 
 def tool_cards() -> dict[str, list[dict]]:
-    """Live tools by area.  Each: href, eyebrow, title, what, stats [(value, label)]."""
-    from .explain import plain
+    """Live tools by area.  Each: href, eyebrow, title, what, stats [(value, label)].
+
+    Active is one story page now (/active), so the home lists a single card into that
+    walk-through rather than four separate research modules. The full notes remain
+    linked from inside the story. Manager Analysis still has one card per tool.
+    """
     cards = {"active": [], "external": []}
 
-    # ---- active
+    # ---- active: one entry into the story
     lab, labman = _rows("alpha-lab/summary.csv", "signal"), _man("alpha-lab/manifest.json")
-    if lab and labman:
-        tested = {k: r for k, r in lab.items() if k not in ("linear", "xgboost")}
-        best = max(tested.values(), key=lambda r: _num(r.get("spread_t"), -99))
-        kept = [r for r in tested.values() if _num(r.get("spread_t"), 0) >= 2]
-        hh = labman.get("head_to_head", {})
-        cards["active"].append(dict(href="/research/alpha-lab", eyebrow="Which stock characteristics predict next month's return?",
-            title="Signal Research",
-            what=f"Eight stock characteristics, such as value, momentum and profitability, are tested for whether they predicted next month's return across about {labman.get('universe_avg', '')} stocks. "
-                 f"One of them survives the test, and it is the signal the portfolio on the construction page trades.",
-            stats=[(f"{len(kept)} of {len(tested)}", "signals with evidence behind them"),
-                   (f"{_num(best.get('spread_ann'), 0) * 100:+.1f}%", f"best signal, {plain(best.get('label', best.get('signal', ''))).split(' (')[0].lower()}: top tenth minus bottom tenth a year"),
-                   (f"{_num(hh.get('ic_diff_t'), 0):+.1f}", "learned model versus simple average")]))
-    risk = _man("risk-model/manifest.json")
-    if risk.get("factors"):
-        cards["active"].append(dict(href="/research/risk-model", eyebrow="How much risk is a portfolio taking, and where does it come from?",
-            title="Factor Risk Model",
-            what="A risk model explains each stock's monthly return by its exposure to the market, to eight styles and to its industry. "
-                 "It predicts how much any portfolio will move, splits that risk into what comes from those exposures and what is specific to the stocks held, and is tested against what actually happened.",
-            stats=[(f"{risk.get('factors')}", "factors"), (f"{risk.get('industries')}", "industries"),
-                   (f"{_num(risk.get('r2_avg'), 0):.0%}", "of monthly returns explained")]))
     con, conman = _rows("construction/summary.csv", "key"), _man("construction/manifest.json")
-    if con and conman:
-        P = con.get("portfolio", {})
-        cards["active"].append(dict(href="/research/construction", eyebrow="How does a signal become a list of trades?",
-            title="Portfolio Construction",
-            what="An optimiser turns the signal into target weights that respect the mandate's limits on position size, sector tilts and turnover, and then into the list of trades a dealer would receive. "
-                 "The page shows what those limits cost and what the portfolio delivered.",
-            stats=[(f"{_num(P.get('active_return'), 0) * 100:+.1f}%", "active return per year"), (f"{_num(P.get('information_ratio'), 0):.2f}", "information ratio"),
-                   (f"{conman.get('rebalances', '')}", "rebalances")]))
     rv = _man("r-verify/manifest.json")
-    if rv.get("managers"):
-        cards["active"].append(dict(href="/research/r-verify", eyebrow="Are the numbers right?",
-            title="Independent Verification",
-            what="Every headline number on the site was recalculated a second time by a separate implementation written from scratch, and the two sets of results were compared. "
-                 "They agree to the limit of computer precision.",
-            stats=[(f"{rv.get('managers')}", "managers"), (f"{rv.get('checks', 0):,}", "numbers checked"), (f"{rv.get('max_abs_diff', 0):.0e}", "largest difference")]))
+    if lab and labman and con and conman:
+        tested = {k: r for k, r in lab.items() if k not in ("linear", "xgboost")}
+        kept = [r for r in tested.values() if _num(r.get("spread_t"), 0) >= 2]
+        P = con.get("portfolio", {})
+        cards["active"].append(dict(
+            href="/active",
+            eyebrow="From ranking scores to the tickets a dealer would receive",
+            title="How ranking scores became this trade list",
+            what="One backtested mandate on public data: which stock ranking score predicted next month's return, "
+                 "how much risk a book on it would take, which names were chosen and when, and whether the arithmetic "
+                 "survives a second look. The detailed research notes open from inside the story.",
+            stats=[(f"{len(kept)} of {len(tested)}", "signals with evidence behind them"),
+                   (f"{_num(P.get('active_return'), 0) * 100:+.1f}%", "active return per year"),
+                   (f"{conman.get('rebalances', '')}", "rebalances")]))
+    elif lab and labman:
+        # story still opens even if construction has not been built in this clone
+        tested = {k: r for k, r in lab.items() if k not in ("linear", "xgboost")}
+        kept = [r for r in tested.values() if _num(r.get("spread_t"), 0) >= 2]
+        cards["active"].append(dict(
+            href="/active",
+            eyebrow="From ranking scores to the tickets a dealer would receive",
+            title="How ranking scores became this trade list",
+            what="One backtested mandate on public data, told as objective, process and product.",
+            stats=[(f"{len(kept)} of {len(tested)}", "signals with evidence behind them"),
+                   (f"{rv.get('managers', '')}" if rv.get("managers") else "—", "managers checked")]))
 
     # ---- external
     sig, sigman = _rows("13f-signals/summary.csv", "key"), _man("13f-signals/manifest.json")

@@ -95,15 +95,14 @@ main.wrap.story > * + *{margin-top:0}
 @media(max-width:900px){
 .step{grid-template-columns:1fr}
 .step .tiles{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
-.story-toc{grid-template-columns:1fr}
 }
 @media(max-width:720px){
 .story-cover .cover-in{padding:30px 16px 26px}
 .story-cover h1{font-size:32px}
 .story-cover .stats{gap:16px 28px;margin-top:22px}
 .story-cover .stats dd{font-size:24px}
-.story-toc{gap:10px}.story-toc a{padding:16px 16px}
-.story-toc .toc-t{font-size:20px}
+.story-toc{gap:8px}.story-toc a{padding:12px 10px;gap:4px}
+.story-toc .toc-t{font-size:15px}.story-toc .toc-s{display:none}
 main.wrap.story{padding:22px 16px 48px}
 .part{padding:28px 0}
 .part h2{font-size:24px}

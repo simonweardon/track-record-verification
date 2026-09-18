@@ -194,3 +194,5 @@ def test_active_story_matches_manager_analysis_page_width():
     assert ".step{grid-template-columns:1fr}" in STORY_CSS
     assert ".when{grid-template-columns:1fr" in STORY_CSS
     assert ".picks{grid-template-columns:1fr}" in STORY_CSS
+    # TOC stays three-across down to a phone, then compact (no stacked cover cards)
+    assert ".story-toc .toc-s{display:none}" in STORY_CSS

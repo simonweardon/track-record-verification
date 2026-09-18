@@ -22,65 +22,97 @@ ROOT = Path(__file__).resolve().parents[1]
 R = ROOT / "data" / "research"
 
 STORY_CSS = EXPLAIN_CSS + """<style>
-/* dashboard .wrap is a wide grid with large gaps; the story is a single column */
-main.wrap.story{display:block;max-width:920px;padding-top:20px;padding-bottom:48px}
-main.wrap.story > * + *{margin-top:28px}
+/* Same 1100px column as Manager Analysis. The story used to cap itself at 920px
+   with a 34px title, 22-character wrap, and tighter tiles — which made a page of
+   numbers and charts feel scrunched next to the area page beside it. */
+main.wrap.story{display:block;max-width:1100px;padding:36px 32px 64px}
+main.wrap.story > * + *{margin-top:0}
 .story .banner{margin:0}
-.story-cover .cover-in{padding:28px 32px 24px;max-width:920px}
-.story-cover h1{font-size:34px;line-height:1.15;max-width:22ch}
-.story-cover .sub{margin:10px 0 0;max-width:62ch;font-size:15.5px}
-.story-toc{display:flex;flex-wrap:wrap;gap:6px 16px;margin:16px 0 0;padding-top:14px;border-top:1px solid rgba(232,228,218,.18)}
-.story-toc a{font:600 9.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--goldl);text-decoration:none}
-.story-toc a:hover{text-decoration:underline}
-.part{margin:0;padding:0}
-.part + .part{padding-top:8px;border-top:1px solid var(--line)}
-.part .eyebrow{font:600 9.5px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
-.part h2{font:400 24px/1.2 var(--serif);color:var(--navy);margin:0 0 10px;padding:0;position:static}
+.story-cover .cover-in{padding:44px 32px 40px;max-width:1100px}
+.story-cover h1{font-size:42px;line-height:1.1;max-width:none;letter-spacing:-.005em}
+.story-cover .sub{margin:16px 0 0;max-width:68ch;font-size:16px}
+.story-cover .stats{display:flex;flex-wrap:wrap;gap:22px 40px;margin-top:28px;padding-top:18px;border-top:1px solid rgba(232,228,218,.18)}
+.story-cover .stats div{display:grid;gap:4px;min-width:0}
+.story-cover .stats dt{font:600 9px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--cover-muted,var(--covermuted,#8a9ab4))}
+.story-cover .stats dd{margin:0;font:400 30px/1 var(--serif);color:var(--cover-ink,var(--coverink,#e8e4da))}
+.story-toc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:28px 0 0}
+.story-toc a{display:grid;gap:6px;padding:18px 20px;text-decoration:none;border:1px solid var(--gold-l,var(--goldl,#c9b48a));color:var(--cover-ink,var(--coverink,#e8e4da));background:rgba(232,228,218,.04);min-width:0}
+.story-toc a:hover{filter:brightness(1.12);text-decoration:none}
+.story-toc .toc-n{font:600 9px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--gold-l,var(--goldl,#c9b48a))}
+.story-toc .toc-t{font:400 22px/1.15 var(--serif);color:var(--cover-ink,var(--coverink,#e8e4da))}
+.story-toc .toc-s{font-size:13.5px;line-height:1.45;color:var(--cover-muted,var(--covermuted,#8a9ab4))}
+.part{margin:0;padding:44px 0;border-bottom:1px solid var(--line)}
+.part:first-child{padding-top:8px}
+.part:last-of-type{border-bottom:0;padding-bottom:16px}
+.part .eyebrow{font:600 9.5px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:0 0 10px}
+.part h2{font:400 28px/1.2 var(--serif);color:var(--navy);margin:0 0 16px;padding:0;position:static}
 .part h2::before{content:none !important}
-.part h3{font:700 10px/1.3 var(--sans);margin:18px 0 8px;color:var(--navy);text-transform:uppercase;letter-spacing:.14em}
-.part .lede{font-size:16px;line-height:1.5;max-width:68ch;color:var(--ink);margin:0 0 12px}
-.part .note{margin:10px 0 0;max-width:68ch}
-.define{margin:12px 0 0;padding:12px 14px;border-left:3px solid var(--gold);background:var(--surface);max-width:68ch}
-.define .dt{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
-.define p{margin:0;font-size:15px;line-height:1.5;color:var(--ink)}
-.story .tiles{margin:12px 0 0;gap:10px}
-.story .tile{padding:12px 14px}
-.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:10px;margin:10px 0 0}
-.pick{background:var(--surface);border:1px solid var(--line);padding:12px 14px;min-width:0}
-.pick .tk{font:600 16px/1.2 var(--sans);color:var(--navy)}
-.pick .nm{font-size:12.5px;color:var(--ink2);margin:3px 0 8px}
-.pick .row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:2px 0;border-top:1px solid var(--line)}
+.part h3{font:700 10px/1.3 var(--sans);margin:0 0 10px;color:var(--navy);text-transform:uppercase;letter-spacing:.14em}
+.part .lede{font-size:16.5px;line-height:1.55;max-width:70ch;color:var(--ink);margin:0 0 14px}
+.part .note{margin:12px 0 0;max-width:78ch}
+.define{margin:4px 0 18px;padding:18px 22px;border-left:3px solid var(--gold);background:var(--surface);max-width:none}
+.define .dt{font:600 9.5px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+.define p{margin:0;font-size:15.5px;line-height:1.55;color:var(--ink)}
+.step{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:22px 32px;align-items:start;margin:32px 0 8px}
+.step:not(:has(.tiles)){grid-template-columns:1fr}
+.step .step-copy,.step .tiles,.step > *{min-width:0}
+.story .tiles{margin:16px 0 0;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
+.story .step .tiles{margin:0;grid-template-columns:1fr;gap:14px}
+.story .tile{padding:18px 20px;border-top:2px solid var(--gold)}
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:14px;margin:16px 0 0}
+.pick{background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--gold);padding:16px 18px;min-width:0}
+.pick .tk{font:400 20px/1.15 var(--serif);color:var(--navy)}
+.pick .nm{font-size:13px;color:var(--ink2);margin:4px 0 12px}
+.pick .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-top:1px solid var(--line)}
 .pick .row span:last-child{font-variant-numeric:tabular-nums;font-family:var(--sans)}
 /* do not reuse dashboard .k (legend swatch) for these labels */
-.when{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:10px;margin:12px 0 0}
-.when > div{border-left:2px solid var(--gold);padding:0 0 0 10px;min-width:0}
-.when .when-lab{display:block;font:600 9px/1.2 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
-.when .when-val{display:block;font-size:14px;line-height:1.4;color:var(--navy);margin:0}
-.mgrs{margin:14px 0 0;max-width:68ch}
+.when{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px;margin:18px 0 0;padding:20px 22px;background:var(--surface);border:1px solid var(--line)}
+.when > div{border-left:2px solid var(--gold);padding:2px 0 2px 14px;min-width:0}
+.when .when-lab{display:block;font:600 9px/1.2 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.when .when-val{display:block;font-size:14.5px;line-height:1.45;color:var(--navy);margin:0}
+.mgrs{margin:18px 0 0;max-width:none}
 .mgrs > summary{cursor:pointer;font-size:14px;line-height:1.4;color:var(--navy);list-style:none}
 .mgrs > summary::-webkit-details-marker{display:none}
 .mgrs > summary::before{content:"▸ ";color:var(--muted);font-size:12px}
 .mgrs[open] > summary::before{content:"▾ "}
-.mgrs .mgr-list{list-style:none;margin:10px 0 0;padding:10px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:6px 16px;max-height:min(320px,50vh);overflow:auto;border:1px solid var(--line);background:var(--surface);min-width:0}
+.mgrs .mgr-list{list-style:none;margin:12px 0 0;padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:8px 18px;max-height:min(320px,50vh);overflow:auto;border:1px solid var(--line);background:var(--surface);min-width:0}
 .mgrs .mgr-list li{min-width:0}
 .mgrs .mgr-list a{font-size:13.5px;color:var(--navy);text-decoration:none;line-height:1.3}
 .mgrs .mgr-list a:hover{text-decoration:underline}
 .mgrs .mgr-list .fund{display:block;font-size:11.5px;color:var(--ink2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mgrs .mgr-note{margin:8px 0 0;font-size:13px;color:var(--ink2);line-height:1.45}
-.legend{display:flex;flex-wrap:wrap;gap:12px;font:12px var(--sans);color:var(--ink-2,#6b7078);margin:6px 0 4px}
+.mgrs .mgr-note{margin:10px 0 0;font-size:13px;color:var(--ink2);line-height:1.45;max-width:78ch}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font:12px var(--sans);color:var(--ink-2,#6b7078);margin:0 0 10px}
 .legend .swatch{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle;background:var(--navy)}
 .legend .swatch.s0{background:#8a9ab4}.legend .swatch.s1{background:var(--navy)}.legend .swatch.s4{background:var(--crit,#8f3b34)}
-.story .card{padding:16px 18px;margin-top:12px}
-.story .cap{margin:8px 0 0}
-.story .foot{margin-top:28px;padding-top:12px}
+.story .card{padding:22px 24px;margin-top:16px}
+.story .charts{display:grid;grid-template-columns:1fr;gap:16px}
+.story .chart .ser.s4{stroke:var(--crit,#8f3b34)}.story .chart .dot.s4{fill:var(--crit,#8f3b34)}
+.story .cap{margin:10px 0 0}
+.story .foot{margin-top:12px;padding-top:14px}
 .reveal{opacity:0;transform:translateY(10px);transition:opacity .45s ease,transform .45s ease}
 .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion: reduce){.reveal,.reveal.in{opacity:1;transform:none;transition:none}}
+@media(max-width:900px){
+.step{grid-template-columns:1fr}
+.step .tiles{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
+.story-toc{grid-template-columns:1fr}
+}
 @media(max-width:720px){
-.story-cover .cover-in{padding:22px 16px 20px}
-.story-cover h1{font-size:28px}
-main.wrap.story{padding-top:16px}
+.story-cover .cover-in{padding:30px 16px 26px}
+.story-cover h1{font-size:32px}
+.story-cover .stats{gap:16px 28px;margin-top:22px}
+.story-cover .stats dd{font-size:24px}
+.story-toc{gap:10px}.story-toc a{padding:16px 16px}
+.story-toc .toc-t{font-size:20px}
+main.wrap.story{padding:22px 16px 48px}
+.part{padding:28px 0}
+.part h2{font-size:24px}
 .part .lede{font-size:15.5px}
+.when{grid-template-columns:1fr;padding:16px 16px;gap:16px}
+.picks{grid-template-columns:1fr}
+.story .tile,.pick{padding:16px}
+.define{padding:14px 16px}
+.story .card{padding:18px 16px}
 }
 </style>"""
 
@@ -306,6 +338,16 @@ def active_html(page) -> str:
     managers = _universe_managers()
     managers_block = _managers_html(managers)
     n_mgr = len(managers) or ""
+    cover_bits = []
+    if feats:
+        cover_bits.append(f"<div><dt>Signals with evidence</dt><dd>{n_clear} of {len(feats)}</dd></div>")
+    if P is not None:
+        cover_bits.append(f"<div><dt>Active return</dt><dd>{pct(P.active_return, 1)}</dd></div>")
+    if n_reb:
+        cover_bits.append(f"<div><dt>Rebalances</dt><dd>{esc(n_reb)}</dd></div>")
+    if n_mgr:
+        cover_bits.append(f"<div><dt>Managers in the universe</dt><dd>{esc(n_mgr)}</dd></div>")
+    cover_stats = f'<dl class="stats">{"".join(cover_bits)}</dl>' if cover_bits else ""
 
     body = f"<style>{CSS}</style>" + STORY_CSS + f"""
 <div class="banner" role="note"><span class="bl">A backtest</span> One demonstration mandate on public data, date by date. Not a live book, not a forecast, not investment advice.</div>
@@ -314,10 +356,11 @@ def active_html(page) -> str:
   <div class="rule"></div>
   <h1>How ranking scores became this trade list</h1>
   <p class="sub">A signal is a score for each stock, built only from public facts known at the time, used to decide which names to overweight. This page is the historical backtest of that idea from {esc(first)} to {esc(last)}: pick the score that worked, respect a mandate’s limits, name the stocks, and show what the book would have done.</p>
+  {cover_stats}
   <nav class="story-toc" aria-label="Sections">
-    <a href="#objective">Objective</a>
-    <a href="#process">Process</a>
-    <a href="#product">Product</a>
+    <a href="#objective"><span class="toc-n">01</span><span class="toc-t">Objective</span><span class="toc-s">What this backtest is for</span></a>
+    <a href="#process"><span class="toc-n">02</span><span class="toc-t">Process</span><span class="toc-s">How the ranking became trades</span></a>
+    <a href="#product"><span class="toc-n">03</span><span class="toc-t">Product</span><span class="toc-s">The list, and what it would have done</span></a>
   </nav>
 </div></header>
 <main class="wrap story">
@@ -337,19 +380,31 @@ def active_html(page) -> str:
   <p class="eyebrow">Process</p>
   <h2>How that objective was pursued</h2>
 
-  <h3>1 · Research — which ranking rule survived</h3>
-  <p class="lede">Eight candidate signals were built each month for about {labman.get('universe_avg', '')} stocks held by five or more of the managers and priced at a dollar or more: momentum, short-term reversal, low volatility, size, value, profitability, cash flow and earnings yield. Each signal is just that stock’s score on that rule, using only information public at the time. The test asks whether a higher score went with a higher return next month.</p>
-  {tiles1}
-  <p class="note">{ev_summary.strip() or "Twelve-month momentum is the characteristic the later steps trade."} A rank-correlation test does not clear the same bar even for momentum, and a learned model of all eight does not beat a simple average. So the book trades momentum alone.</p>
+  <div class="step">
+    <div class="step-copy">
+      <h3>1 · Research — which ranking rule survived</h3>
+      <p class="lede">Eight candidate signals were built each month for about {labman.get('universe_avg', '')} stocks held by five or more of the managers and priced at a dollar or more: momentum, short-term reversal, low volatility, size, value, profitability, cash flow and earnings yield. Each signal is just that stock’s score on that rule, using only information public at the time. The test asks whether a higher score went with a higher return next month.</p>
+      <p class="note">{ev_summary.strip() or "Twelve-month momentum is the characteristic the later steps trade."} A rank-correlation test does not clear the same bar even for momentum, and a learned model of all eight does not beat a simple average. So the book trades momentum alone.</p>
+    </div>
+    {tiles1}
+  </div>
 
-  <h3>2 · Risk — how much the book might move</h3>
-  <p class="lede">Each stock’s next month is explained by the market, those same eight characteristics, and its industry. What is left is stock-specific risk. Together they forecast portfolio volatility and are checked against what then happened.</p>
-  {tiles2}
-  <p class="note">This model is a little too confident ({float(bias.get('random', float('nan'))):.2f} vs 1.00) and explains about {float(riskman.get('r2_avg', 0)):.0%} of a typical month. Construction reports that forecast as tracking error; the hard caps are the position and sector bands below.</p>
+  <div class="step">
+    <div class="step-copy">
+      <h3>2 · Risk — how much the book might move</h3>
+      <p class="lede">Each stock’s next month is explained by the market, those same eight characteristics, and its industry. What is left is stock-specific risk. Together they forecast portfolio volatility and are checked against what then happened.</p>
+      <p class="note">This model is a little too confident ({float(bias.get('random', float('nan'))):.2f} vs 1.00) and explains about {float(riskman.get('r2_avg', 0)):.0%} of a typical month. Construction reports that forecast as tracking error; the hard caps are the position and sector bands below.</p>
+    </div>
+    {tiles2}
+  </div>
 
-  <h3>3 · Construction — rules that turn the ranking into tickets</h3>
-  <p class="lede">Mandate: ${nav_m:,.0f} million, long-only, fully invested. Name cap {c.get('max_weight', 0):.0%}; active band {c.get('active_band', 0):.0%} vs the benchmark; sector band {c.get('sector_band', 0):.0%}; active share ≤ {c.get('active_share', 0):.0%}; one-way turnover ≤ {c.get('turnover', 0):.0%} a quarter; {cost_bps:.0f} bps per dollar traded. The benchmark is everything the managers own that quarter, in dollars — not a published index.</p>
-  <p class="note">The buyable stocks are taken from those managers’ disclosed holdings on purpose. The ranking, the universe and the benchmark then come from one public source, so the backtest asks a single question: among names these managers already own, does ranking by momentum and applying the mandate beat <i>their</i> dollar-weighted book? A published index such as the S&amp;P 500 would answer a different question — beat the index — and would mix two datasets. A real mandate often would use an index; this page does not, so nothing here is measured against a book the rest of the site never saw.</p>
+  <div class="step">
+    <div class="step-copy">
+      <h3>3 · Construction — rules that turn the ranking into tickets</h3>
+      <p class="lede">Mandate: ${nav_m:,.0f} million, long-only, fully invested. Name cap {c.get('max_weight', 0):.0%}; active band {c.get('active_band', 0):.0%} vs the benchmark; sector band {c.get('sector_band', 0):.0%}; active share ≤ {c.get('active_share', 0):.0%}; one-way turnover ≤ {c.get('turnover', 0):.0%} a quarter; {cost_bps:.0f} bps per dollar traded. The benchmark is everything the managers own that quarter, in dollars — not a published index.</p>
+      <p class="note">The buyable stocks are taken from those managers’ disclosed holdings on purpose. The ranking, the universe and the benchmark then come from one public source, so the backtest asks a single question: among names these managers already own, does ranking by momentum and applying the mandate beat <i>their</i> dollar-weighted book? A published index such as the S&amp;P 500 would answer a different question — beat the index — and would mix two datasets. A real mandate often would use an index; this page does not, so nothing here is measured against a book the rest of the site never saw.</p>
+    </div>
+  </div>
   <div class="when">
     <div><span class="when-lab">When</span><span class="when-val">Every quarter-end, {n_reb} times from {esc(first)} to {esc(last)}. Latest list: {esc(form)}.</span></div>
     <div><span class="when-lab">Who can be bought</span><span class="when-val">{esc(n_univ) or "Hundreds of"} US stocks held by at least {conman.get('min_holders', 5)} of {n_mgr or 'these'} managers, priced at $1 or more.</span></div>
@@ -369,15 +424,17 @@ def active_html(page) -> str:
   <p class="note">On {esc(form)} each eligible stock is scored by twelve-month momentum (skipping the most recent month). An optimiser sets weights inside the name cap, benchmark band, sector bands, active-share cap and turnover budget. These six cards are the largest buy tickets from that day’s close on a ${nav_m:,.0f} million demonstration book.</p>
 
   <h3>Growth of one dollar</h3>
-  <div class="card">
-    <div class="legend">{legend}</div>
-    {growth}
-    <p class="cap">Constrained backtest, unconstrained top tenth, and the managers’ aggregate book. Log scale. {cost_bps:.0f} bps charged after each rebalance on both active lines. The constrained line is what a mandate could hold; the unconstrained line is what the bands cost.</p>
-  </div>
-  <div class="card">
-    <h3 style="margin-top:0">Active return by year</h3>
-    {act_bars}
-    <p class="cap">Constrained book minus the benchmark, calendar year sums. Blue means the backtest won that year. A few percent a year can be one lucky year; the bars show whether the rule was persistent.</p>
+  <div class="charts">
+    <div class="card">
+      <div class="legend">{legend}</div>
+      {growth}
+      <p class="cap">Constrained backtest, unconstrained top tenth, and the managers’ aggregate book. Log scale. {cost_bps:.0f} bps charged after each rebalance on both active lines. The constrained line is what a mandate could hold; the unconstrained line is what the bands cost.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Active return by year</h3>
+      {act_bars}
+      <p class="cap">Constrained book minus the benchmark, calendar year sums. Blue means the backtest won that year. A few percent a year can be one lucky year; the bars show whether the rule was persistent.</p>
+    </div>
   </div>
   <p class="note">With no limits the top tenth delivered {u_ret}/yr of active return; inside the mandate, {pct(P.active_return, 1) if P is not None else 'n/a'} against a benchmark that returned {b_ret}/yr. Information ratio {num(P.information_ratio) if P is not None else 'n/a'} over {n_reb} quarters (standard error about 0.3) — a description of the process, not a claim of a live edge.</p>
   <p class="note">{(
@@ -389,10 +446,14 @@ def active_html(page) -> str:
   )}</p>
   {tiles3}
 
-  <h3>Independent check</h3>
-  <p class="lede">Every headline statistic on every manager was recalculated by a second implementation against the same aligned returns. The two share no code and agree to computer precision. That rules out quiet arithmetic errors; it does not make the next quarter look like the last {n_reb}.</p>
-  {tiles4}
-  <p class="note">What the check cannot reach: names bought or taken private never enter the universe; disclosed holdings are the long US book; the 45-day filing delay is baked into every date.</p>
+  <div class="step">
+    <div class="step-copy">
+      <h3>Independent check</h3>
+      <p class="lede">Every headline statistic on every manager was recalculated by a second implementation against the same aligned returns. The two share no code and agree to computer precision. That rules out quiet arithmetic errors; it does not make the next quarter look like the last {n_reb}.</p>
+      <p class="note">What the check cannot reach: names bought or taken private never enter the universe; disclosed holdings are the long US book; the 45-day filing delay is baked into every date.</p>
+    </div>
+    {tiles4}
+  </div>
 </article>
 
 <div class="foot">

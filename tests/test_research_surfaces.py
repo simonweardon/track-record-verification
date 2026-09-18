@@ -8,6 +8,7 @@ import re
 import pytest
 
 from trackrecord import serve as S
+from trackrecord.areas import home_html
 from trackrecord.research_pages import research_index_html
 
 
@@ -69,6 +70,14 @@ def test_research_data_route_rejects_traversal():
                 "R-Verify/Summary.CSV", "r-verify/summary.txt"):
         assert not pat.match(bad), bad
     assert pat.match("r-verify/summary.csv") and pat.match("13f-signals/ic_summary.csv")
+
+
+def test_home_headline_states_what_the_site_does():
+    doc = home_html(S.page, 1, 1)
+    assert "Due diligence on outside managers" in doc
+    assert "as working software" not in doc
+    assert "disclosed holdings" in doc.lower() or "Disclosed holdings" in doc
+    assert "ranking" in doc.lower()
 
 
 def test_active_tab_is_one_backtested_story():

@@ -16,7 +16,9 @@ from .dashboard import CSS, JS, diverging_bars, esc, line_chart, pct, num
 from .explain import CSS as EXPLAIN_CSS, figure_note, plain
 from .signals13f import OUT_DIR as SIG_DIR, PORTFOLIOS, SPREADS
 
-EXTRA_CSS = EXPLAIN_CSS + """
+# rules only — EXPLAIN_CSS already carries its own <style> wrapper; nesting it inside
+# another <style> closes early and dumps the rest of the sheet as visible text
+EXTRA_CSS = """
 .chart .ser.s2 { stroke: var(--s3); } .chart .dot.s2 { fill: var(--s3); } .k.s2 { background: var(--s3); }
 .chart .ser.s4 { stroke: var(--neg); } .chart .dot.s4 { fill: var(--neg); } .k.s4 { background: var(--neg); }
 .chart .ser.s5 { stroke: var(--gold); } .chart .dot.s5 { fill: var(--gold); } .k.s5 { background: var(--gold); }
@@ -28,6 +30,9 @@ EXTRA_CSS = EXPLAIN_CSS + """
 .finding .v.no { background: var(--crit); } .finding .v.weak { background: var(--warn); } .finding .v.yes { background: var(--good); } .finding .v.caveat { background: var(--ink-2); }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; font: 12px var(--sans); color: var(--ink-2); margin: 8px 0 4px; }
 """
+
+SHEET = EXPLAIN_CSS + f"<style>{CSS}" + EXTRA_CSS  # pages that add more rules append them and close </style>
+PAGE_CSS = SHEET + "</style>"
 
 
 def _tv(t) -> str:
@@ -149,7 +154,7 @@ def signals13f_html(sig_dir: Path = SIG_DIR) -> str | None:
     mapped_note = "96% of disclosed dollar value maps to a priced US ticker; the rest is foreign-domiciled, delisted or unlisted"
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Holdings Research</title>
-<style>{CSS}{EXTRA_CSS}</style>
+{PAGE_CSS}
 <div class="banner" role="note"><span class="bl">Research note</span> This page is built from managers' public quarterly holdings filings and public prices. It is a reconstruction for research, not a strategy and not investment advice.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Manager Analysis · Holdings Research</div></div>
@@ -354,7 +359,7 @@ def construction_html(out_dir: Path | None = None) -> str | None:
                if rt.get("available") else "<p>The second solver was not run on this build.</p>")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Portfolio Construction</title>
-<style>{CSS}{EXTRA_CSS}</style>
+{PAGE_CSS}
 <div class="banner" role="note"><span class="bl">Research note</span> This is a demonstration mandate on public data: a transparent signal run through a real set of constraints. It is not a strategy and not investment advice.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Active · Portfolio Construction</div></div>
@@ -504,7 +509,7 @@ def rverify_html(out_dir: Path | None = None) -> str | None:
                f"{bad} of {man['managers']} managers disagree")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Independent Verification</title>
-<style>{CSS}{EXTRA_CSS}
+{SHEET}
 tr.bad td {{ background: color-mix(in srgb, var(--crit) 12%, transparent); }}
 .v {{ display: inline-block; font: 600 9.5px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; }}
 .v.yes {{ background: var(--good); }} .v.no {{ background: var(--crit); }}
@@ -671,7 +676,7 @@ def research_index_html() -> str:
 
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Research Data</title>
-<style>{CSS}{EXTRA_CSS}
+{SHEET}
 .sh h2 a {{ color: inherit; text-decoration: none; border-bottom: 1px solid var(--gold); }}
 .sh h2 a:hover {{ color: var(--gold); }}
 .cover .sub a {{ color: var(--gold); text-decoration: none; border-bottom: 1px solid rgba(197,167,106,.5); }}
@@ -772,7 +777,7 @@ def alphalab_html(out_dir: Path | None = None) -> str | None:
     verdict = ("No, they are indistinguishable" if hh.get("ic_diff_t", 0) < 2 else "Yes, it does") if xg is not None and lin is not None else ""
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Signal Research</title>
-<style>{CSS}{EXTRA_CSS}</style>
+{PAGE_CSS}
 <div class="banner" role="note"><span class="bl">Research note</span> These signals are built from public prices and company filings and tested out of sample on a universe with a known survivorship bias. This is a demonstration of method, not a strategy.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Active · Signal Research</div></div>
@@ -924,7 +929,7 @@ def riskmodel_html(out_dir: Path | None = None) -> str | None:
     verdict = ("calibrated" if 0.85 <= b_rand <= 1.15 else "under-forecasts risk" if b_rand > 1.15 else "over-forecasts risk")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Factor Risk Model</title>
-<style>{CSS}{EXTRA_CSS}</style>
+{PAGE_CSS}
 <div class="banner" role="note"><span class="bl">Research note</span> This is a factor risk model estimated on the research universe. It demonstrates the method that a commercial risk model implements at scale.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Active · Factor Risk Model</div></div>
@@ -1044,7 +1049,7 @@ def fof_html(out_dir: Path | None = None) -> str | None:
               f"The data's own estimate of how much true skill varies across managers is {tau_eb:.1%} a year: the estimated alphas spread out more than noise alone would produce, so some of the difference is real.")
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fund of Funds</title>
-<style>{CSS}{EXTRA_CSS}</style>
+{PAGE_CSS}
 <div class="banner" role="note"><span class="bl">Research note</span> The manager alphas here come from disclosed holdings and listed funds, which are public stand-ins for the audited, net-of-fee returns a real allocation would use. This is a demonstration of method.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Manager Analysis · Fund of Funds</div></div>
@@ -1214,7 +1219,7 @@ def decay_html(out_dir: Path | None = None) -> str | None:
     P_ = S.loc["persist"]; L_ = S.loc["logistic"]; X_ = S.loc["xgboost"]
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Manager Decay Model</title>
-<style>{CSS}{EXTRA_CSS}</style>
+{PAGE_CSS}
 <div class="banner" role="note"><span class="bl">Research note</span> This page covers {man['managers']} managers' disclosed holdings over {man['formation_dates']} quarters, which is a small sample by the standard that matters. It is a scouting result, not a validated model.</div>
 <header class="cover"><div class="cover-in">
   <div class="cover-top"><div class="eyebrow">Manager Analysis · Manager Decay Model</div></div>
@@ -1466,7 +1471,7 @@ def limits_html(out_dir: Path | None = None) -> str | None:
 
     return f"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Due Diligence on This Work</title>
-<style>{CSS}{EXTRA_CSS}
+{SHEET}
 tr.bad td {{ background: color-mix(in srgb, var(--crit) 10%, transparent); }}
 td.hi {{ font-weight: 600; color: var(--good); }}
 .v {{ display: inline-block; font: 600 9px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; padding: 4px 7px; color: #fff; white-space: nowrap; }}

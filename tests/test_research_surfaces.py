@@ -46,6 +46,23 @@ def test_home_page_does_not_list_separate_active_modules():
     assert "How ranking scores became this trade list" in doc
 
 
+def test_research_pages_do_not_dump_css_as_text():
+    """EXPLAIN_CSS already wraps itself in <style>; nesting it again leaks rules as body text."""
+    from trackrecord import research_pages as R
+    from tests.test_plain_language import visible
+    pages = [
+        R.signals13f_html, R.decay_html, R.fof_html, R.alphalab_html, R.riskmodel_html,
+        R.construction_html, R.rverify_html, R.limits_html, R.research_index_html,
+    ]
+    for fn in pages:
+        doc = fn()
+        if doc is None:
+            continue
+        text = visible(doc)
+        for leak in (".findings {", ".finding {", ".chart .ser", "details.how{", ":root {"):
+            assert leak not in text, (fn.__name__, leak)
+
+
 def test_home_page_rows_carry_the_screener_attributes():
     html = S.directory_html()
     assert 'id="f-t"' in html and 'id="f-y"' in html and 'id="f-m"' in html and 'id="dl"' in html

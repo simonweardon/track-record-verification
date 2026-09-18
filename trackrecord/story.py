@@ -222,10 +222,10 @@ def active_html(page) -> str:
     body = f"<style>{CSS}</style>" + STORY_CSS + f"""
 <div class="banner" role="note"><span class="bl">A backtest</span> One demonstration mandate on public data, date by date. Not a live book, not a forecast, not investment advice.</div>
 <header class="cover story-cover"><div class="cover-in">
-  <div class="eyebrow">Active portfolios</div>
+  <div class="eyebrow">Active · trade list from ranking scores</div>
   <div class="rule"></div>
-  <h1>How a signal became a list of trades</h1>
-  <p class="sub">A signal is a score for each stock, built only from public facts known at the time, used to decide which names to overweight. This page is the historical backtest of that idea from {esc(first)} to {esc(last)}: objective, process, product.</p>
+  <h1>How ranking scores became this trade list</h1>
+  <p class="sub">A signal is a score for each stock, built only from public facts known at the time, used to decide which names to overweight. This page is the historical backtest of that idea from {esc(first)} to {esc(last)}: pick the score that worked, respect a mandate’s limits, name the stocks, and show what the book would have done.</p>
   <nav class="story-toc" aria-label="Sections">
     <a href="#objective">Objective</a>
     <a href="#process">Process</a>
@@ -322,4 +322,4 @@ def active_html(page) -> str:
 <div id="tip" class="tip" hidden></div>
 <script>{JS}{STORY_JS}</script>
 """
-    return page("Active portfolios", body, current="/active")
+    return page("How ranking scores became this trade list", body, current="/active")

@@ -1,8 +1,8 @@
 """The home page as a research tool, and the /research index.
 
 These check the machinery a visitor actually uses: that every manager row carries the
-attributes the screener filters on, that the research cards state numbers read back from
-the committed CSVs rather than hard-coded prose, and that the index lists real files."""
+attributes the screener filters on, that each research tool is a single link to its page,
+and that the index lists real files."""
 import re
 
 import pytest
@@ -12,7 +12,7 @@ from trackrecord.areas import home_html
 from trackrecord.research_pages import research_index_html
 
 
-def test_research_cards_read_their_numbers_from_the_data():
+def test_research_cards_are_links_to_their_pages():
     from trackrecord.areas import tool_cards, cards_html
     cards = tool_cards()
     assert cards["active"] and cards["external"]
@@ -23,16 +23,35 @@ def test_research_cards_read_their_numbers_from_the_data():
     for area in cards.values():
         for c in area:
             assert c["href"].startswith("/research/") or c["href"] == "/active", c["href"]
-            assert c["stats"], c["href"]
-            # a card only claims a number it could read: no empty or unreadable stat values
-            assert all(str(v).strip() not in ("", "nan", "None") for v, _ in c["stats"]), (c["href"], c["stats"])
+            assert "stats" not in c and "eyebrow" not in c
             # one or two complete sentences, no fragments
             what = c["what"].strip()
             assert what.endswith(".") and 1 <= what.count(". ") + 1 <= 3, what
     html = cards_html(cards["active"])
     assert html.count("class='rcard'") == 1
+    assert html.startswith("<a class='rcard'")
+    assert "Open" in html
     assert "/research/alpha-lab" not in html
     assert 'href="/active"' in html
+
+
+def test_manager_analysis_tools_are_plain_buttons():
+    """The area page's 'What you can do here' tools are one link each, not mini-dashboards."""
+    from trackrecord.areas import area_html
+    doc = S.directory_html()
+    assert "<h2 data-n=\"Tools\">What you can do here</h2>" in doc or ">What you can do here</h2>" in doc
+    for href, title in (("/research/13f-signals", "Holdings Research"),
+                        ("/research/decay", "Manager Decay Model"),
+                        ("/research/fund-of-funds", "Fund of Funds")):
+        assert f"<a class='rcard' href=\"{href}\">" in doc
+        assert title in doc
+    # How & why lives on the destination pages, not on the buttons
+    tools = doc.split("What you can do here", 1)[1].split("Screen every manager", 1)[0]
+    assert "How &amp; why" not in tools and "how hw" not in tools
+    assert "<div class='rcard'" not in tools
+    # the Active tab is a story, not this button row
+    active = area_html(S.page, "active")
+    assert "class='rcard'" not in active
 
 
 def test_home_page_does_not_list_separate_active_modules():

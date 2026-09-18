@@ -1,8 +1,8 @@
 """Every computed number on the site carries a "How & why" note.
 
 A tile without a note is a failure, not a gap: the registry in trackrecord/explain.py must
-cover every label on every rendered page (research notes, memo, simulation, dashboard) and
-every stat on the home and area cards."""
+cover every label on every rendered page (research notes, memo, simulation, dashboard).
+Home and area tool buttons are plain links, not numbered tiles."""
 from pathlib import Path
 
 import pytest
@@ -55,15 +55,17 @@ def test_every_research_tile_has_a_note(path, fn):
     assert out.count("how hw") == len(labels)
 
 
-def test_every_card_stat_has_a_note():
-    from trackrecord.areas import method_card
+def test_tool_cards_are_plain_links():
+    """Home and area tools are one click to the page — no nested How & why on the button."""
+    from trackrecord.areas import method_card, cards_html
     cards = [c for cs in tool_cards().values() for c in cs] + [c for c in (method_card(),) if c]
-    for c in cards:
-        for _, label in c["stats"]:
-            assert E.lookup(label, c["href"]), (c["href"], label)
+    html = cards_html(cards)
+    assert html.count("<a class='rcard'") == len(cards)
+    assert "<div class='rcard'" not in html
+    assert "how hw" not in html and "How &amp; why" not in html
     doc = home_html(S.page, 1, 1)
-    assert doc.count("how hw") == sum(len(c["stats"]) for c in cards)
-    assert "<a class='rcard'" not in doc and "<div class='rcard'" in doc      # notes cannot live inside a link
+    assert "how hw" not in doc
+    assert "<a class='rcard'" in doc and "<div class='rcard'" not in doc
 
 
 def test_memo_and_dashboard_tiles_have_notes():

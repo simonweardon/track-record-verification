@@ -1,8 +1,9 @@
 """A "How & why" note under every computed number on the site.
 
-Each tile (`<div class="tile"><div class="tl">label</div><div class="tv">value</div>…`) and every
-stat on a home/area card gets a click-to-expand note saying how the number was calculated —
-inputs, formula, where in the code — and why it is on the page: what decision it informs.
+Each tile (`<div class="tile"><div class="tl">label</div><div class="tv">value</div>…`) gets a
+click-to-expand note saying how the number was calculated — inputs, formula, where in the
+code — and why it is on the page: what decision it informs. Home and area tool buttons are
+plain links and do not carry notes.
 
 The notes live in one registry keyed by the tile's label (a regex) and, where the same label
 means different things on different pages, by the page (a regex on the URL path).  Pages are

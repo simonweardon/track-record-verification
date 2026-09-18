@@ -69,3 +69,22 @@ def test_research_data_route_rejects_traversal():
                 "R-Verify/Summary.CSV", "r-verify/summary.txt"):
         assert not pat.match(bad), bad
     assert pat.match("r-verify/summary.csv") and pat.match("13f-signals/ic_summary.csv")
+
+
+def test_active_tab_is_one_backtested_story():
+    """The Active tab is a single walk-through, not four separate cards."""
+    from trackrecord.areas import area_html
+    doc = area_html(S.page, "active")
+    assert "class='rcard'" not in doc
+    assert "A backtest" in doc
+    for heading in ("What was researched", "How the risk was measured",
+                    "Which stocks were chosen, and when", "Whether the numbers survive a second look"):
+        assert heading in doc, heading
+    assert "How a signal became a list of trades" in doc
+    assert "not a live book" in doc.lower() or "not a live portfolio" in doc
+    assert "/research/alpha-lab" in doc and "/research/construction" in doc
+    assert "/research/risk-model" in doc and "/research/r-verify" in doc
+    assert "class=\"how fig\"" in doc
+    # the story still names actual stocks from the latest trade list
+    assert "Momentum score" in doc
+    assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc

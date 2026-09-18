@@ -36,7 +36,7 @@ NOTES: list[tuple[str | None, str, str, str]] = [
      "Every headline statistic for every manager was recomputed by a second implementation that shares no code with the first and writes out the robust standard errors by hand, then compared number by number.",
      "Agreement to the limit of computer precision rules out the quiet kind of arithmetic error. It says nothing about whether the data feeding both sides is right, which is why the page sets out exactly what the check cannot reach."),
 
-    (r"^/research/(construction|limits)", r"^where the result comes from$",
+    (r"^/research/(construction|limits)|/active", r"^where the result comes from$",
      "At every rebalance two things are measured: how well the signal ranked the companies by what they then did over the following quarter, and how much of the signal survived the mandate's limits, which is the correlation between the positions the optimiser took and the scores it was given. The first number is those two multiplied together and then by the square root of the number of decisions taken in a year; the second is the information ratio the portfolio actually delivered.",
      "This is the check that stops a strong-looking portfolio result being taken on faith. A result far above what the signal can support has to be coming from somewhere else — a lucky year, a hidden exposure or a mistake — and a result close to it is simply the arithmetic of applying a weak signal across many names."),
 
@@ -119,13 +119,13 @@ NOTES: list[tuple[str | None, str, str, str]] = [
      "This is a formal test of decay. With standard errors this size, halves of a record with constant true alpha will differ by more than two standard errors about one time in twenty, so a decline inside that range is not evidence of anything."),
 
     # ---------------------------------------------------------------- signal research
-    (r"alpha-lab", r"^signals with .*evidence",
+    (r"alpha-lab|/active", r"^signals with .*evidence",
      "Each signal is tested two ways every month: the rank correlation between the signal and the following month's return, and the return of the top tenth of the universe minus the bottom tenth. Both give a t-statistic over the whole sample, and a signal is counted here only if one of them reaches 2. The count is out of the eight characteristics tested; the fitted models are not included, because they are built from these same eight.",
      "This is the result the page exists to produce: how many of the candidates survive contact with the data. A research process that cannot return a small number here is not testing anything."),
-    (r"alpha-lab", r"^best (?:of the eight|signal)",
+    (r"alpha-lab|/active", r"^best (?:of the eight|signal)",
      "For the signal with the strongest evidence, the tile shows the top tenth of the universe minus the bottom tenth, annualized, with its t-statistic, its Sharpe ratio and its monthly rank correlation. Portfolios are rebuilt every month-end from what was known at the time, and each tenth is equally weighted.",
      "This is the one candidate worth trading, and the size of the number is why: it sets what a portfolio built on it could plausibly earn before costs and constraints. The construction page takes this signal and nothing else."),
-    (r"alpha-lab", r"^learned model versus simple average$",
+    (r"alpha-lab|/active", r"^learned model versus simple average$",
      "The two models are scored on identical months, and the difference between their monthly rank correlations is averaged over the period, giving the t-statistic shown. Anything short of 2 means the sample cannot tell them apart.",
      "It says whether a fitted model earns its complexity against a baseline with nothing to fit. On this sample it does not, which is the honest answer and the reason the portfolio is built on a single signal instead."),
     (r"alpha-lab", r"^learned model$",
@@ -142,13 +142,13 @@ NOTES: list[tuple[str | None, str, str, str]] = [
      "This is the one-line answer a portfolio manager wants before deciding whether a learned model is worth running in production. On this universe and period, the honest answer is what the tile says."),
 
     # ---------------------------------------------------------------- factor risk model
-    (r"risk-model", r"^factors$",
+    (r"risk-model|/active", r"^factors$",
      "This counts everything the monthly regression estimates: the market, eight style factors (momentum, reversal, low volatility, size, value, profitability, cash flow and earnings yield, each a standardized exposure per stock built from prices and company accounts) and the industry groups.",
      "This is the size of the model: few enough factors to estimate every month from a few hundred stocks, and enough to capture the exposures a quantitative portfolio actually takes."),
-    (r"risk-model", r"^industries$",
+    (r"risk-model|/active", r"^industries$",
      "Each stock belongs to one industry group, taken from its sector classification. Each group is a yes-or-no exposure in the monthly regression, with the industry returns constrained to average to zero so that they are measured relative to the market.",
      "Industry membership explains more of a stock's month than any style does. A risk model without it would mistake industry bets for stock selection."),
-    (r"risk-model", r"^of monthly returns explained$|^explanatory power$",
+    (r"risk-model|/active", r"^of monthly returns explained$|^explanatory power$",
      "Each month, every stock's return is regressed on its style exposures and industry membership, and the share of that month's spread of returns the regression explains is recorded. The tile is the average of those monthly shares.",
      "This is how much of the cross-section of returns the factors explain. Commercial models manage 30% to 40% on US stocks, so this number says how close a public-data model gets. It matters for attribution: the higher it is, the more of a portfolio's return the model can assign to factors."),
     (r"risk-model", r"^total risk$",
@@ -160,7 +160,7 @@ NOTES: list[tuple[str | None, str, str, str]] = [
     (r"risk-model", r"^specific$",
      "This is the stock-specific part of the forecast, expressed as a yearly volatility, with its share of the variance. Each stock's specific variance is estimated from its own past regression residuals, with more weight on recent months, and shrunk toward the median across stocks.",
      "This is the risk that only diversification reduces. It is what an active stock-picker should be taking, and its share is the model's view of how active the portfolio really is."),
-    (r"risk-model", r"^bias statistic, random portfolios$",
+    (r"risk-model|/active", r"^bias statistic, random portfolios$",
      "Every month, 100 random portfolios of 50 stocks are formed. For each, the return over the following month is divided by the volatility the model predicted for it, giving a standardized outcome. The bias statistic is the standard deviation of all those outcomes. A value of 1.00 means predicted risk matched realized risk; below 1 the model over-predicts, and above 1 it under-predicts.",
      "This is the standard acceptance test for a risk model, and it is how commercial models are validated. A model that fails it will size positions and tracking-error budgets wrongly, whatever its explanatory power."),
     (r"risk-model", r"^bias statistic, whole universe$",
@@ -171,13 +171,13 @@ NOTES: list[tuple[str | None, str, str, str]] = [
      "This is the typical risk of one name that has nothing to do with the market or its industry. It is the scale against which position limits are set: at 30% specific risk, a 2% active weight is 60 basis points of tracking error from one stock."),
 
     # ---------------------------------------------------------------- portfolio construction
-    (r"construction", r"^active return, constrained$|^active return per year$",
+    (r"construction|/active", r"^active return, constrained$|^active return per year$",
      "This is the constrained portfolio's return minus the benchmark's, converted to a yearly rate over all the rebalances, after deducting 10 basis points of cost on every dollar traded. Each quarter, an optimiser chooses the weights that maximise the signal while respecting a 4% cap per position, a 2% band around the benchmark weight, 3% sector bands, 30% active share and 20% one-way turnover.",
      "This is what the signal is worth once it has to live inside a mandate. The unconstrained tile shows what the constraints cost, and this is the number a portfolio manager would actually have delivered."),
-    (r"construction", r"^tracking error$",
+    (r"construction|/active", r"^tracking error$",
      "The realized figure is the standard deviation of the monthly gap between the portfolio and the benchmark, scaled to a yearly rate. The predicted figure is the risk model's forecast of that gap for the target weights at each rebalance, averaged across rebalances.",
      "This is the risk budget the mandate is written in. Realized close to predicted is also a live test of the risk model: if they diverge, the model rather than the portfolio needs attention."),
-    (r"construction", r"^information ratio$",
+    (r"construction|/active", r"^information ratio$",
      "The yearly active return is divided by the realized tracking error. The hit rate beside it is the share of months in which the portfolio beat the benchmark.",
      "This is the efficiency of the active risk. Institutional active mandates are usually judged on it, and 0.5 sustained is good. The fund-of-funds allocator uses the same quantity."),
     (r"construction", r"^turnover$",
@@ -194,13 +194,13 @@ NOTES: list[tuple[str | None, str, str, str]] = [
      "This is the sample size behind the active-return and information-ratio figures. With around 50 quarters, the information ratio's standard error is about 0.3, which is why no claim of skill is made from it."),
 
     # ---------------------------------------------------------------- independent verification
-    (r"r-verify", r"^managers agreeing$|^managers$",
+    (r"r-verify|/active", r"^managers agreeing$|^managers$",
      "For every manager, a second implementation written from scratch recalculates every headline statistic from the same aligned monthly returns and factors. A manager agrees when every one of its numbers is within one millionth of the site's own figure.",
      "An independent implementation catching an error in the first one is the only verification that means anything."),
-    (r"r-verify", r"^numbers compared$|^numbers checked$",
+    (r"r-verify|/active", r"^numbers compared$|^numbers checked$",
      "This counts every manager-and-quantity pair compared: for each of four factor models, the alpha, its standard error, t-statistic, p-value, confidence interval, explanatory power and every loading, plus the yearly return, volatility, Sharpe ratio, largest drawdown and the alpha-maxing score.",
      "The check is not on a sample of numbers but on every number that appears on a dashboard or in a memo."),
-    (r"r-verify", r"^largest difference$",
+    (r"r-verify|/active", r"^largest difference$",
      "This is the largest absolute difference between the two implementations across all compared numbers, with the manager and quantity it came from.",
      "At one part in ten trillion, the difference is the order in which the computer added up the terms, not a difference of method. A real discrepancy would be many orders of magnitude larger and would appear in the disagreements tile."),
     (r"r-verify", r"^disagreements$",
@@ -307,6 +307,16 @@ def note_html(label: str, scope: str = "") -> str:
             f'<p><b>How.</b> {how}</p><p><b>Why.</b> {why}</p></div></details>')
 
 
+def figure_note(how: str, why: str, where: str = "") -> str:
+    """A button on a chart or table: how it was built, where the data came from, and why it is here."""
+    parts = [f"<p><b>How.</b> {how}</p>"]
+    if where:
+        parts.append(f"<p><b>Where the numbers come from.</b> {where}</p>")
+    parts.append(f"<p><b>Why.</b> {why}</p>")
+    return (f'<details class="how fig"><summary>How this was calculated</summary>'
+            f'<div class="howb">{"".join(parts)}</div></details>')
+
+
 _TILE = re.compile(r"<div class=([\"'])tile(?: [^\"']*)?\1[^>]*>", re.I)
 _LABEL = re.compile(r"<div class=([\"'])tl\1>(.*?)</div>", re.I | re.S)
 _TAG = re.compile(r"<div\b|</div>", re.I)
@@ -364,5 +374,10 @@ details.how[open] summary::before{transform:rotate(45deg)}
 details.how summary:focus-visible{outline:2px solid var(--gold,#b08d57);outline-offset:2px}
 details.how .howb{margin-top:8px;line-height:1.5;color:var(--ink2,#3a3f47)}
 details.how .howb p{margin:0 0 6px}
-@media(prefers-color-scheme:dark){details.how summary{color:var(--gold-l,#c9b48a)}}
+details.how.fig{margin-top:12px}
+details.how.fig summary{border:1px solid var(--gold,#8c7a56);padding:6px 11px;letter-spacing:.14em;color:var(--gold,#8c7a56);background:var(--surface,#fdfcf9)}
+details.how.fig[open] summary{border-bottom-color:transparent}
+details.how.fig .howb{border:1px solid var(--gold,#8c7a56);border-top:0;padding:10px 12px 4px;background:var(--surface,#fdfcf9)}
+@media(prefers-color-scheme:dark){details.how summary{color:var(--gold-l,#c9b48a)}
+details.how.fig summary,details.how.fig .howb{border-color:var(--gold,#c9b48a);background:transparent}}
 </style>"""

@@ -22,8 +22,8 @@ R = ROOT / "data" / "research"
 
 AREAS = {
     "active": ("Active portfolios", "/active",
-               "These tools build and run a stock portfolio: find what predicts returns, measure the risk, "
-               "turn the signal into trades within the mandate's limits, and check every number."),
+               "One backtested mandate, told in order: which characteristic predicted returns, how the risk was measured, "
+               "which stocks were chosen and when, and whether the arithmetic survives a second implementation."),
     "external": ("Manager Analysis", "/external",
                  "These tools evaluate outside managers: verify each record, separate skill from market exposure, "
                  "test it against luck, write the memo, and combine the managers that pass into a fund of funds."),
@@ -197,6 +197,9 @@ def home_html(page, n_managers: int, n_scorable: int) -> str:
 
 
 def area_html(page, key: str, extra_body: str = "", extra_head: str = "") -> str:
+    if key == "active" and not extra_body:
+        from .story import active_html
+        return active_html(page)
     name, href, blurb = AREAS[key]
     cards = tool_cards()[key]
     body = (f"<div class='rcards'>{cards_html(cards)}</div>" if cards else "<p class='note'>Tools for this area are being built.</p>")

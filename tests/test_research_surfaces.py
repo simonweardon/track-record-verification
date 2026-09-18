@@ -77,18 +77,22 @@ def test_active_tab_is_one_backtested_story():
     doc = area_html(S.page, "active")
     assert "class='rcard'" not in doc
     assert "A backtest" in doc
-    for heading in ("What was researched", "How the risk was measured",
-                    "Which stocks were chosen, and when", "Whether the numbers survive a second look"):
+    for heading in ("Objective", "Process", "Product",
+                    "Turn public information into a tradable book",
+                    "How that objective was pursued",
+                    "What that process produced"):
         assert heading in doc, heading
     assert "How a signal became a list of trades" in doc
     assert "not a live book" in doc.lower() or "not a live portfolio" in doc
     assert "/research/alpha-lab" in doc and "/research/construction" in doc
     assert "/research/risk-model" in doc and "/research/r-verify" in doc
     assert "class=\"how fig\"" in doc
-    # the story still names actual stocks from the latest trade list
     assert "Momentum score" in doc
     assert "IntersectionObserver" in doc or "prefers-reduced-motion" in doc
-    # dashboard drawing rules must be in a stylesheet, not dumped as page text
     assert "<style>" in doc and ".chartbox" in doc
     from tests.test_plain_language import visible
     assert ".chartbox" not in visible(doc)
+    # legend swatch class must not be reused for the "When / Who" labels (that overlap bug)
+    assert "when-lab" in doc and 'class="k"' not in doc.split('id="process"')[1].split('id="product"')[0]
+    assert "wrap story" in doc or 'class="wrap story"' in doc
+    assert 'data-n="' not in doc

@@ -77,7 +77,7 @@ def tool_cards() -> dict[str, list[dict]]:
             title="How ranking scores became this trade list",
             what="One backtested mandate on public data: which stock ranking score predicted next month's return, "
                  "how much risk a book on it would take, which names were chosen and when, and whether the arithmetic "
-                 "survives a second look. The detailed research notes open from inside the story.",
+                 "survives a second look.",
             stats=[(f"{len(kept)} of {len(tested)}", "signals with evidence behind them"),
                    (f"{_num(P.get('active_return'), 0) * 100:+.1f}%", "active return per year"),
                    (f"{conman.get('rebalances', '')}", "rebalances")]))

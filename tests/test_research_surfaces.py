@@ -195,3 +195,24 @@ def test_active_tab_is_one_backtested_story():
     assert "when-lab" in doc and 'class="k"' not in doc.split('id="process"')[1].split('id="product"')[0]
     assert "wrap story" in doc or 'class="wrap story"' in doc
     assert 'data-n="' not in doc
+
+
+def test_active_story_matches_manager_analysis_page_width():
+    """Active used to cap itself at 920px with a 34px title; Manager Analysis is 1100px."""
+    from trackrecord.areas import area_html
+    from trackrecord.story import STORY_CSS
+    assert "max-width:1100px" in STORY_CSS
+    assert "max-width:920px" not in STORY_CSS
+    assert "font-size:42px" in STORY_CSS
+    assert "max-width:22ch" not in STORY_CSS
+    doc = area_html(S.page, "active")
+    assert 'class="step"' in doc
+    assert 'class="stats"' in doc
+    assert 'class="toc-t">Objective' in doc
+    assert "Signals with evidence" in doc
+    # phone: the extra columns collapse rather than holding the page open
+    assert ".step{grid-template-columns:1fr}" in STORY_CSS
+    assert ".when{grid-template-columns:1fr" in STORY_CSS
+    assert ".picks{grid-template-columns:1fr}" in STORY_CSS
+    # TOC stays three-across down to a phone, then compact (no stacked cover cards)
+    assert ".story-toc .toc-s{display:none}" in STORY_CSS

@@ -152,13 +152,41 @@ def cards_html(cards: list[dict]) -> str:
     return out
 
 
-def home_html(page, n_managers: int, n_scorable: int) -> str:
+def area_headlines(skilled: tuple[int, int] | None = None) -> dict[str, str]:
+    """One result per area for its home card, read from the committed CSVs so it cannot drift.
+
+    The cards used to say "1 tool", which sold the Active area short; the result is the reason
+    to click. `skilled` is (managers whose alpha t-statistic is at least 2, managers rated)."""
+    out = {}
+    lab = _rows("alpha-lab/summary.csv", "signal")
+    feats = [r for k, r in lab.items() if k not in ("linear", "xgboost")]
+    con = _rows("construction/summary.csv", "key").get("portfolio", {})
+    bits = []
+    if feats:
+        n = sum(1 for r in feats if (_num(r.get("spread_t"), 0) or 0) >= 2)
+        bits.append(f"{n} of {len(feats)} ranking rules held up")
+    ar = _num(con.get("active_return"))
+    if ar is not None:
+        bits.append(f"{ar:+.1%} a year over the benchmark")
+    if bits:
+        out["active"] = " · ".join(bits)
+    if skilled and skilled[1]:
+        out["external"] = f"{skilled[0]} of {skilled[1]} managers' holdings show statistically significant skill"
+    return out
+
+
+def home_html(page, n_managers: int, n_scorable: int, skilled: tuple[int, int] | None = None) -> str:
     cards = tool_cards()
     n_tools = sum(len(v) for v in cards.values())
+    heads = area_headlines(skilled)
     areas = "".join(f"<a class='area' href='{href}'><span class='t'>{html.escape(name)}</span><span class='s'>{html.escape(blurb)}</span>"
-                    f"<span class='n'>{len(cards[k])} tool{'s' if len(cards[k]) != 1 else ''} &rarr;</span></a>" for k, (name, href, blurb) in AREAS.items() if cards[k])
-    sections = "".join(f"<h2 data-n='{html.escape(name)}' id='{k}'>{html.escape(name)}</h2><p class='note'>{html.escape(blurb)}</p><div class='rcards'>{cards_html(cards[k])}</div>"
-                       for k, (name, href, blurb) in AREAS.items() if cards[k])
+                    f"<span class='n'>{html.escape(heads.get(k) or (str(len(cards[k])) + (' tools' if len(cards[k]) != 1 else ' tool')))} &rarr;</span></a>"
+                    for k, (name, href, blurb) in AREAS.items() if cards[k])
+    # The cover cards already name each area and say what it does, so the body lists only the
+    # tools a cover card does not already link to — an area that is one page gets no repeat.
+    sections = "".join(f"<h2 data-n='{html.escape(name)}' id='{k}'>{html.escape(name)} tools</h2><div class='rcards'>{cards_html(own)}</div>"
+                       for k, (name, href, blurb) in AREAS.items()
+                       for own in [[c for c in cards[k] if c["href"] != href]] if own)
     method = method_card()
     if method:
         sections += ("<h2 data-n='Method' id='method'>Before you trust any of it</h2>"

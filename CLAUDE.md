@@ -21,6 +21,19 @@ the context that is not in the code.
   xgboost → "learned model", linear composite → "simple average", R verification → "Independent Verification",
   13F signals → "Holdings Research", alpha lab → "Signal Research".
 
+## Status (Oct 7, 2026) — UI pass
+The Oct 2 closing date has passed; ask Simon what the site is for now before planning bigger features.
+Done: (1) Active page no longer scrolls sideways on a phone (`.story .charts` track was plain `1fr`, so the
+chart's 520px phone minimum widened the page); (2) startup pre-build runs 3 managers at a time (`WARM_WORKERS`),
+featured first then highest-ranked, about 2 min here for 56 managers instead of one at a time; (3) toolbar
+Back button removed and the phone bar fades at whichever edge has more tools; (4) home cover cards show each
+area's result ("1 of 8 ranking rules held up · +5.2% a year", "1 of 76 managers' holdings show statistically
+significant skill", counted the same way as the screener's t ≥ 2 filter) and the body no longer repeats the
+Active card. NOTE: "5 of 89 clones have FF3 alpha t>2" above predates the renamed-company recovery; on the
+current data it is 1 of 76 meaningful managers (Whale Rock). Still open from the same review: memo header on
+a phone (Dashboard button floats above the cover), memo verdict as a badge, a shorter intro above the
+Manager Analysis screener, side-by-side manager comparison, a guided first visit. 175 tests.
+
 ## Status (Sept 17, 2026, late) — pick up here
 **Renamed companies recovered** (`trackrecord/renames.py`, `python -m trackrecord renames`, committed to
 `data/reference/compact/renames.csv`). The reference tables list companies under today's name, so a 2014 position in a

@@ -85,7 +85,8 @@ main.wrap.story > * + *{margin-top:0}
 .legend .swatch{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle;background:var(--navy)}
 .legend .swatch.s0{background:#8a9ab4}.legend .swatch.s1{background:var(--navy)}.legend .swatch.s4{background:var(--crit,#8f3b34)}
 .story .card{padding:22px 24px;margin-top:16px}
-.story .charts{display:grid;grid-template-columns:1fr;gap:16px}
+.story .charts{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.story .charts > *{min-width:0}
 .story .chart .ser.s4{stroke:var(--crit,#8f3b34)}.story .chart .dot.s4{fill:var(--crit,#8f3b34)}
 .story .cap{margin:10px 0 0}
 .story .foot{margin-top:12px;padding-top:14px}

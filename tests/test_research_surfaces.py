@@ -216,3 +216,29 @@ def test_active_story_matches_manager_analysis_page_width():
     assert ".picks{grid-template-columns:1fr}" in STORY_CSS
     # TOC stays three-across down to a phone, then compact (no stacked cover cards)
     assert ".story-toc .toc-s{display:none}" in STORY_CSS
+
+
+def test_home_cards_lead_with_a_result_and_do_not_repeat_themselves():
+    """The cover cards carry each area's result, and the body does not restate them."""
+    from trackrecord.areas import area_headlines
+    doc = home_html(S.page, 1, 1, (1, 76))
+    heads = area_headlines((1, 76))
+    assert "1 of 76 managers" in heads["external"]
+    if "active" in heads:
+        assert heads["active"] in doc.replace("&#x27;", "'")
+    # Active is one page: the cover card links it, so no second "Active portfolios" section below
+    assert "id='active'" not in doc
+    assert doc.count("How ranking scores became this trade list") == 1
+
+
+def test_toolbar_has_no_back_button_and_marks_its_scrolling_edges():
+    bar = S.toolbar("/active")
+    assert "<button" not in bar and "Back" not in bar
+    assert "more-r" in bar and "more-r" in S.NAV_CSS
+
+
+def test_story_charts_cannot_widen_the_page():
+    """A grid track of plain 1fr grows to the chart's 520px phone minimum and pushes the page sideways."""
+    from trackrecord.story import STORY_CSS
+    assert ".story .charts{display:grid;grid-template-columns:minmax(0,1fr)" in STORY_CSS
+    assert ".story .charts > *{min-width:0}" in STORY_CSS

@@ -109,19 +109,39 @@ FEATURED = ["berkshire-13f", "appaloosa", "atreides", "scion", "pershing-square"
 
 
 def warm_funds() -> None:
-    """Pre-build every scorable manager's dashboard in the background (~30 s each), featured ones first.
+    """Pre-build every scorable manager's dashboard in the background, featured ones first, then
+    the screener's highest-ranked, so the pages a visitor is most likely to open are ready first.
+    One at a time this took most of an hour after every deploy; each build is its own process
+    writing its own folder, so a few run side by side (WARM_WORKERS, default up to 3).
     Uses the same job machinery as a click, so a visitor who arrives mid-build just joins the queue."""
     if os.environ.get("WARM_FUNDS", "1") != "1":
         return
-    slugs = [r["slug"] for r in fund_index() if r.get("status") == "ok"]
-    order = [s for s in FEATURED if s in slugs] + sorted(s for s in slugs if s not in FEATURED)
-    for i, slug in enumerate(order):
-        if (OUT / "funds" / slug / "dashboard.html").exists():
-            continue
+    from concurrent.futures import ThreadPoolExecutor
+    rows = [r for r in fund_index() if r.get("status") == "ok"]
+    def rank(r):
+        try:
+            return -float(r.get("alpha_maxing"))
+        except (TypeError, ValueError):
+            return float("inf")
+    slugs = {r["slug"] for r in rows}
+    order = [s for s in FEATURED if s in slugs] + [r["slug"] for r in sorted(rows, key=rank) if r["slug"] not in FEATURED]
+    order = [s for s in order if not (OUT / "funds" / s / "dashboard.html").exists()]
+    done = iter(range(1, len(order) + 1))
+    lock = threading.Lock()
+
+    def one(slug):
         job = start_fund(slug)
         while not job["done"]:
             time.sleep(1)
-        _log(f"warm {i + 1}/{len(order)}: {slug} {'ok' if not job.get('error') else 'FAILED ' + str(job['error'])[:80]}")
+        with lock:
+            _log(f"warm {next(done)}/{len(order)}: {slug} {'ok' if not job.get('error') else 'FAILED ' + str(job['error'])[:80]}")
+
+    try:
+        workers = int(os.environ.get("WARM_WORKERS", "0")) or min(3, os.cpu_count() or 1)
+    except ValueError:
+        workers = 1
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        list(pool.map(one, order))
     _log("== all managers pre-built")
 
 
@@ -303,6 +323,10 @@ NAV_CSS = """<style>
 @media(max-width:720px){
 .tr-nav{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:6px 12px;gap:6px}
 .tr-nav::-webkit-scrollbar{display:none}
+/* a tool cut off at the edge looked like the end of the bar; fade whichever side has more */
+.tr-nav.more-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 56px),transparent)}
+.tr-nav.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 40px);mask-image:linear-gradient(90deg,transparent,#000 40px)}
+.tr-nav.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 56px),transparent)}
 .tr-nav a,.tr-nav button{flex:0 0 auto;padding:11px 12px;letter-spacing:.1em;min-height:40px}
 .tr-sub{padding:8px 16px;flex-wrap:wrap;gap:10px}
 .tr-sub a{padding:12px 18px;font-size:12px;letter-spacing:.12em}
@@ -311,10 +335,13 @@ NAV_CSS = """<style>
 </style>"""
 
 # The bar scrolls sideways on a phone, so the tool you are looking at can start off-screen.
-# Nudge it into view horizontally — never vertically, which would jump the page.
+# Nudge it into view horizontally — never vertically, which would jump the page — and mark
+# which edges have more tools past them so the CSS can fade that side.
 NAV_JS = """<script>
 (function(){var n=document.querySelector('.tr-nav'),o=n&&n.querySelector('a.on');
-if(!n||!o)return;var pad=14;if(o.offsetLeft+o.offsetWidth>n.clientWidth)n.scrollLeft=o.offsetLeft-pad;})();
+if(!n)return;var pad=14;if(o&&o.offsetLeft+o.offsetWidth>n.clientWidth)n.scrollLeft=o.offsetLeft-pad;
+function edge(){n.classList.toggle('more-l',n.scrollLeft>2);n.classList.toggle('more-r',n.scrollLeft+n.clientWidth<n.scrollWidth-2);}
+edge();n.addEventListener('scroll',edge,{passive:true});addEventListener('resize',edge);})();
 </script>"""
 
 
@@ -338,13 +365,12 @@ def live_areas() -> set[str]:
 
 
 def toolbar(current: str = "", extra: tuple[str, str] | None = None, crumb: str = "") -> str:
-    """The same bar on every page: Back, then every tool (the current one filled). Page-specific
+    """The same bar on every page: every tool, the current one filled (the browser has its own Back). Page-specific
     links (a manager's memo, back to its dashboard) go on a thin line underneath, never in the bar."""
     live = live_areas()
     links = "".join(f'<a class="{"on" if href == current else ""}" href="{href}">{label}</a>'
                     for label, href in TOOLS if href not in AREA_OF or AREA_OF[href] in live)
-    bar = ('<div class="tr-nav"><button type="button" onclick="history.length>1?history.back():location.assign(\'/\')">&larr; Back</button>' + links + '</div>'
-           + NAV_JS)
+    bar = '<div class="tr-nav">' + links + '</div>' + NAV_JS
     if extra or crumb:
         bar += ('<div class="tr-sub">' + (f'<a href="{html.escape(extra[1], quote=True)}">{html.escape(extra[0])} &rarr;</a>' if extra else '')
                 + (f'<span class="crumb">{html.escape(crumb)}</span>' if crumb else '') + '</div>')
@@ -1056,7 +1082,10 @@ class Handler(SimpleHTTPRequestHandler):
             from .areas import home_html
             fi = fund_index(); n_ok = sum(1 for r in fi if r.get("status") == "ok")
             n_listed = len([d for d in (ROOT / "data" / "tickers").glob("*/meta.json")]) if (ROOT / "data" / "tickers").exists() else 0
-            return self._html(home_html(page, len(fi) + n_listed, n_ok + n_listed))
+            # the same count the screener's "t ≥ 2" filter gives, over managers whose record is meaningful
+            ts = [float(r["ff3_t"]) for r in fi if r.get("status") == "ok" and r.get("style") not in ("multi", "macro", "mm")
+                  and str(r.get("ff3_t") or "").strip() not in ("", "nan")]
+            return self._html(home_html(page, len(fi) + n_listed, n_ok + n_listed, (sum(t >= 2 for t in ts), len(ts))))
         if u.path in ("/external", "/managers", "/leaderboard"):
             return self._html(directory_html())
         if u.path == "/active":
